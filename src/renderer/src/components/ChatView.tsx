@@ -345,7 +345,7 @@ function subagentTaskLabel(messages: ChatMessage[], toolUseId: string): string {
   return 'tarea'
 }
 
-const MAX_IMAGES = 4
+const MAX_IMAGES = 10
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 /** Mensajes renderizados inicialmente; los anteriores se cargan bajo demanda */
@@ -709,6 +709,19 @@ export function ChatView(p: Props): React.JSX.Element {
     obs.observe(col)
     return () => obs.disconnect()
   }, [])
+
+  // Cinturón y tirantes: mientras la sesión está TRABAJANDO, re-anclar al
+  // fondo cada 150ms pase lo que pase (cubre cualquier evento perdido por
+  // content-visibility, layouts diferidos o buffers del renderer). Solo la
+  // rueda hacia arriba lo pausa (stickToBottom=false).
+  useEffect(() => {
+    if (!busy) return
+    const t = setInterval(() => {
+      const el = listRef.current
+      if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
+    }, 150)
+    return () => clearInterval(t)
+  }, [busy])
 
   const interrupt = useCallback(() => {
     void window.deck.chatInterrupt(tabId)

@@ -48,6 +48,33 @@ const DONE_STATES = new Set(['Done', 'Closed', 'Resolved', 'Removed'])
 export function WidgetDock(p: DockProps): React.JSX.Element | null {
   const mine = p.widgets.filter((w) => w.side === p.side).sort((a, b) => a.order - b.order)
 
+  // Ancho del dock ajustable por el usuario (persiste por lado en localStorage)
+  const [dockWidth, setDockWidth] = useState<number | null>(() => {
+    const saved = Number(localStorage.getItem(`deck-dock-w-${p.side}`))
+    return saved >= 240 ? saved : null
+  })
+  const [resizingDock, setResizingDock] = useState(false)
+  const onDockResizeStart = (e: React.PointerEvent): void => {
+    e.preventDefault()
+    setResizingDock(true)
+    const startX = e.clientX
+    const startW = dockWidth ?? (e.currentTarget.parentElement as HTMLElement).offsetWidth
+    const dir = p.side === 'left' ? 1 : -1
+    const onMove = (ev: PointerEvent): void => {
+      const w = Math.min(560, Math.max(240, startW + dir * (ev.clientX - startX)))
+      setDockWidth(w)
+    }
+    const onUp = (ev: PointerEvent): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      setResizingDock(false)
+      const w = Math.min(560, Math.max(240, startW + dir * (ev.clientX - startX)))
+      localStorage.setItem(`deck-dock-w-${p.side}`, String(w))
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
   // Siempre operar sobre la lista VIVA: los listeners de mouse/drag pueden
   // dispararse desde closures viejos y no deben pisar cambios posteriores
   // (p.ej. cambiar la carpeta del git y luego redimensionar).
@@ -75,7 +102,20 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
   }
 
   return (
-    <div className={`widget-dock ${mine.length === 0 ? 'empty' : ''}`} data-dock-side={p.side}>
+    <div
+      className={`widget-dock ${mine.length === 0 ? 'empty' : ''}`}
+      data-dock-side={p.side}
+      style={dockWidth && mine.length > 0 ? { width: dockWidth } : undefined}
+    >
+      {/* asa en el borde interior: arrastra para ensanchar la columna */}
+      {mine.length > 0 && (
+        <div
+          className={`dock-resize ${resizingDock ? 'active' : ''}`}
+          style={p.side === 'left' ? { right: 0 } : { left: 0 }}
+          onPointerDown={onDockResizeStart}
+          title="Arrastra para cambiar el ancho de la columna de widgets"
+        />
+      )}
       {mine.map((w) => (
         <Widget
           key={w.id}
@@ -762,7 +802,14 @@ function HealthWidget(p: { tab: TabState }): React.JSX.Element {
  * barra de progreso: ✓ completada · ◐ en curso (muestra su forma activa) ·
  * ○ pendiente. Se actualiza en vivo con cada cambio del plan.
  */
+const TASK_STATUS_LABEL: Record<string, string> = {
+  pending: '○ Pendiente',
+  in_progress: '◐ En curso',
+  completed: '✓ Completada'
+}
+
 function TasksWidget(p: { todos: TodoItem[] }): React.JSX.Element {
+  const [detail, setDetail] = useState<TodoItem | null>(null)
   if (p.todos.length === 0) {
     return (
       <p className="hint" style={{ padding: 8 }}>
@@ -783,7 +830,13 @@ function TasksWidget(p: { todos: TodoItem[] }): React.JSX.Element {
         </span>
       </div>
       {p.todos.map((t, i) => (
-        <div key={i} className={`task-item ${t.status}`}>
+        <div
+          key={i}
+          className={`task-item ${t.status}`}
+          style={{ cursor: 'pointer' }}
+          title="Ver el detalle de la tarea"
+          onClick={() => setDetail(t)}
+        >
           <span className="task-icon">
             {t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '◐' : '○'}
           </span>
@@ -792,6 +845,29 @@ function TasksWidget(p: { todos: TodoItem[] }): React.JSX.Element {
           </span>
         </div>
       ))}
+      {detail && (
+        <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && setDetail(null)}>
+          <div className="modal task-detail">
+            <div className="modal-head">
+              <h3>📋 Detalle de la tarea</h3>
+              <span className={`chip ${detail.status === 'completed' ? 'project' : ''}`}>
+                {TASK_STATUS_LABEL[detail.status] ?? detail.status}
+              </span>
+              <button className="widget-btn" onClick={() => setDetail(null)} title="Cerrar">
+                <IconX size={12} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ margin: 0 }}>{detail.content}</p>
+              {detail.activeForm && detail.status === 'in_progress' && (
+                <p className="hint" style={{ marginTop: 8 }}>
+                  Ahora mismo: {detail.activeForm}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -3291,3 +3291,39 @@ kbd {
   opacity: 0.4;
   cursor: default;
 }
+
+/* FIX crecimiento del composer: flex:1 (base 0) anulaba la altura inline
+   que asigna el autogrow — la altura debe mandar sobre el flex */
+.composer textarea {
+  flex: none;
+  width: 100%;
+}
+
+/* asa para ensanchar los docks de widgets (borde interior, estilo VS Code) */
+.dock-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: ew-resize;
+  z-index: 5;
+}
+.dock-resize:hover,
+.dock-resize.active {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.widget-dock {
+  position: relative;
+}
+
+/* detalle de tarea (clic en el widget Tareas) */
+.task-detail {
+  width: min(520px, 90vw);
+}
+.task-detail .modal-body {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.task-detail .chip {
+  text-transform: none;
+}
