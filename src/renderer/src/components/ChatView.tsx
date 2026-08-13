@@ -501,6 +501,17 @@ export function ChatView(p: Props): React.JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Autocrecimiento real del composer: la altura sigue al contenido (también
+  // cuando el texto se envuelve sin saltos de línea), con tope y scroll interno.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const max = 168
+    el.style.height = `${Math.min(max, el.scrollHeight)}px`
+    el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden'
+  }, [input])
   const stickToBottom = useRef(true)
   const tabId = p.tab.id
 
@@ -1240,7 +1251,7 @@ export function ChatView(p: Props): React.JSX.Element {
             ref={inputRef}
             value={input}
             placeholder="Escribe un mensaje… «/» comandos · Enter envía · Shift+Enter salto"
-            rows={Math.min(6, Math.max(1, input.split('\n').length))}
+            rows={1}
             onChange={(e) => {
               setInput(e.target.value)
               setSlashSel(0)
