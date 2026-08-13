@@ -1183,9 +1183,17 @@ export function ChatView(p: Props): React.JSX.Element {
         <div
           className="chat-list"
           ref={listRef}
+          // Solo un gesto EXPLÍCITO del usuario desancla (rueda hacia arriba);
+          // los ajustes programáticos o del navegador no deben soltar el
+          // seguimiento. onScroll únicamente re-engancha al volver al fondo.
+          onWheel={(e) => {
+            if (e.deltaY < 0) stickToBottom.current = false
+          }}
           onScroll={() => {
             const el = listRef.current
-            if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+            if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 60) {
+              stickToBottom.current = true
+            }
           }}
         >
           <div className="chat-column" ref={columnRef}>

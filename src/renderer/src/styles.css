@@ -3225,3 +3225,8 @@ kbd {
   gap: 8px;
   padding: 12px 14px;
 }
+
+/* el seguimiento del streaming lo controla la app, no el anclaje del navegador */
+.chat-list {
+  overflow-anchor: none;
+}
