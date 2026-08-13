@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { StoreResult, TabState } from '../../../shared/types'
+import type { StoreResult, TabState, WidgetKind, WidgetSide } from '../../../shared/types'
 import { PluginDialog } from './CreateDialogs'
-import { IconStore, IconX } from './Icons'
+import { IconBoard, IconGitBranch, IconPulse, IconStore, IconTasks, IconX } from './Icons'
 
-type StoreTab = 'mcp' | 'agents' | 'skills' | 'plugins'
+type StoreTab = 'widgets' | 'mcp' | 'agents' | 'skills' | 'plugins'
 type Scope = 'user' | 'project'
+
+/** Widgets disponibles en la Tienda: se agregan con clic o arrastrándolos */
+const WIDGETS_CATALOG: { kind: WidgetKind; icon: React.JSX.Element; name: string; desc: string }[] = [
+  { kind: 'git', icon: <IconGitBranch size={16} />, name: 'Git', desc: 'grafo de ramas y commits del repo' },
+  { kind: 'board', icon: <IconBoard size={16} />, name: 'Sprint', desc: 'board de Azure DevOps vía MCP' },
+  { kind: 'health', icon: <IconPulse size={16} />, name: 'Salud', desc: 'contexto usado, costo y turnos' },
+  { kind: 'agents', icon: <IconTasks size={16} />, name: 'Actividad', desc: 'subagentes en ejecución' },
+  { kind: 'tasks', icon: <IconTasks size={16} />, name: 'Tareas', desc: 'plan de Claude con progreso' }
+]
 
 interface CatalogEntry {
   name: string
@@ -94,8 +103,63 @@ function parseEnv(s: string): Record<string, string> {
  * Todo se escribe donde Claude Code ya lo lee, así que aplica también en la
  * consola. Los cambios rigen para sesiones nuevas o al relanzar la pestaña.
  */
-export function StoreModal(p: { tab: TabState | null; onClose: () => void }): React.JSX.Element {
-  const [tab, setTab] = useState<StoreTab>('mcp')
+export function StoreModal(p: {
+  tab: TabState | null
+  onClose: () => void
+  onAddWidget?: (kind: WidgetKind, side?: WidgetSide) => void
+}): React.JSX.Element {
+  const [tab, setTab] = useState<StoreTab>('widgets')
+
+  /** Arrastrar una tarjeta de widget: cierra la Tienda para ver los docks y
+   *  crea el widget en el lateral donde se suelte (mismas dropzones del kit). */
+  const startWidgetDrag = (e: React.PointerEvent, kind: WidgetKind, name: string): void => {
+    if (e.button !== 0 || !p.onAddWidget) return
+    const sx = e.clientX
+    const sy = e.clientY
+    let started = false
+    let ghost: HTMLDivElement | null = null
+    const cleanup = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('keydown', onKey, true)
+      document.body.classList.remove('cd-drag-active')
+      ghost?.remove()
+    }
+    const onMove = (ev: PointerEvent): void => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return
+        started = true
+        p.onClose() // la Tienda se aparta para dejar ver los laterales
+        document.body.classList.add('cd-drag-active')
+        ghost = document.createElement('div')
+        ghost.className = 'deck-widget-ghost'
+        ghost.textContent = `⠿ ${name}`
+        document.body.appendChild(ghost)
+      }
+      if (ghost) {
+        ghost.style.left = `${ev.clientX + 10}px`
+        ghost.style.top = `${ev.clientY + 10}px`
+      }
+    }
+    const onUp = (ev: PointerEvent): void => {
+      const wasDrag = started
+      cleanup()
+      if (!wasDrag) return
+      const dock = document
+        .elementsFromPoint(ev.clientX, ev.clientY)
+        .find((el) => (el as HTMLElement).dataset?.dockSide) as HTMLElement | undefined
+      if (dock) p.onAddWidget?.(kind, dock.dataset.dockSide as WidgetSide)
+    }
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') {
+        ev.stopPropagation()
+        cleanup()
+      }
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('keydown', onKey, true)
+  }
   const [scope, setScope] = useState<Scope>('user')
   const [result, setResult] = useState<StoreResult | null>(null)
   const [working, setWorking] = useState(false)
@@ -171,6 +235,7 @@ export function StoreModal(p: { tab: TabState | null; onClose: () => void }): Re
         <div className="store-tabs">
           {(
             [
+              ['widgets', 'Widgets'],
               ['mcp', 'Servidores MCP'],
               ['agents', 'Agentes'],
               ['skills', 'Skills'],
@@ -190,6 +255,47 @@ export function StoreModal(p: { tab: TabState | null; onClose: () => void }): Re
           ))}
         </div>
         <div className="modal-body store-body">
+          {tab === 'widgets' && (
+            <>
+              <p className="hint">
+                Se agregan a los laterales del chat <b>activo</b>: clic en «Agregar» (lado por
+                defecto) o <b>arrástralos</b> — la Tienda se aparta y sueltas en el lateral que
+                quieras. Puedes repetirlos (p.ej. dos Git de repos distintos).
+              </p>
+              <div className="store-catalog">
+                {WIDGETS_CATALOG.map((w) => (
+                  <div
+                    key={w.kind}
+                    className="store-item"
+                    style={{ cursor: 'grab' }}
+                    title="Arrastra hacia un lateral del chat, o usa «Agregar»"
+                    onPointerDown={(e) => startWidgetDrag(e, w.kind, w.name)}
+                  >
+                    <b style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: 'var(--accent)' }}>{w.icon}</span> {w.name}
+                    </b>
+                    <span>{w.desc}</span>
+                    <div className="store-item-foot">
+                      <button
+                        className="iconbtn primary"
+                        disabled={!p.tab || p.tab.mode !== 'chat'}
+                        title={!p.tab || p.tab.mode !== 'chat' ? 'Activa una pestaña de chat' : ''}
+                        onClick={() => {
+                          p.onAddWidget?.(w.kind)
+                          p.onClose()
+                        }}
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {p.tab && p.tab.mode !== 'chat' && (
+                <p className="hint">Los widgets viven en los laterales de las pestañas de chat.</p>
+              )}
+            </>
+          )}
           {tab === 'mcp' && (
             <>
               {scopeSelect}

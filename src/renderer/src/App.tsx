@@ -586,7 +586,13 @@ export default function App(): React.JSX.Element {
           }}
         />
       )}
-      {showStore && <StoreModal tab={activeTab ?? null} onClose={() => setShowStore(false)} />}
+      {showStore && (
+        <StoreModal
+          tab={activeTab ?? null}
+          onClose={() => setShowStore(false)}
+          onAddWidget={addWidget}
+        />
+      )}
       {/* Snap de pestañas (2b): vista previa de la zona + selector de layouts */}
       {snapZone && (
         <div
