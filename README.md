@@ -102,26 +102,24 @@ npm start          # ejecutar la versión compilada
 
 ## Actualización automática
 
-La app instalada vigila una **carpeta de actualizaciones** (configurable: clic
-derecho en el chip de versión de la barra de estado → elegir carpeta). Cuando ahí
-aparece un `ClaudeDeck-Setup-X.Y.Z.exe` con versión mayor a la instalada, sale un
-banner «Instalar y reiniciar»: corre el instalador en silencio (`/S`), relanza la
-app y conserva pestañas y sesiones.
+La app se actualiza desde **GitHub Releases** del repo (fuente por defecto, sin
+configurar nada): consulta la API pública al arrancar, cada 4 horas y al
+recuperar el foco; si hay una versión mayor publicada, sale el banner
+«Instalar y reiniciar» que descarga el Setup (con progreso), lo corre en
+silencio (`/S`) y relanza la app conservando pestañas y sesiones.
 
-- **En desarrollo** (sin carpeta configurada) se vigila la `release/` del propio
-  proyecto, donde `npm run dist` deja los instaladores.
-- **App instalada sin carpeta configurada**: no se vigila nada hasta que elijas una.
-- **En equipo**: apunta la carpeta a un recurso compartido (OneDrive/SharePoint/red).
-  Cada miembro la configura una vez; al publicar, se copia el Setup nuevo ahí y
-  todos reciben el banner. Para distribución pública, el mecanismo se sustituiría
-  por `electron-updater` con GitHub Releases.
+Además puede vigilar una **carpeta local o compartida** (clic derecho en el chip
+de versión → elegir carpeta): útil para equipos sin acceso a GitHub o para
+probar builds locales. Si ambas fuentes tienen versión nueva, se ofrece la
+mayor. En desarrollo, el fallback es la `release/` del propio proyecto.
 
 Flujo para publicar una versión:
 
-1. Sube `version` en `package.json` (ej. 0.9.0 → 0.10.0).
+1. Sube `version` en `package.json` (ej. 0.13.0 → 0.14.0).
 2. `npm run dist`.
-3. Copia el Setup de `release/` a la carpeta compartida (si aplica). No hace falta
-   desinstalar nada: el mismo appId instala encima.
+3. `gh release create vX.Y.Z release/ClaudeDeck-Setup-X.Y.Z.exe --title vX.Y.Z`
+   — con eso todas las instalaciones ven la actualización. (Copiar el Setup a la
+   carpeta compartida sigue funcionando como vía alternativa.)
 
 ## Tienda (botón 🛍 en la barra superior)
 

@@ -434,7 +434,7 @@ ipcMain.handle('widgets:set', (_e, args: { tabId: string; widgets: WidgetState[]
 // ---------- IPC: actualización / app ----------
 
 ipcMain.handle('app:version', () => app.getVersion())
-ipcMain.handle('update:check', () => updater.check())
+ipcMain.handle('update:check', () => updater.check(true))
 ipcMain.handle('update:install', (_e, info: UpdateInfo) => updater.install(info))
 ipcMain.handle('update:getDir', () => updater.getDir())
 ipcMain.handle('update:setDir', (_e, dir: string) => updater.setDir(dir))

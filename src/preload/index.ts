@@ -236,14 +236,15 @@ const api = {
 
   // app / actualización automática
   appVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
-  updateCheck: (): Promise<{ version: string; installerPath: string } | null> =>
+  updateCheck: (): Promise<{ version: string; installerPath?: string; url?: string } | null> =>
     ipcRenderer.invoke('update:check'),
   updateGetDir: (): Promise<string> => ipcRenderer.invoke('update:getDir'),
   updateSetDir: (dir: string): Promise<void> => ipcRenderer.invoke('update:setDir', dir),
-  updateInstall: (info: { version: string; installerPath: string }): Promise<void> =>
+  updateInstall: (info: { version: string; installerPath?: string; url?: string }): Promise<void> =>
     ipcRenderer.invoke('update:install', info),
-  onUpdateAvailable: (cb: (info: { version: string; installerPath: string }) => void) =>
+  onUpdateAvailable: (cb: (info: { version: string; installerPath?: string; url?: string }) => void) =>
     on('update:available', cb),
+  onUpdateProgress: (cb: (p: { percent: number }) => void) => on('update:progress', cb),
   getProjectPrefs: (cwd: string): Promise<ProjectPrefs> => ipcRenderer.invoke('prefs:get', cwd),
   setProjectPrefs: (cwd: string, prefs: ProjectPrefs): Promise<void> =>
     ipcRenderer.invoke('prefs:set', { cwd, prefs })

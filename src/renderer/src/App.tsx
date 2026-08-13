@@ -71,7 +71,13 @@ export default function App(): React.JSX.Element {
       return { ...tw, [tabId]: next }
     })
   }, [])
-  const [update, setUpdate] = useState<{ version: string; installerPath: string } | null>(null)
+  const [update, setUpdate] = useState<{
+    version: string
+    installerPath?: string
+    url?: string
+  } | null>(null)
+  const [dlPct, setDlPct] = useState<number | null>(null)
+  const [updateErr, setUpdateErr] = useState('')
   const [appVersion, setAppVersion] = useState('')
   const [upToDate, setUpToDate] = useState(false)
   /** División del área de trabajo: 1, 2 o 4 chats a la vez (cada uno con su terminal) */
@@ -89,9 +95,15 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     void window.deck.appVersion().then(setAppVersion)
     const off = window.deck.onUpdateAvailable(setUpdate)
-    return off
+    const offProgress = window.deck.onUpdateProgress(({ percent }) => setDlPct(percent))
+    return () => {
+      off()
+      offProgress()
+    }
   }, [])
 
+  // Las actualizaciones llegan de GitHub Releases (y de la carpeta local o
+  // compartida si está configurada); el chequeo manual consulta en vivo.
   const checkUpdates = useCallback(async () => {
     const info = await window.deck.updateCheck()
     if (info) {
@@ -312,17 +324,27 @@ export default function App(): React.JSX.Element {
       {update && (
         <div className="update-banner">
           <span>
-            🚀 Hay una versión nueva de Claude Deck (<b>v{update.version}</b>) lista para instalar.
+            🚀 Hay una versión nueva de Claude Deck (<b>v{update.version}</b>)
+            {update.url && !update.installerPath ? ' en GitHub.' : ' lista para instalar.'}
+            {updateErr && <span style={{ color: 'var(--red)' }}> {updateErr}</span>}
           </span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               className="iconbtn primary"
-              onClick={() => void window.deck.updateInstall(update)}
+              disabled={dlPct !== null}
+              onClick={() => {
+                setUpdateErr('')
+                setDlPct(update.url && !update.installerPath ? 0 : null)
+                window.deck.updateInstall(update).catch((e) => {
+                  setDlPct(null)
+                  setUpdateErr(`No se pudo descargar: ${String(e).slice(0, 200)}`)
+                })
+              }}
               title="Instala en silencio y relanza la app; tus pestañas y sesiones se conservan"
             >
-              Instalar y reiniciar
+              {dlPct !== null ? `Descargando… ${dlPct}%` : 'Instalar y reiniciar'}
             </button>
-            <button className="iconbtn" onClick={() => setUpdate(null)}>
+            <button className="iconbtn" disabled={dlPct !== null} onClick={() => setUpdate(null)}>
               Después
             </button>
           </div>
