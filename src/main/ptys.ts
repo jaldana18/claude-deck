@@ -1,0 +1,117 @@
+import { spawn, type IPty } from '@lydell/node-pty'
+import type { BrowserWindow } from 'electron'
+import type { TabState } from '../shared/types'
+
+const BUFFER_CAP = 300_000
+
+/**
+ * Un PTY (ConPTY en Windows) por PANEL. El panel principal de una pestaña usa
+ * el propio tabId como paneId; los paneles extra de un split usan `tabId#n`.
+ * Se lanza PowerShell con -NoExit (con `claude` dentro para el panel principal
+ * de las pestañas de terminal clásico), y la salida se bufferiza hasta que el
+ * terminal del renderer hace attach.
+ */
+export class PtyManager {
+  private ptys = new Map<string, IPty>()
+  private buffers = new Map<string, string>()
+  private attached = new Set<string>()
+
+  constructor(private getWindow: () => BrowserWindow | null) {}
+
+  /** Comando interno del panel principal según el modo de la pestaña */
+  buildCommand(tab: TabState): string | null {
+    if (tab.mode === 'chat' || tab.profile !== 'claude') return null
+    return tab.claudeSessionId ? `claude --resume ${tab.claudeSessionId}` : 'claude'
+  }
+
+  startPane(paneId: string, cwd: string, command: string | null, cols = 120, rows = 30): void {
+    this.kill(paneId)
+    this.buffers.set(paneId, '')
+    const args = ['-NoLogo', '-NoExit']
+    if (command) args.push('-Command', command)
+    const pty = spawn('powershell.exe', args, {
+      name: 'xterm-256color',
+      cols,
+      rows,
+      cwd,
+      env: process.env as Record<string, string>
+    })
+    this.ptys.set(paneId, pty)
+
+    pty.onData((data) => this.emit(paneId, data))
+    pty.onExit(({ exitCode }) => {
+      this.ptys.delete(paneId)
+      this.send('pty:exit', { paneId, exitCode })
+    })
+  }
+
+  private emit(paneId: string, data: string): void {
+    if (this.attached.has(paneId)) {
+      this.send('pty:data', { paneId, data })
+    } else {
+      const buf = (this.buffers.get(paneId) ?? '') + data
+      this.buffers.set(paneId, buf.length > BUFFER_CAP ? buf.slice(-BUFFER_CAP) : buf)
+    }
+  }
+
+  private send(channel: string, payload: unknown): void {
+    try {
+      const win = this.getWindow()
+      if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
+    } catch {
+      /* ventana cerrándose */
+    }
+  }
+
+  /** El renderer ya montó el terminal: entregar lo bufferizado y pasar a streaming */
+  attach(paneId: string): string {
+    const pending = this.buffers.get(paneId) ?? ''
+    this.buffers.set(paneId, '')
+    this.attached.add(paneId)
+    return pending
+  }
+
+  detachAll(): void {
+    this.attached.clear()
+  }
+
+  write(paneId: string, data: string): void {
+    this.ptys.get(paneId)?.write(data)
+  }
+
+  resize(paneId: string, cols: number, rows: number): void {
+    try {
+      this.ptys.get(paneId)?.resize(Math.max(cols, 2), Math.max(rows, 2))
+    } catch {
+      /* el pty pudo haber muerto entre medias */
+    }
+  }
+
+  isRunning(paneId: string): boolean {
+    return this.ptys.has(paneId)
+  }
+
+  kill(paneId: string): void {
+    const pty = this.ptys.get(paneId)
+    this.attached.delete(paneId)
+    this.buffers.delete(paneId)
+    if (!pty) return
+    this.ptys.delete(paneId)
+    try {
+      pty.kill()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Mata todos los paneles de una pestaña (tabId y tabId#n) */
+  killTabPanes(tabId: string): void {
+    for (const id of [...this.ptys.keys()]) {
+      if (id === tabId || id.startsWith(`${tabId}#`)) this.kill(id)
+    }
+  }
+
+  killAll(): void {
+    for (const id of [...this.ptys.keys()]) this.kill(id)
+  }
+}

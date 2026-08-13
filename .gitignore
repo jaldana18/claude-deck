@@ -1,0 +1,19 @@
+# dependencias y builds
+node_modules/
+out/
+release/
+dist/
+
+# logs y temporales
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# entornos y secretos
+.env
+.env.*
+
+# editor
+.vscode/
+.idea/

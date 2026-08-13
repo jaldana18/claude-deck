@@ -1,0 +1,74 @@
+{
+  "name": "claude-deck",
+  "version": "0.9.3",
+  "description": "Terminal multi-pestaña para sesiones de Claude Code con resurrección tras reinicio y gestión visual de agentes, skills, hooks y MCP",
+  "main": "out/main/index.js",
+  "author": "jaldana",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "dist": "electron-vite build && electron-builder --win"
+  },
+  "build": {
+    "appId": "app.claudedeck",
+    "productName": "Claude Deck",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "!node_modules/@anthropic-ai/claude-agent-sdk-*/**"
+    ],
+    "npmRebuild": false,
+    "asarUnpack": [
+      "node_modules/@lydell/**"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "ClaudeDeck-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Claude Deck",
+      "runAfterFinish": true
+    }
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.227",
+    "@anthropic-ai/sdk": "^0.116.0",
+    "@lydell/node-pty": "1.2.0-beta.15",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/addon-serialize": "^0.14.0",
+    "@xterm/xterm": "^6.0.0",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "highlight.js": "^11.11.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "typescript": "^5.7.0",
+    "vite": "^7.0.0"
+  }
+}

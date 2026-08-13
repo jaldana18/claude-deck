@@ -1,0 +1,5 @@
+# Normalizar finales de línea (repo LF, checkout nativo)
+* text=auto
+*.ico binary
+*.png binary
+*.exe binary
