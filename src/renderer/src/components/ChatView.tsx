@@ -560,6 +560,8 @@ export function ChatView(p: Props): React.JSX.Element {
     setOverflowing(over)
   }, [input])
   const stickToBottom = useRef(true)
+  /** última rueda hacia arriba: suspende el re-enganche por cercanía */
+  const lastWheelUp = useRef(0)
   const tabId = p.tab.id
 
   // Enfocar el input al activar la pestaña
@@ -1196,15 +1198,29 @@ export function ChatView(p: Props): React.JSX.Element {
         <div
           className="chat-list"
           ref={listRef}
-          // Solo un gesto EXPLÍCITO del usuario desancla (rueda hacia arriba);
-          // los ajustes programáticos o del navegador no deben soltar el
-          // seguimiento. onScroll únicamente re-engancha al volver al fondo.
+          // Solo un gesto EXPLÍCITO del usuario desancla (rueda hacia arriba).
+          // El re-enganche por cercanía al fondo se SUSPENDE ~400ms tras cada
+          // rueda hacia arriba: el propio desplazamiento del wheel pasa cerca
+          // del fondo y sin esta ventana se re-anclaba al instante (bucle).
           onWheel={(e) => {
-            if (e.deltaY < 0) stickToBottom.current = false
+            const el = listRef.current
+            if (e.deltaY < 0) {
+              stickToBottom.current = false
+              lastWheelUp.current = Date.now()
+            } else if (e.deltaY > 0 && el) {
+              // rueda hacia abajo llegando al fondo = re-anclar explícito
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
+                stickToBottom.current = true
+              }
+            }
           }}
           onScroll={() => {
             const el = listRef.current
-            if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 60) {
+            if (
+              el &&
+              el.scrollHeight - el.scrollTop - el.clientHeight < 60 &&
+              Date.now() - lastWheelUp.current > 400
+            ) {
               stickToBottom.current = true
             }
           }}
