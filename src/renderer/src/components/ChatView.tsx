@@ -545,14 +545,19 @@ export function ChatView(p: Props): React.JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Autocrecimiento real del composer: la altura sigue al contenido (también
-  // cuando el texto se envuelve sin saltos de línea), con tope y scroll interno.
+  // cuando el texto se envuelve sin saltos), hasta 5 líneas; de ahí en
+  // adelante scroll interno y el botón ⤢ abre el editor grande en modal.
+  const [bigEditor, setBigEditor] = useState(false)
+  const [overflowing, setOverflowing] = useState(false)
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
     el.style.height = 'auto'
-    const max = 168
+    const max = 5 * 19.6 + 8 // 5 líneas (13.5px · 1.45) + padding
     el.style.height = `${Math.min(max, el.scrollHeight)}px`
-    el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden'
+    const over = el.scrollHeight > max
+    el.style.overflowY = over ? 'auto' : 'hidden'
+    setOverflowing(over)
   }, [input])
   const stickToBottom = useRef(true)
   const tabId = p.tab.id
@@ -689,6 +694,21 @@ export function ChatView(p: Props): React.JSX.Element {
     const el = listRef.current
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
   }, [messages, streamText, permissions, questions])
+
+  // Seguir lo último también cuando el contenido crece SIN re-render de React
+  // (streaming markdown, código resaltado, imágenes, tarjetas que se abren):
+  // un ResizeObserver sobre la columna re-ancla al fondo mientras estés abajo.
+  const columnRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const col = columnRef.current
+    if (!col) return
+    const obs = new ResizeObserver(() => {
+      const el = listRef.current
+      if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
+    })
+    obs.observe(col)
+    return () => obs.disconnect()
+  }, [])
 
   const interrupt = useCallback(() => {
     void window.deck.chatInterrupt(tabId)
@@ -1070,7 +1090,13 @@ export function ChatView(p: Props): React.JSX.Element {
           >
             <IconTune size={13} />
           </button>
-          {paramsOpen && <LlmParamsPopover tab={p.tab} onClose={() => setParamsOpen(false)} />}
+          {paramsOpen && (
+            <>
+              {/* clic fuera = cerrar */}
+              <div className="menu-backdrop" onMouseDown={() => setParamsOpen(false)} />
+              <LlmParamsPopover tab={p.tab} onClose={() => setParamsOpen(false)} />
+            </>
+          )}
         </span>
         <span
           className={`chip ${p.tab.useGlobalConfig === false ? '' : 'project'}`}
@@ -1162,7 +1188,7 @@ export function ChatView(p: Props): React.JSX.Element {
             if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
           }}
         >
-          <div className="chat-column">
+          <div className="chat-column" ref={columnRef}>
           {!historyLoaded && <p className="hint">Cargando conversación…</p>}
           {historyLoaded && messages.length === 0 && !streamText && (
             <div className="chat-empty">
@@ -1318,6 +1344,13 @@ export function ChatView(p: Props): React.JSX.Element {
             >
               <IconCommand size={12} /> Snippets
             </button>
+            <button
+              className={`iconbtn ${overflowing ? 'primary' : ''}`}
+              onClick={() => setBigEditor(true)}
+              title="Editor grande (para textos largos)"
+            >
+              ⤢
+            </button>
             <span style={{ flex: 1 }} />
             {busy ? (
               <button className="stopbtn iconlabel" onClick={interrupt} title="Detener (Ctrl+C / Esc)">
@@ -1340,6 +1373,52 @@ export function ChatView(p: Props): React.JSX.Element {
       {imageView && (
         <div className="overlay" onMouseDown={() => setImageView(null)}>
           <img className="image-viewer" src={imageView} alt="imagen" />
+        </div>
+      )}
+
+      {bigEditor && (
+        <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && setBigEditor(false)}>
+          <div className="modal editor-modal">
+            <div className="modal-head">
+              <h3>✎ Editor de mensaje</h3>
+              <span className="hint" style={{ margin: '0 auto 0 10px' }}>
+                Enter = salto de línea · Ctrl+Enter envía
+              </span>
+              <button className="iconbtn" onClick={() => setBigEditor(false)} title="Cerrar (conserva el texto)">
+                <IconX size={13} />
+              </button>
+            </div>
+            <textarea
+              className="editor-modal-input"
+              autoFocus
+              value={input}
+              placeholder="Escribe tu mensaje largo aquí…"
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                  e.preventDefault()
+                  setBigEditor(false)
+                  send()
+                }
+                if (e.key === 'Escape') setBigEditor(false)
+              }}
+            />
+            <div className="editor-modal-foot">
+              <button className="cd-btn cd-btn--ghost" onClick={() => setBigEditor(false)}>
+                Cerrar
+              </button>
+              <button
+                className="cd-btn cd-btn--primary"
+                disabled={!input.trim() && attachments.length === 0}
+                onClick={() => {
+                  setBigEditor(false)
+                  send()
+                }}
+              >
+                Enviar ➤
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

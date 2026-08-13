@@ -135,8 +135,9 @@ export default function App(): React.JSX.Element {
   }, [])
 
   /** Agrega SIEMPRE un widget nuevo del tipo a la pestaña ACTIVA (se pueden
-   *  repetir, p.ej. dos widgets de git vigilando repos distintos). */
-  const addWidget = useCallback((kind: WidgetKind) => {
+   *  repetir, p.ej. dos widgets de git vigilando repos distintos). El lado
+   *  puede venir del drag&drop de la galería. */
+  const addWidget = useCallback((kind: WidgetKind, side?: WidgetState['side']) => {
     const tabId = activeIdRef.current
     if (!tabId) return
     setTabWidgets((tw) => {
@@ -145,7 +146,7 @@ export default function App(): React.JSX.Element {
         {
           id: `w-${kind}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           kind,
-          side: (kind === 'git' ? 'left' : 'right') as WidgetState['side'],
+          side: side ?? ((kind === 'git' ? 'left' : 'right') as WidgetState['side']),
           order: 99,
           // 0 = altura automática (contenido); el usuario puede fijarla con el asa
           height: 0,

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { PaneLayout, TabState, TabStatus, WidgetKind } from '../../../shared/types'
+import { useRef, useState } from 'react'
+import type { PaneLayout, TabState, TabStatus, WidgetKind, WidgetSide } from '../../../shared/types'
 import { LayoutPicker } from './PaneGrid'
 import {
   IconBoard,
@@ -32,7 +32,7 @@ interface Props {
   onPalette: () => void
   onToggleConfig: () => void
   onToggleSessions: () => void
-  onAddWidget: (kind: WidgetKind) => void
+  onAddWidget: (kind: WidgetKind, side?: WidgetSide) => void
   onToggleStore: () => void
 }
 
@@ -116,6 +116,70 @@ export function TabBar(p: Props): React.JSX.Element {
     setMenu(false)
   }
 
+  // evita que el click posterior a un drag de la galería agregue el widget dos veces
+  const galleryDragged = useRef(false)
+
+  /**
+   * Drag&drop desde la galería (mockup 2a): arrastrar la tarjeta hacia un
+   * lateral del chat crea el widget en ese lado; las dropzones aparecen con
+   * body.cd-drag-active. Clic simple sigue agregando al lado por defecto.
+   */
+  const startGalleryDrag = (e: React.PointerEvent, kind: WidgetKind, name: string): void => {
+    if (e.button !== 0) return
+    const sx = e.clientX
+    const sy = e.clientY
+    let started = false
+    let ghost: HTMLDivElement | null = null
+    const cleanup = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('keydown', onKey, true)
+      document.body.classList.remove('cd-drag-active')
+      ghost?.remove()
+    }
+    const onMove = (ev: PointerEvent): void => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return
+        started = true
+        galleryDragged.current = true
+        setGallery(false)
+        document.body.classList.add('cd-drag-active')
+        ghost = document.createElement('div')
+        ghost.className = 'deck-widget-ghost'
+        ghost.textContent = `⠿ ${name}`
+        document.body.appendChild(ghost)
+      }
+      if (ghost) {
+        ghost.style.left = `${ev.clientX + 10}px`
+        ghost.style.top = `${ev.clientY + 10}px`
+      }
+    }
+    const onUp = (ev: PointerEvent): void => {
+      const wasDrag = started
+      cleanup()
+      if (!wasDrag) return
+      const dock = document
+        .elementsFromPoint(ev.clientX, ev.clientY)
+        .find((el) => (el as HTMLElement).dataset?.dockSide) as HTMLElement | undefined
+      if (dock) {
+        p.onAddWidget(kind, dock.dataset.dockSide as WidgetSide)
+        closeMenus()
+      }
+      // liberar la supresión del click en el siguiente tick
+      setTimeout(() => (galleryDragged.current = false), 0)
+    }
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') {
+        ev.stopPropagation()
+        cleanup()
+        setTimeout(() => (galleryDragged.current = false), 0)
+      }
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('keydown', onKey, true)
+  }
+
   return (
     <div className="tabbar">
       <div className="tabs">
@@ -178,7 +242,10 @@ export function TabBar(p: Props): React.JSX.Element {
                     <div
                       key={w.kind}
                       className="gallery-item"
+                      title="Clic para agregar, o arrástrala hacia un lateral del chat"
+                      onPointerDown={(e) => startGalleryDrag(e, w.kind, w.name)}
                       onClick={() => {
+                        if (galleryDragged.current) return
                         p.onAddWidget(w.kind)
                         closeMenus()
                       }}

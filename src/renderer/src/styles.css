@@ -3193,3 +3193,35 @@ kbd {
 .params-pop .cd-label {
   text-transform: none;
 }
+
+/* editor grande de mensaje (cuando el composer se queda corto) */
+.editor-modal {
+  width: min(760px, 92vw);
+  display: flex;
+  flex-direction: column;
+}
+.editor-modal-input {
+  flex: 1;
+  min-height: 46vh;
+  margin: 0 14px;
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.55;
+  resize: none;
+}
+.editor-modal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.editor-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 14px;
+}
