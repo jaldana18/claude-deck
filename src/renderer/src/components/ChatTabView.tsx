@@ -29,13 +29,14 @@ export const ChatTabView = memo(function ChatTabView(p: Props): React.JSX.Elemen
     void window.deck.getProjectPrefs(p.tab.cwd).then((prefs) => setShell(prefs.shell ?? 'powershell'))
   }, [p.tab.cwd])
 
-  /** Selector de shell (kit §7): persiste por proyecto y relanza los paneles */
+  /** Selector de shell (kit §7): persiste por proyecto y relanza los paneles.
+   *  Usa onRestartPane (de App) para que también limpie el estado «terminó». */
   const changeShell = async (next: ShellId): Promise<void> => {
     setShell(next)
     const prefs = await window.deck.getProjectPrefs(p.tab.cwd)
     await window.deck.setProjectPrefs(p.tab.cwd, { ...prefs, shell: next })
     for (const paneId of paneIdsFor(p.tab.id, p.tab.paneLayout)) {
-      await window.deck.restartPane(paneId)
+      p.onRestartPane(paneId)
     }
   }
 

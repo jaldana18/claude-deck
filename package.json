@@ -1,6 +1,6 @@
 {
   "name": "claude-deck",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "description": "Terminal multi-pestaña para sesiones de Claude Code con resurrección tras reinicio y gestión visual de agentes, skills, hooks y MCP",
   "main": "out/main/index.js",
   "author": "Juan Danilo Aldana Tibabisco",

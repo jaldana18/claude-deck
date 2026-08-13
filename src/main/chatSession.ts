@@ -101,7 +101,18 @@ class ChatSession {
     private tab: TabState,
     private store: Store,
     private getWindow: () => BrowserWindow | null
-  ) {}
+  ) {
+    // sembrar la salud desde lo persistido: sobrevive al reinicio de la app
+    const lh = tab.lastHealth
+    if (lh) {
+      this.ctxTokens = lh.contextTokens
+      this.ctxWindow = lh.contextWindow
+      this.outTokens = lh.outputTokens
+      this.costUsd = lh.costUsd
+      this.numTurns = lh.numTurns
+      this.sessionModel = lh.model
+    }
+  }
 
   private send(channel: string, payload: unknown): void {
     try {
@@ -389,6 +400,8 @@ class ChatSession {
           this.costUsd = 'total_cost_usd' in msg ? msg.total_cost_usd : this.costUsd
           this.numTurns = msg.num_turns
           this.sendHealth()
+          // persistir la salud: el widget la recupera tras reiniciar la app
+          this.store.updateTab(this.tab.id, { lastHealth: this.health() })
           this.status('done', 'Claude terminó')
         }
       }

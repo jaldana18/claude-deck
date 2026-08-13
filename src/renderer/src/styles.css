@@ -3127,3 +3127,69 @@ kbd {
 .store-item.manual:hover {
   background: var(--accent-soft);
 }
+
+/* popover de parámetros según mockup 1c: sliders tipo barra de volumen */
+.params-pop.cd-pop {
+  width: 300px;
+  padding: 12px 14px;
+  gap: 12px;
+}
+.params-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.params-slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.params-slider-head label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+}
+.params-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.params-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+.params-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+}
+.params-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+.params-note {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.params-pop .cd-label {
+  text-transform: none;
+}

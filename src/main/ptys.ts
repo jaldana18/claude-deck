@@ -48,17 +48,31 @@ export class PtyManager {
         : exe === 'cmd.exe'
           ? []
           : ['-i']
-    const pty = spawn(exe, args, {
-      name: 'xterm-256color',
-      cols,
-      rows,
-      cwd,
-      env: process.env as Record<string, string>
-    })
+    let pty: IPty
+    try {
+      pty = spawn(exe, args, {
+        name: 'xterm-256color',
+        cols,
+        rows,
+        cwd,
+        env: process.env as Record<string, string>
+      })
+    } catch (err) {
+      // shell no disponible (p.ej. bash.exe sin Git for Windows): avisar en el
+      // propio terminal y caer a PowerShell para no dejar el panel muerto
+      this.emit(paneId, `\r\n\x1b[31mNo se pudo iniciar ${exe}: ${err}\x1b[0m\r\n`)
+      if (exe !== 'powershell.exe') {
+        this.startPane(paneId, cwd, command, 'powershell', cols, rows)
+      }
+      return
+    }
     this.ptys.set(paneId, pty)
 
     pty.onData((data) => this.emit(paneId, data))
     pty.onExit(({ exitCode }) => {
+      // Si este pty ya fue reemplazado (cambio de shell / relanzamiento), su
+      // salida tardía NO debe marcar el panel como terminado.
+      if (this.ptys.get(paneId) !== pty) return
       this.ptys.delete(paneId)
       this.send('pty:exit', { paneId, exitCode })
     })

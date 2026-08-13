@@ -49,15 +49,61 @@ interface Attachment extends ChatAttachment {
  * muestreo: el control real es el esfuerzo de razonamiento y el thinking.
  * Guardar reinicia la sesión con resume (la conversación continúa).
  */
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+/** Paradas del slider de thinking: off · adaptativo · presupuestos fijos */
+const THINK_STOPS: { label: string; budget: number | undefined }[] = [
+  { label: 'off', budget: 0 },
+  { label: 'adaptativo', budget: undefined },
+  { label: '4k', budget: 4096 },
+  { label: '8k', budget: 8192 },
+  { label: '16k', budget: 16_384 },
+  { label: '32k', budget: 32_768 }
+]
+
+/** Slider estilo mockup 1c: barra con porción acento y perilla blanca */
+function ParamSlider(p: {
+  label: string
+  valueLabel: string
+  min: number
+  max: number
+  value: number
+  onChange: (v: number) => void
+}): React.JSX.Element {
+  const pct = ((p.value - p.min) / (p.max - p.min)) * 100
+  return (
+    <div className="params-row">
+      <div className="params-slider-head">
+        <label>{p.label}</label>
+        <span className="params-value">{p.valueLabel}</span>
+      </div>
+      <input
+        type="range"
+        className="params-slider"
+        min={p.min}
+        max={p.max}
+        step={1}
+        value={p.value}
+        style={{
+          background: `linear-gradient(90deg, var(--accent) ${pct}%, color-mix(in srgb, var(--fg-3) 30%, transparent) ${pct}%)`
+        }}
+        onChange={(e) => p.onChange(parseInt(e.target.value, 10))}
+      />
+    </div>
+  )
+}
+
 function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.Element {
   const lp = p.tab.llmParams ?? {}
-  const [effort, setEffort] = useState(lp.effort ?? '')
-  const [thinkMode, setThinkMode] = useState(
-    lp.thinkingBudget === undefined ? 'auto' : lp.thinkingBudget === 0 ? 'off' : 'budget'
+  // slider de esfuerzo: posición 2 = high (default del CLI)
+  const [effortIdx, setEffortIdx] = useState(
+    lp.effort ? EFFORTS.indexOf(lp.effort) : 2
   )
-  const [budget, setBudget] = useState(
-    lp.thinkingBudget && lp.thinkingBudget > 0 ? String(lp.thinkingBudget) : '10000'
-  )
+  const [effortTouched, setEffortTouched] = useState(Boolean(lp.effort))
+  const [thinkIdx, setThinkIdx] = useState(() => {
+    if (lp.thinkingBudget === undefined) return 1
+    const i = THINK_STOPS.findIndex((s) => s.budget === lp.thinkingBudget)
+    return i >= 0 ? i : 3
+  })
   const [maxTurns, setMaxTurns] = useState(lp.maxTurns ? String(lp.maxTurns) : '')
   const [maxUsd, setMaxUsd] = useState(lp.maxBudgetUsd ? String(lp.maxBudgetUsd) : '')
   const [append, setAppend] = useState(lp.systemPromptAppend ?? '')
@@ -65,13 +111,10 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
   const [saving, setSaving] = useState(false)
 
   const save = async (): Promise<void> => {
+    const think = THINK_STOPS[thinkIdx]
     const params: LlmParams = {
-      ...(effort ? { effort: effort as LlmParams['effort'] } : {}),
-      ...(thinkMode === 'off'
-        ? { thinkingBudget: 0 }
-        : thinkMode === 'budget'
-          ? { thinkingBudget: Math.max(1024, parseInt(budget, 10) || 10_000) }
-          : {}),
+      ...(effortTouched ? { effort: EFFORTS[effortIdx] } : {}),
+      ...(think.budget !== undefined ? { thinkingBudget: think.budget } : {}),
       ...(parseInt(maxTurns, 10) > 0 ? { maxTurns: parseInt(maxTurns, 10) } : {}),
       ...(parseFloat(maxUsd) > 0 ? { maxBudgetUsd: parseFloat(maxUsd) } : {}),
       ...(append.trim() ? { systemPromptAppend: append.trim() } : {}),
@@ -85,40 +128,37 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
   }
 
   return (
-    <div className="params-pop" onMouseDown={(e) => e.stopPropagation()}>
-      <div className="params-row">
-        <label>Esfuerzo de razonamiento</label>
-        <select value={effort} onChange={(e) => setEffort(e.target.value as typeof effort)}>
-          <option value="">Default (high)</option>
-          <option value="low">low — rápido y barato</option>
-          <option value="medium">medium</option>
-          <option value="high">high</option>
-          <option value="xhigh">xhigh — razona más</option>
-          <option value="max">max — máximo esfuerzo</option>
-        </select>
+    <div className="params-pop cd-pop" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="params-title">
+        🎛 Parámetros del LLM
+        <button className="widget-btn" onClick={p.onClose} title="Cerrar">
+          <IconX size={11} />
+        </button>
       </div>
-      <div className="params-row">
-        <label>Thinking (razonamiento extendido)</label>
-        <select value={thinkMode} onChange={(e) => setThinkMode(e.target.value)}>
-          <option value="auto">Adaptativo (Claude decide)</option>
-          <option value="budget">Presupuesto fijo de tokens</option>
-          <option value="off">Desactivado</option>
-        </select>
-        {thinkMode === 'budget' && (
-          <input
-            type="number"
-            min={1024}
-            step={1024}
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            title="Tokens máximos de thinking por respuesta (mínimo 1024)"
-          />
-        )}
-      </div>
+      <ParamSlider
+        label="Esfuerzo de razonamiento"
+        valueLabel={effortTouched ? EFFORTS[effortIdx] : 'default (high)'}
+        min={0}
+        max={EFFORTS.length - 1}
+        value={effortIdx}
+        onChange={(v) => {
+          setEffortIdx(v)
+          setEffortTouched(true)
+        }}
+      />
+      <ParamSlider
+        label="Presupuesto de razonamiento"
+        valueLabel={THINK_STOPS[thinkIdx].label}
+        min={0}
+        max={THINK_STOPS.length - 1}
+        value={thinkIdx}
+        onChange={setThinkIdx}
+      />
       <div className="params-row two">
         <div>
-          <label>Máx. turnos</label>
+          <label className="cd-label">Máx. turnos</label>
           <input
+            className="cd-input"
             type="number"
             min={1}
             placeholder="∞"
@@ -128,8 +168,9 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
           />
         </div>
         <div>
-          <label>Presupuesto US$</label>
+          <label className="cd-label">Presupuesto US$</label>
           <input
+            className="cd-input"
             type="number"
             min={0}
             step={0.5}
@@ -141,8 +182,9 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
         </div>
       </div>
       <div className="params-row">
-        <label>Instrucciones extra (se anexan al system prompt)</label>
+        <label className="cd-label">Instrucciones extra (system prompt)</label>
         <textarea
+          className="cd-textarea"
           rows={3}
           placeholder="Ej.: Responde siempre en español. Prefiere soluciones simples."
           value={append}
@@ -150,17 +192,17 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
         />
       </div>
       <div className="params-row">
-        <label>Carpetas adicionales con acceso</label>
+        <label className="cd-label">Carpetas adicionales con acceso</label>
         {dirs.map((d) => (
           <div key={d} className="params-dir">
             <span title={d}>📁 {d}</span>
-            <button className="iconbtn" onClick={() => setDirs((ds) => ds.filter((x) => x !== d))}>
+            <button className="widget-btn" onClick={() => setDirs((ds) => ds.filter((x) => x !== d))}>
               <IconX size={10} />
             </button>
           </div>
         ))}
         <button
-          className="iconbtn"
+          className="cd-btn cd-btn--ghost"
           onClick={() => {
             void window.deck.pickFolder().then((f) => {
               if (f && !dirs.includes(f)) setDirs((ds) => [...ds, f])
@@ -170,15 +212,15 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
           + Agregar carpeta
         </button>
       </div>
-      <p className="hint">
-        Claude Code no expone la temperatura de muestreo: el esfuerzo y el thinking son el
-        control disponible. Guardar reinicia la sesión (la conversación continúa con resume).
-      </p>
+      <div className="params-note">
+        Los cambios aplican a esta pestaña. Claude Code no expone la temperatura de muestreo;
+        guardar reinicia la sesión (la conversación continúa con resume).
+      </div>
       <div className="params-actions">
-        <button className="iconbtn" onClick={p.onClose}>
+        <button className="cd-btn cd-btn--ghost" onClick={p.onClose}>
           Cancelar
         </button>
-        <button className="iconbtn primary" disabled={saving} onClick={() => void save()}>
+        <button className="cd-btn cd-btn--primary" disabled={saving} onClick={() => void save()}>
           {saving ? 'Aplicando…' : 'Guardar y aplicar'}
         </button>
       </div>

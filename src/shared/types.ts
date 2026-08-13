@@ -48,6 +48,8 @@ export interface TabState {
   paneLayout?: PaneLayout
   /** Parámetros del LLM de esta pestaña (effort, thinking, límites…) */
   llmParams?: LlmParams
+  /** Última salud conocida de la sesión (sobrevive al reinicio de la app) */
+  lastHealth?: ChatHealth
   createdAt: number
 }
 
