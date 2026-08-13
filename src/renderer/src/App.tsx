@@ -7,7 +7,7 @@ import { LayoutPicker, PaneGrid } from './components/PaneGrid'
 import { ConfigPanel } from './components/ConfigPanel'
 import { CommandPalette } from './components/CommandPalette'
 import { SearchModal } from './components/SearchModal'
-import { NewTabDialog } from './components/NewTabDialog'
+import { CliOnboarding, NewTabDialog } from './components/NewTabDialog'
 import { SessionsPanel } from './components/SessionsPanel'
 import { StoreModal } from './components/StoreModal'
 import type { WidgetKind, WidgetState } from '../../shared/types'
@@ -23,6 +23,13 @@ export default function App(): React.JSX.Element {
   const [showNewTab, setShowNewTab] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
   const [showStore, setShowStore] = useState(false)
+  /** Primer arranque: elegir el CLI de agente por defecto */
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  useEffect(() => {
+    void window.deck.cliGetDefault().then((d) => {
+      if (!d.cli) setShowOnboarding(true)
+    })
+  }, [])
   /** Snap de pestañas (mockup 2b): zona candidata mientras se arrastra una pestaña */
   const [snapDrag, setSnapDrag] = useState(false)
   const [snapZone, setSnapZone] = useState<{
@@ -622,6 +629,7 @@ export default function App(): React.JSX.Element {
           }}
         />
       )}
+      {showOnboarding && <CliOnboarding onDone={() => setShowOnboarding(false)} />}
       {showNewTab && (
         <NewTabDialog
           onClose={() => setShowNewTab(false)}

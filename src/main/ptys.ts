@@ -18,10 +18,19 @@ export class PtyManager {
 
   constructor(private getWindow: () => BrowserWindow | null) {}
 
-  /** Comando interno del panel principal según el modo de la pestaña */
+  /** Comando del panel principal: la TUI del CLI de agente de la pestaña.
+   *  claude conserva la resurrección con --resume; codex/gemini/custom
+   *  arrancan su TUI limpia (no exponen resume por session id). */
   buildCommand(tab: TabState): string | null {
-    if (tab.mode === 'chat' || tab.profile !== 'claude') return null
-    return tab.claudeSessionId ? `claude --resume ${tab.claudeSessionId}` : 'claude'
+    if (tab.mode === 'chat') return null
+    const cli = tab.cli ?? (tab.profile === 'claude' ? 'claude' : undefined)
+    if (!cli) return null
+    if (cli === 'claude') {
+      return tab.claudeSessionId ? `claude --resume ${tab.claudeSessionId}` : 'claude'
+    }
+    if (cli === 'codex') return 'codex'
+    if (cli === 'gemini') return 'gemini'
+    return tab.cliCommand?.trim() || null
   }
 
   startPane(

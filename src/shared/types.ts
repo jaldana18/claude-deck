@@ -2,6 +2,16 @@
 
 export type TabProfile = 'claude' | 'shell'
 
+/** CLI de agente que corre en las pestañas de terminal */
+export type AgentCliId = 'claude' | 'codex' | 'gemini' | 'custom'
+
+export interface CliInfo {
+  id: AgentCliId
+  name: string
+  /** true si el ejecutable está en el PATH de este PC */
+  available: boolean
+}
+
 /** chat = UI de burbujas sobre el Agent SDK; terminal = TUI clásica en xterm */
 export type TabMode = 'chat' | 'terminal'
 
@@ -50,6 +60,10 @@ export interface TabState {
   llmParams?: LlmParams
   /** Última salud conocida de la sesión (sobrevive al reinicio de la app) */
   lastHealth?: ChatHealth
+  /** CLI de agente de la pestaña terminal (ausente = claude, retrocompatible) */
+  cli?: AgentCliId
+  /** comando para cli 'custom' (p.ej. `aider --model gpt-5`) */
+  cliCommand?: string
   createdAt: number
 }
 

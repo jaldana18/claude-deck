@@ -5,6 +5,7 @@ import type {
   BoardData,
   ChatAttachment,
   ChatHealth,
+  CliInfo,
   GitInfo,
   WidgetState,
   ChatDeltaEvent,
@@ -52,7 +53,14 @@ const api = {
     title?: string
     useGlobalConfig?: boolean
     permissionMode?: PermissionModeId
+    cli?: string
+    cliCommand?: string
   }): Promise<TabState> => ipcRenderer.invoke('tabs:create', args),
+  cliDetect: (): Promise<CliInfo[]> => ipcRenderer.invoke('cli:detect'),
+  cliGetDefault: (): Promise<{ cli?: string; command?: string }> =>
+    ipcRenderer.invoke('cli:getDefault'),
+  cliSetDefault: (cli: string, command?: string): Promise<void> =>
+    ipcRenderer.invoke('cli:setDefault', { cli, command }),
   closeTab: (tabId: string): Promise<TabState[]> => ipcRenderer.invoke('tabs:close', tabId),
   activateTab: (tabId: string): Promise<void> => ipcRenderer.invoke('tabs:activate', tabId),
   renameTab: (tabId: string, title: string): Promise<void> =>

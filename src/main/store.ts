@@ -15,6 +15,9 @@ interface DeckState {
   widgets?: WidgetState[]
   /** Carpeta donde se buscan instaladores nuevos (compartida de equipo o local) */
   updateDir?: string
+  /** CLI de agente por defecto (claude/codex/gemini/custom); ausente = primer arranque */
+  defaultCli?: string
+  defaultCliCommand?: string
 }
 
 const DEFAULT_WIDGETS: WidgetState[] = [
@@ -186,6 +189,16 @@ export class Store {
 
   setUpdateDir(dir: string | undefined): void {
     this.state.updateDir = dir
+    this.scheduleSave()
+  }
+
+  get defaultCli(): { cli?: string; command?: string } {
+    return { cli: this.state.defaultCli, command: this.state.defaultCliCommand }
+  }
+
+  setDefaultCli(cli: string, command?: string): void {
+    this.state.defaultCli = cli
+    this.state.defaultCliCommand = command
     this.scheduleSave()
   }
 

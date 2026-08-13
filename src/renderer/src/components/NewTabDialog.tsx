@@ -1,9 +1,86 @@
 import { useEffect, useState } from 'react'
-import type { GlobalAgentInfo, TabMode, TabState } from '../../../shared/types'
+import type { AgentCliId, CliInfo, GlobalAgentInfo, TabMode, TabState } from '../../../shared/types'
 
 interface Props {
   onClose: () => void
   onCreated: (tab: TabState) => void
+}
+
+/**
+ * Primer arranque: elegir el CLI de agente por defecto del sistema. Se
+ * detecta cuáles están instalados; la elección se recuerda y preselecciona
+ * en cada pestaña nueva (siempre se puede cambiar por pestaña).
+ */
+export function CliOnboarding(p: { onDone: () => void }): React.JSX.Element {
+  const [clis, setClis] = useState<CliInfo[]>([])
+  const [sel, setSel] = useState<AgentCliId>('claude')
+  const [customCmd, setCustomCmd] = useState('')
+
+  useEffect(() => {
+    void window.deck.cliDetect().then((list) => {
+      setClis(list)
+      const firstAvailable = list.find((c) => c.available && c.id !== 'custom')
+      if (firstAvailable) setSel(firstAvailable.id)
+    })
+  }, [])
+
+  const save = async (): Promise<void> => {
+    await window.deck.cliSetDefault(sel, sel === 'custom' ? customCmd.trim() : undefined)
+    p.onDone()
+  }
+
+  return (
+    <div className="overlay">
+      <div className="modal">
+        <div className="modal-head">
+          <h3>👋 Bienvenido a Claude Deck</h3>
+        </div>
+        <div className="modal-body">
+          <p className="hint" style={{ marginTop: 0 }}>
+            ¿Con qué CLI de agente trabajas? La app se adapta a él: será el modo por defecto de
+            tus pestañas (puedes cambiarlo en cada una). El <b>modo chat</b> (burbujas, permisos,
+            widgets de salud) es exclusivo de Claude Code; los demás corren su consola completa.
+          </p>
+          <div className="mode-cards" style={{ flexDirection: 'column' }}>
+            {clis.map((c) => (
+              <div
+                key={c.id}
+                className={`mode-card ${sel === c.id ? 'sel' : ''}`}
+                onClick={() => setSel(c.id)}
+              >
+                <b>
+                  {c.id === 'claude' ? '✳' : c.id === 'codex' ? '◉' : c.id === 'gemini' ? '✦' : '›_'}{' '}
+                  {c.name}
+                </b>
+                <span>
+                  {c.available ? '✓ detectado en este PC' : '– no encontrado en el PATH'}
+                  {c.id === 'claude' && ' · chat + terminal + resurrección de sesiones'}
+                </span>
+              </div>
+            ))}
+          </div>
+          {sel === 'custom' && (
+            <input
+              className="cd-input cd-input--mono"
+              style={{ marginTop: 8 }}
+              value={customCmd}
+              placeholder="comando a ejecutar, ej.: aider --model gpt-5"
+              onChange={(e) => setCustomCmd(e.target.value)}
+            />
+          )}
+        </div>
+        <div className="modal-foot">
+          <button
+            className="cd-btn cd-btn--primary"
+            disabled={sel === 'custom' && !customCmd.trim()}
+            onClick={() => void save()}
+          >
+            Empezar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 /**
@@ -19,9 +96,20 @@ export function NewTabDialog(p: Props): React.JSX.Element {
   const [remember, setRemember] = useState(true)
   const [hasPref, setHasPref] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [clis, setClis] = useState<CliInfo[]>([])
+  const [cli, setCli] = useState<AgentCliId>('claude')
+  const [customCmd, setCustomCmd] = useState('')
 
   useEffect(() => {
     void window.deck.globalAgents().then(setAgents)
+    void window.deck.cliDetect().then(setClis)
+    void window.deck.cliGetDefault().then((d) => {
+      if (d.cli) {
+        setCli(d.cli as AgentCliId)
+        if (d.command) setCustomCmd(d.command)
+        if (d.cli !== 'claude') setMode('terminal')
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -47,7 +135,14 @@ export function NewTabDialog(p: Props): React.JSX.Element {
     if (remember) {
       await window.deck.setProjectPrefs(cwd, { useGlobalConfig: useGlobal })
     }
-    const tab = await window.deck.createTab({ cwd, mode, useGlobalConfig: useGlobal })
+    const tab = await window.deck.createTab({
+      cwd,
+      mode,
+      useGlobalConfig: useGlobal,
+      ...(mode === 'terminal'
+        ? { cli, ...(cli === 'custom' ? { cliCommand: customCmd.trim() } : {}) }
+        : {})
+    })
     p.onCreated(tab)
   }
 
@@ -71,11 +166,17 @@ export function NewTabDialog(p: Props): React.JSX.Element {
 
           <label>Modo de la pestaña</label>
           <div className="mode-cards">
-            <div className={`mode-card ${mode === 'chat' ? 'sel' : ''}`} onClick={() => setMode('chat')}>
+            <div
+              className={`mode-card ${mode === 'chat' ? 'sel' : ''} ${cli !== 'claude' ? 'disabled' : ''}`}
+              title={cli !== 'claude' ? 'El modo chat es exclusivo de Claude Code (Agent SDK)' : ''}
+              onClick={() => {
+                if (cli === 'claude') setMode('chat')
+              }}
+            >
               <b>💬 Chat</b>
               <span>
                 Estilo cliente LLM: markdown renderizado, botones de permisos, botón de stop y
-                terminal integrado abajo.
+                terminal integrado abajo. Solo con Claude Code.
               </span>
             </div>
             <div
@@ -83,9 +184,44 @@ export function NewTabDialog(p: Props): React.JSX.Element {
               onClick={() => setMode('terminal')}
             >
               <b>⌨️ Terminal clásico</b>
-              <span>La TUI de claude a pantalla completa, como en la consola de siempre.</span>
+              <span>La TUI del CLI elegido a pantalla completa, como en la consola.</span>
             </div>
           </div>
+
+          {mode === 'terminal' && (
+            <>
+              <label>CLI de agente</label>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 5 }}>
+                {clis.map((c) => (
+                  <button
+                    key={c.id}
+                    className="cd-chip"
+                    aria-pressed={cli === c.id}
+                    disabled={!c.available}
+                    title={c.available ? '' : 'No encontrado en el PATH de este PC'}
+                    onClick={() => setCli(c.id)}
+                  >
+                    {c.name}
+                    {!c.available && ' ⚠'}
+                  </button>
+                ))}
+              </div>
+              {cli === 'custom' && (
+                <input
+                  className="cd-input cd-input--mono"
+                  value={customCmd}
+                  placeholder="comando a ejecutar, ej.: aider --model gpt-5"
+                  onChange={(e) => setCustomCmd(e.target.value)}
+                />
+              )}
+              {cli !== 'claude' && (
+                <p className="hint">
+                  Con {clis.find((c) => c.id === cli)?.name ?? cli} la pestaña corre su consola;
+                  la resurrección automática de sesión aplica solo a Claude Code.
+                </p>
+              )}
+            </>
+          )}
 
           {mode === 'chat' && (
             <>

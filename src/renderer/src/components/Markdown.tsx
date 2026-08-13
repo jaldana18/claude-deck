@@ -1,7 +1,8 @@
 import { createContext, memo, useContext } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import hljs from 'highlight.js'
+// subset «common» (~40 lenguajes): ahorra ~1 MB frente al paquete completo
+import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
 
 /** cwd de la pestaña activa: resuelve rutas relativas que devuelve el LLM */

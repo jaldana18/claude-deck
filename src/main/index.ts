@@ -121,16 +121,21 @@ ipcMain.handle(
       title?: string
       useGlobalConfig?: boolean
       permissionMode?: PermissionModeId
+      cli?: string
+      cliCommand?: string
     }
   ) => {
+    const cli = (args.cli ?? 'claude') as TabState['cli']
     const tab: TabState = {
       id: randomUUID(),
       title: args.title || args.cwd.split(/[\\/]/).filter(Boolean).at(-1) || args.cwd,
       cwd: args.cwd,
       // chat: el PTY de la pestaña es el terminal inferior (shell simple);
-      // terminal clásico: el PTY corre la TUI de claude.
-      profile: (args.mode === 'chat' ? 'shell' : 'claude') as TabProfile,
+      // terminal: la TUI del CLI elegido (solo claude usa el perfil 'claude',
+      // que activa el tracking de session id y los hooks de estado).
+      profile: (args.mode === 'terminal' && cli === 'claude' ? 'claude' : 'shell') as TabProfile,
       mode: args.mode,
+      ...(args.mode === 'terminal' ? { cli, cliCommand: args.cliCommand } : {}),
       useGlobalConfig: args.useGlobalConfig,
       permissionMode: args.permissionMode ?? 'default',
       createdAt: Date.now()
@@ -255,6 +260,30 @@ ipcMain.handle(
 )
 
 ipcMain.handle('store:pluginManifest', (_e, dir: string) => readLocalPluginManifest(dir))
+
+// ---------- IPC: CLIs de agente (claude/codex/gemini/custom) ----------
+
+/** Detecta qué CLIs están en el PATH (where.exe) para el selector */
+ipcMain.handle('cli:detect', async () => {
+  const check = (exe: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      const child = spawn('where', [exe], { shell: true, windowsHide: true })
+      child.on('close', (code) => resolve(code === 0))
+      child.on('error', () => resolve(false))
+    })
+  const [claude, codex, gemini] = await Promise.all([check('claude'), check('codex'), check('gemini')])
+  return [
+    { id: 'claude', name: 'Claude Code', available: claude },
+    { id: 'codex', name: 'Codex CLI (OpenAI)', available: codex },
+    { id: 'gemini', name: 'Gemini CLI (Google)', available: gemini },
+    { id: 'custom', name: 'Otro (comando propio)', available: true }
+  ]
+})
+
+ipcMain.handle('cli:getDefault', () => store.defaultCli)
+ipcMain.handle('cli:setDefault', (_e, a: { cli: string; command?: string }) => {
+  store.setDefaultCli(a.cli, a.command)
+})
 
 /** Extensiones que se abren en VS Code; el resto va a la app predeterminada */
 const CODE_EXTS = new Set([

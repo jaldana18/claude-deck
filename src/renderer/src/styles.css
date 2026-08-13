@@ -3230,3 +3230,9 @@ kbd {
 .chat-list {
   overflow-anchor: none;
 }
+
+/* tarjeta de modo deshabilitada (chat requiere Claude Code) */
+.mode-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
