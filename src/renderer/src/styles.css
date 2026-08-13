@@ -2990,3 +2990,140 @@ kbd {
   width: auto;
   flex: none;
 }
+
+/* widget Tareas: plan de Claude con progreso */
+.tasksw {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px 10px;
+  overflow-y: auto;
+}
+.tasksw-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.tasksw-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  flex: none;
+}
+.tasksw .task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  min-width: 0;
+}
+.tasksw .task-item .task-icon {
+  flex: none;
+  width: 14px;
+  text-align: center;
+}
+.tasksw .task-item.completed {
+  color: var(--text-faint);
+}
+.tasksw .task-item.completed .task-icon {
+  color: var(--green);
+}
+.tasksw .task-item.in_progress .task-icon {
+  color: var(--blue);
+}
+.tasksw .task-item.in_progress .task-text {
+  color: var(--text);
+  font-weight: 500;
+}
+.tasksw .task-text {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* snap de pestañas (mockup 2b) */
+.snap-preview {
+  position: fixed;
+  z-index: 55;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border: 2.5px solid var(--accent);
+  border-radius: 12px;
+  animation: fadeIn 0.12s;
+}
+.snap-picker {
+  position: fixed;
+  z-index: 56;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 9px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: var(--shadow-2);
+  animation: fadeUp 0.15s var(--ease);
+}
+.snap-pick {
+  width: 64px;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  cursor: copy;
+}
+.snap-pick:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.snap-pick span {
+  flex: 1;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.snap-pick span.hot {
+  background: var(--accent);
+  opacity: 0.75;
+}
+.snap-pick.rows {
+  flex-direction: column;
+}
+.snap-pick.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+/* tienda §5: botón por tarjeta + celda manual punteada (colapsada) */
+.store-item-foot {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+}
+.store-item-foot .iconbtn {
+  padding: 3px 12px;
+  font-size: 11px;
+}
+.store-installed {
+  font-size: 11px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 3px 10px;
+}
+.store-item.manual {
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 11.5px;
+  align-items: center;
+  justify-content: center;
+  background: none;
+}
+.store-item.manual:hover {
+  background: var(--accent-soft);
+}

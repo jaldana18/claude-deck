@@ -98,7 +98,7 @@ export interface GitInfo {
 
 // ---------- Widgets acoplables a los laterales del chat ----------
 
-export type WidgetKind = 'git' | 'board' | 'agents' | 'health'
+export type WidgetKind = 'git' | 'board' | 'agents' | 'health' | 'tasks'
 export type WidgetSide = 'left' | 'right'
 
 export interface WidgetConfig {

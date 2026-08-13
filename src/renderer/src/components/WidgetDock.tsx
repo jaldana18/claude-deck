@@ -33,7 +33,8 @@ const WIDGET_TITLES: Record<WidgetKind, string> = {
   git: 'Git',
   board: 'Sprint',
   agents: 'Actividad',
-  health: 'Salud'
+  health: 'Salud',
+  tasks: 'Tareas'
 }
 
 const LANE_COLORS = ['#d97757', '#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#f778ba', '#39c5cf']
@@ -281,7 +282,9 @@ function Widget(p: WidgetProps): React.JSX.Element {
       ? (p.widget.config.repoPath || p.tab.cwd).split(/[\\/]/).filter(Boolean).at(-1)
       : p.widget.kind === 'board'
         ? (p.widget.config.iterationName ?? p.widget.config.project)
-        : undefined
+        : p.widget.kind === 'tasks' && p.todos.length > 0
+          ? `${p.todos.filter((t) => t.status === 'completed').length}/${p.todos.length}`
+          : undefined
 
   return (
     <div
@@ -311,6 +314,7 @@ function Widget(p: WidgetProps): React.JSX.Element {
           <AgentsWidget agents={p.agents} todos={p.todos} onOpenSubagent={p.onOpenSubagent} />
         )}
         {p.widget.kind === 'health' && <HealthWidget tab={p.tab} />}
+        {p.widget.kind === 'tasks' && <TasksWidget todos={p.todos} />}
       </div>
       <div
         className="widget-resize"
@@ -747,6 +751,47 @@ function HealthWidget(p: { tab: TabState }): React.JSX.Element {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ---------- Widget: Tareas (plan de Claude, espejo de TodoWrite) ----------
+
+/**
+ * El plan que Claude va armando con TodoWrite, como una lista de tareas con
+ * barra de progreso: ✓ completada · ◐ en curso (muestra su forma activa) ·
+ * ○ pendiente. Se actualiza en vivo con cada cambio del plan.
+ */
+function TasksWidget(p: { todos: TodoItem[] }): React.JSX.Element {
+  if (p.todos.length === 0) {
+    return (
+      <p className="hint" style={{ padding: 8 }}>
+        Cuando Claude planifique con tareas, aquí verás el plan y su avance en vivo.
+      </p>
+    )
+  }
+  const done = p.todos.filter((t) => t.status === 'completed').length
+  const pct = Math.round((done / p.todos.length) * 100)
+  return (
+    <div className="tasksw">
+      <div className="tasksw-progress">
+        <div className="healthw-bar" style={{ flex: 1 }}>
+          <div className="healthw-fill ok" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="tasksw-count">
+          {done}/{p.todos.length}
+        </span>
+      </div>
+      {p.todos.map((t, i) => (
+        <div key={i} className={`task-item ${t.status}`}>
+          <span className="task-icon">
+            {t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '◐' : '○'}
+          </span>
+          <span className="task-text">
+            {t.status === 'in_progress' && t.activeForm ? t.activeForm : t.content}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { StoreResult, TabState } from '../../../shared/types'
 import { PluginDialog } from './CreateDialogs'
 import { IconStore, IconX } from './Icons'
@@ -101,11 +101,28 @@ export function StoreModal(p: { tab: TabState | null; onClose: () => void }): Re
   const [working, setWorking] = useState(false)
   const cwd = p.tab?.cwd ?? ''
 
-  // formulario MCP
+  // formulario MCP (colapsado según kit §5; se abre para completar <valores>)
+  const [manualOpen, setManualOpen] = useState(false)
   const [mcpName, setMcpName] = useState('')
   const [mcpCommand, setMcpCommand] = useState('npx')
   const [mcpArgs, setMcpArgs] = useState('')
   const [mcpEnv, setMcpEnv] = useState('')
+  const [installed, setInstalled] = useState<Set<string>>(new Set())
+
+  // MCPs ya configurados (cualquier alcance) → botón «Instalado ✓»
+  const loadInstalled = useCallback(async () => {
+    if (!cwd) return
+    try {
+      const cfg = await window.deck.scanConfig(cwd)
+      setInstalled(new Set(cfg.mcp.map((m) => m.name.toLowerCase())))
+    } catch {
+      /* sin pestaña activa */
+    }
+  }, [cwd])
+
+  useEffect(() => {
+    void loadInstalled()
+  }, [loadInstalled])
 
   // importar por URL
   const [url, setUrl] = useState('')
@@ -176,59 +193,92 @@ export function StoreModal(p: { tab: TabState | null; onClose: () => void }): Re
           {tab === 'mcp' && (
             <>
               {scopeSelect}
-              <div className="side-section-title">Catálogo</div>
               <div className="store-catalog">
-                {MCP_CATALOG.map((e) => (
-                  <div
-                    key={e.name}
-                    className={`store-item ${mcpName === e.name ? 'sel' : ''}`}
-                    onClick={() => {
-                      setMcpName(e.name)
-                      setMcpCommand(e.command)
-                      setMcpArgs(e.args)
-                      setMcpEnv(e.envHint ?? '')
-                    }}
-                    title="Clic para rellenar el formulario con este servidor"
-                  >
-                    <b>{e.name}</b>
-                    <span>{e.description}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="side-section-title">Agregar servidor</div>
-              <p className="hint">
-                Completa los valores entre {'<ángulos>'} si los hay. Variables de entorno: una por
-                línea, formato CLAVE=valor.
-              </p>
-              <div className="store-form">
-                <label>Nombre</label>
-                <input value={mcpName} onChange={(e) => setMcpName(e.target.value)} placeholder="mi-servidor" />
-                <label>Comando</label>
-                <input value={mcpCommand} onChange={(e) => setMcpCommand(e.target.value)} placeholder="npx" />
-                <label>Argumentos</label>
-                <input value={mcpArgs} onChange={(e) => setMcpArgs(e.target.value)} placeholder="-y paquete-mcp" />
-                <label>Variables</label>
-                <textarea rows={2} value={mcpEnv} onChange={(e) => setMcpEnv(e.target.value)} placeholder="API_KEY=..." />
-              </div>
-              <button
-                className="iconbtn primary"
-                disabled={working || !mcpName.trim() || !mcpCommand.trim() || /<[^>]+>/.test(mcpArgs + mcpEnv)}
-                title={/<[^>]+>/.test(mcpArgs + mcpEnv) ? 'Completa los valores entre <ángulos>' : ''}
-                onClick={() =>
-                  void run(() =>
-                    window.deck.storeAddMcp({
-                      scope,
-                      cwd,
-                      name: mcpName,
-                      command: mcpCommand,
-                      argsList: splitArgs(mcpArgs),
-                      env: parseEnv(mcpEnv)
-                    })
+                {MCP_CATALOG.map((e) => {
+                  const isInstalled = installed.has(e.name.toLowerCase())
+                  const needsInput = /<[^>]+>/.test(e.args + (e.envHint ?? ''))
+                  return (
+                    <div key={e.name} className="store-item">
+                      <b>{e.name}</b>
+                      <span>{e.description}</span>
+                      <div className="store-item-foot">
+                        {isInstalled ? (
+                          <span className="store-installed">Instalado ✓</span>
+                        ) : (
+                          <button
+                            className="iconbtn primary"
+                            disabled={working}
+                            title={needsInput ? 'Abre el formulario para completar los valores' : ''}
+                            onClick={() => {
+                              if (needsInput) {
+                                setMcpName(e.name)
+                                setMcpCommand(e.command)
+                                setMcpArgs(e.args)
+                                setMcpEnv(e.envHint ?? '')
+                                setManualOpen(true)
+                              } else {
+                                void run(() =>
+                                  window.deck.storeAddMcp({
+                                    scope,
+                                    cwd,
+                                    name: e.name,
+                                    command: e.command,
+                                    argsList: splitArgs(e.args),
+                                    env: {}
+                                  })
+                                ).then(() => void loadInstalled())
+                              }
+                            }}
+                          >
+                            Instalar
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )
-                }
-              >
-                Agregar servidor MCP
-              </button>
+                })}
+                {/* formulario manual COLAPSADO como última celda (kit §5) */}
+                <div className="store-item manual" onClick={() => setManualOpen((v) => !v)}>
+                  + servidor manual
+                </div>
+              </div>
+              {manualOpen && (
+                <>
+                  <p className="hint">
+                    Completa los valores entre {'<ángulos>'} si los hay. Variables de entorno: una
+                    por línea, formato CLAVE=valor.
+                  </p>
+                  <div className="store-form">
+                    <label>Nombre</label>
+                    <input value={mcpName} onChange={(e) => setMcpName(e.target.value)} placeholder="mi-servidor" />
+                    <label>Comando</label>
+                    <input value={mcpCommand} onChange={(e) => setMcpCommand(e.target.value)} placeholder="npx" />
+                    <label>Argumentos</label>
+                    <input value={mcpArgs} onChange={(e) => setMcpArgs(e.target.value)} placeholder="-y paquete-mcp" />
+                    <label>Variables</label>
+                    <textarea rows={2} value={mcpEnv} onChange={(e) => setMcpEnv(e.target.value)} placeholder="API_KEY=..." />
+                  </div>
+                  <button
+                    className="iconbtn primary"
+                    disabled={working || !mcpName.trim() || !mcpCommand.trim() || /<[^>]+>/.test(mcpArgs + mcpEnv)}
+                    title={/<[^>]+>/.test(mcpArgs + mcpEnv) ? 'Completa los valores entre <ángulos>' : ''}
+                    onClick={() =>
+                      void run(() =>
+                        window.deck.storeAddMcp({
+                          scope,
+                          cwd,
+                          name: mcpName,
+                          command: mcpCommand,
+                          argsList: splitArgs(mcpArgs),
+                          env: parseEnv(mcpEnv)
+                        })
+                      ).then(() => void loadInstalled())
+                    }
+                  >
+                    Agregar servidor MCP
+                  </button>
+                </>
+              )}
             </>
           )}
 

@@ -23,12 +23,96 @@ export default function App(): React.JSX.Element {
   const [showNewTab, setShowNewTab] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
   const [showStore, setShowStore] = useState(false)
+  /** Snap de pestañas (mockup 2b): zona candidata mientras se arrastra una pestaña */
+  const [snapDrag, setSnapDrag] = useState(false)
+  const [snapZone, setSnapZone] = useState<{
+    layout: PaneLayout
+    cell: number
+    rect: { left: number; top: number; width: number; height: number }
+  } | null>(null)
+  const termsRef = useRef<HTMLDivElement | null>(null)
 
   // El botón ⌘ del composer del chat abre la paleta con este evento
   useEffect(() => {
     const onOpen = (): void => setShowPalette(true)
     window.addEventListener('deck:open-palette', onOpen)
     return () => window.removeEventListener('deck:open-palette', onOpen)
+  }, [])
+
+  // Snap de pestañas (mockup 2b): zonas de borde (umbral 40px) → vista previa
+  // de mitad/cuadrante; selector de layouts arriba; soltar divide y asigna.
+  const snapFns = useRef({ changeWsLayout: (_l: PaneLayout) => {}, assignCell: (_i: number, _t: string) => {} })
+  useEffect(() => {
+    const T = 40
+    const compute = (
+      x: number,
+      y: number
+    ): { layout: PaneLayout; cell: number; rect: { left: number; top: number; width: number; height: number } } | null => {
+      // 1) ¿está sobre una opción del selector de layouts?
+      const pick = document
+        .elementsFromPoint(x, y)
+        .find((el) => (el as HTMLElement).dataset?.snapLayout) as HTMLElement | undefined
+      const host = termsRef.current?.getBoundingClientRect()
+      if (!host) return null
+      const half = (layout: PaneLayout, cell: number): { layout: PaneLayout; cell: number; rect: { left: number; top: number; width: number; height: number } } => {
+        const w2 = host.width / 2
+        const h2 = host.height / 2
+        const rect =
+          layout === 'cols'
+            ? { left: host.left + (cell === 1 ? w2 : 0), top: host.top, width: w2, height: host.height }
+            : layout === 'rows'
+              ? { left: host.left, top: host.top + (cell === 1 ? h2 : 0), width: host.width, height: h2 }
+              : {
+                  left: host.left + (cell % 2 === 1 ? w2 : 0),
+                  top: host.top + (cell >= 2 ? h2 : 0),
+                  width: w2,
+                  height: h2
+                }
+        return { layout, cell, rect }
+      }
+      if (pick) return half(pick.dataset.snapLayout as PaneLayout, 0)
+      // 2) proximidad a bordes del área de trabajo
+      if (x < host.left || x > host.right || y < host.top || y > host.bottom) return null
+      const nearL = x < host.left + T
+      const nearR = x > host.right - T
+      const nearT = y < host.top + T
+      const nearB = y > host.bottom - T
+      if ((nearL || nearR) && (nearT || nearB)) return half('grid', (nearB ? 2 : 0) + (nearR ? 1 : 0))
+      if (nearL) return half('cols', 0)
+      if (nearR) return half('cols', 1)
+      if (nearT) return half('rows', 0)
+      if (nearB) return half('rows', 1)
+      return null
+    }
+    const onDrag = (e: Event): void => {
+      const { phase, tabId, x, y } = (e as CustomEvent).detail as {
+        phase: string
+        tabId: string
+        x: number
+        y: number
+      }
+      if (phase === 'cancel') {
+        setSnapDrag(false)
+        setSnapZone(null)
+        return
+      }
+      if (phase === 'start') setSnapDrag(true)
+      if (phase === 'start' || phase === 'move') {
+        setSnapZone(compute(x, y))
+        return
+      }
+      if (phase === 'drop') {
+        const zone = compute(x, y)
+        setSnapDrag(false)
+        setSnapZone(null)
+        if (zone) {
+          snapFns.current.changeWsLayout(zone.layout)
+          snapFns.current.assignCell(zone.cell, tabId)
+        }
+      }
+    }
+    window.addEventListener('deck:tabdrag', onDrag)
+    return () => window.removeEventListener('deck:tabdrag', onDrag)
   }, [])
   /** Widgets por pestaña: cada chat tiene su propio layout */
   const [tabWidgets, setTabWidgets] = useState<Record<string, WidgetState[]>>({})
@@ -205,6 +289,9 @@ export default function App(): React.JSX.Element {
     setActiveId(tabId)
   }, [])
 
+  // funciones vivas para el listener de snap (declarado antes con deps vacías)
+  snapFns.current = { changeWsLayout, assignCell }
+
   /** Cambia a otra pestaña por desplazamiento circular o índice directo */
   const switchTab = useCallback(
     (delta: number | null, index?: number) => {
@@ -371,7 +458,7 @@ export default function App(): React.JSX.Element {
         {showSessions && activeTab && (
           <SessionsPanel tab={activeTab} onClose={() => setShowSessions(false)} />
         )}
-        <div className={`terminals ws-${wsLayout}`}>
+        <div className={`terminals ws-${wsLayout}`} ref={termsRef}>
           {tabs.length === 0 && (
             <div className="empty-state">
               <h2>Claude Deck {appVersion && <span className="chip">v{appVersion}</span>}</h2>
@@ -492,6 +579,37 @@ export default function App(): React.JSX.Element {
         />
       )}
       {showStore && <StoreModal tab={activeTab ?? null} onClose={() => setShowStore(false)} />}
+      {/* Snap de pestañas (2b): vista previa de la zona + selector de layouts */}
+      {snapZone && (
+        <div
+          className="snap-preview"
+          style={{
+            left: snapZone.rect.left,
+            top: snapZone.rect.top,
+            width: snapZone.rect.width,
+            height: snapZone.rect.height
+          }}
+        />
+      )}
+      {snapDrag && termsRef.current && (
+        <div
+          className="snap-picker"
+          style={{
+            left: termsRef.current.getBoundingClientRect().left + termsRef.current.clientWidth / 2,
+            top: termsRef.current.getBoundingClientRect().top + 14
+          }}
+        >
+          <div className="snap-pick" data-snap-layout="cols" title="Dos columnas">
+            <span /><span className="hot" />
+          </div>
+          <div className="snap-pick rows" data-snap-layout="rows" title="Dos filas">
+            <span /><span className="hot" />
+          </div>
+          <div className="snap-pick grid" data-snap-layout="grid" title="Cuadrícula 2×2">
+            <span className="hot" /><span /><span /><span />
+          </div>
+        </div>
+      )}
       {showSearch && (
         <SearchModal
           onClose={() => setShowSearch(false)}

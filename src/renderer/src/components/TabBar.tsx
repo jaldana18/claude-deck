@@ -41,13 +41,67 @@ const WIDGET_GALLERY: { kind: WidgetKind; icon: React.JSX.Element; name: string;
   { kind: 'git', icon: <IconGitBranch size={15} />, name: 'Git', desc: 'grafo de ramas' },
   { kind: 'board', icon: <IconBoard size={15} />, name: 'Sprint', desc: 'Azure DevOps' },
   { kind: 'health', icon: <IconPulse size={15} />, name: 'Salud', desc: 'contexto y costo' },
-  { kind: 'agents', icon: <IconTasks size={15} />, name: 'Actividad', desc: 'subagentes y plan' }
+  { kind: 'agents', icon: <IconTasks size={15} />, name: 'Actividad', desc: 'subagentes en vivo' },
+  { kind: 'tasks', icon: <IconTasks size={15} />, name: 'Tareas', desc: 'plan de Claude' }
 ]
 
 export function TabBar(p: Props): React.JSX.Element {
   const [theme, setTheme] = useState(localStorage.getItem('deck-theme') ?? 'light')
   const [gallery, setGallery] = useState(false)
   const [menu, setMenu] = useState(false)
+
+  /**
+   * Snap de pestañas (mockup 2b): arrastrar una pestaña hacia el área de
+   * trabajo emite eventos deck:tabdrag que App usa para mostrar la vista
+   * previa de mitad y el selector de layouts, y dividir al soltar.
+   */
+  const startTabDrag = (e: React.PointerEvent, tabId: string, title: string): void => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.close')) return
+    const sx = e.clientX
+    const sy = e.clientY
+    let started = false
+    let ghost: HTMLDivElement | null = null
+    const fire = (phase: string, x = 0, y = 0): void => {
+      window.dispatchEvent(new CustomEvent('deck:tabdrag', { detail: { phase, tabId, x, y } }))
+    }
+    const cleanup = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('keydown', onKey, true)
+      ghost?.remove()
+    }
+    const onMove = (ev: PointerEvent): void => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return
+        started = true
+        ghost = document.createElement('div')
+        ghost.className = 'deck-widget-ghost'
+        ghost.textContent = `◨ ${title}`
+        document.body.appendChild(ghost)
+        fire('start', ev.clientX, ev.clientY)
+      }
+      if (ghost) {
+        ghost.style.left = `${ev.clientX + 10}px`
+        ghost.style.top = `${ev.clientY + 10}px`
+      }
+      fire('move', ev.clientX, ev.clientY)
+    }
+    const onUp = (ev: PointerEvent): void => {
+      const wasDrag = started
+      cleanup()
+      if (wasDrag) fire('drop', ev.clientX, ev.clientY)
+    }
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') {
+        ev.stopPropagation()
+        cleanup()
+        fire('cancel')
+      }
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('keydown', onKey, true)
+  }
 
   const toggleTheme = (): void => {
     const next = theme === 'dark' ? 'light' : 'dark'
@@ -70,6 +124,7 @@ export function TabBar(p: Props): React.JSX.Element {
             key={tab.id}
             className={`tab ${tab.id === p.activeId ? 'active' : ''} ${tab.mode !== 'chat' ? 'term' : ''}`}
             onClick={() => p.onActivate(tab.id)}
+            onPointerDown={(e) => startTabDrag(e, tab.id, tab.title)}
             onAuxClick={(e) => {
               if (e.button === 1) p.onClose(tab.id)
             }}
