@@ -1,5 +1,9 @@
 # Claude Deck
 
+> **Estado: alpha · solo Windows.** Funciona y se usa a diario, pero no hay tests
+> automatizados ni instalador firmado todavía. Issues y PRs bienvenidos —
+> ver [CONTRIBUTING.md](CONTRIBUTING.md). Licencia [MIT](LICENSE).
+
 App de escritorio para Windows con **sesiones de Claude Code por pestañas** que
 sobreviven al reinicio del PC (estilo Notepad de Windows 11), en dos modos por pestaña:
 
@@ -90,24 +94,40 @@ npm start          # ejecutar la versión compilada
 
 ## Actualización automática
 
-La app instalada revisa cada 4 horas (y al arrancar) la carpeta `release/` de este
-proyecto. Cuando `npm run dist` genera un Setup con versión mayor a la instalada,
-aparece un banner «Instalar y reiniciar»: corre el instalador en silencio (`/S`),
-relanza la app y conserva pestañas y sesiones. Flujo para publicar una versión:
+La app instalada vigila una **carpeta de actualizaciones** (configurable: clic
+derecho en el chip de versión de la barra de estado → elegir carpeta). Cuando ahí
+aparece un `ClaudeDeck-Setup-X.Y.Z.exe` con versión mayor a la instalada, sale un
+banner «Instalar y reiniciar»: corre el instalador en silencio (`/S`), relanza la
+app y conserva pestañas y sesiones.
 
-1. Sube `version` en `package.json` (ej. 0.2.0 → 0.3.0).
+- **En desarrollo** (sin carpeta configurada) se vigila la `release/` del propio
+  proyecto, donde `npm run dist` deja los instaladores.
+- **App instalada sin carpeta configurada**: no se vigila nada hasta que elijas una.
+- **En equipo**: apunta la carpeta a un recurso compartido (OneDrive/SharePoint/red).
+  Cada miembro la configura una vez; al publicar, se copia el Setup nuevo ahí y
+  todos reciben el banner. Para distribución pública, el mecanismo se sustituiría
+  por `electron-updater` con GitHub Releases.
+
+Flujo para publicar una versión:
+
+1. Sube `version` en `package.json` (ej. 0.9.0 → 0.10.0).
 2. `npm run dist`.
-3. La app instalada ofrecerá la actualización sola (no hace falta desinstalar nada:
-   el mismo appId instala encima).
+3. Copia el Setup de `release/` a la carpeta compartida (si aplica). No hace falta
+   desinstalar nada: el mismo appId instala encima.
 
-Si el proyecto se mueve de carpeta, ajusta `DEFAULT_UPDATE_DIR` en
-`src/shared/constants.ts`.
+## Widgets laterales
 
-**Actualización en equipo**: la carpeta vigilada es configurable — clic derecho en el
-chip de versión (barra de estado) → elegir una carpeta compartida (OneDrive/SharePoint
-o recurso de red). Cada miembro la configura una vez; al publicar, se copia el Setup
-nuevo a esa carpeta y todos reciben el banner de actualización. Para distribución
-pública, el mecanismo se sustituiría por `electron-updater` con GitHub Releases.
+En pestañas de chat puedes acoplar **widgets** a los laterales (botones de la barra
+superior; se arrastran entre lados, se redimensionan y se pueden repetir). Cada
+pestaña tiene su propio juego de widgets:
+
+- **Git**: grafo de ramas y commits del repo (la carpeta es configurable por widget,
+  útil cuando el chat vive una carpeta más arriba del repo).
+- **Sprint**: board del sprint de Azure DevOps vía tu MCP `azure-devops` ya
+  configurado — con selector de proyecto/equipo/sprint y filtro por responsable.
+- **Actividad**: agentes en ejecución y plan de tareas de Claude en vivo.
+- **Salud**: cuánta ventana de contexto va ocupada (con alerta cuando conviene un
+  `/compact`), tokens de salida acumulados, turnos, costo y modelo de la sesión.
 
 ## Novedades v0.3.0
 

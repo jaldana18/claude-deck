@@ -92,7 +92,7 @@ export interface GitInfo {
 
 // ---------- Widgets acoplables a los laterales del chat ----------
 
-export type WidgetKind = 'git' | 'board' | 'agents'
+export type WidgetKind = 'git' | 'board' | 'agents' | 'health'
 export type WidgetSide = 'left' | 'right'
 
 export interface WidgetConfig {
@@ -114,6 +114,23 @@ export interface WidgetState {
   order: number
   height: number
   config: WidgetConfig
+}
+
+/** Estado de salud de una sesión de chat: contexto ocupado, tokens y costo */
+export interface ChatHealth {
+  tabId: string
+  /** tokens que ocupan la ventana de contexto ahora (entrada + caché del último turno) */
+  contextTokens: number
+  /** tamaño de la ventana de contexto del modelo activo */
+  contextWindow: number
+  /** tokens de salida acumulados en lo que va de la sesión */
+  outputTokens: number
+  /** costo acumulado de la sesión (lo reporta el SDK) */
+  costUsd: number
+  /** turnos completados */
+  numTurns: number
+  /** modelo real de la sesión (el que reporta el init) */
+  model?: string
 }
 
 export interface AzureListItem {

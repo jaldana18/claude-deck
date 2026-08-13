@@ -3,7 +3,6 @@ import { spawn } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
-import { DEFAULT_UPDATE_DIR } from '../shared/constants'
 import type { Store } from './store'
 
 export interface UpdateInfo {
@@ -26,9 +25,12 @@ export class Updater {
   ) {}
 
   /** Carpeta vigilada: la configurada por el usuario (p.ej. compartida del
-   *  equipo en OneDrive/red) o la release/ local del desarrollador */
+   *  equipo en OneDrive/red). En desarrollo, si no hay ninguna configurada,
+   *  se vigila la release/ del propio proyecto; en la app instalada sin
+   *  carpeta configurada no se vigila nada (cadena vacía). */
   private get updateDir(): string {
-    return this.store.updateDir || DEFAULT_UPDATE_DIR
+    if (this.store.updateDir) return this.store.updateDir
+    return app.isPackaged ? '' : join(app.getAppPath(), 'release')
   }
 
   /** Cambia la carpeta de actualizaciones y chequea de inmediato */
@@ -60,7 +62,7 @@ export class Updater {
 
   check(): UpdateInfo | null {
     try {
-      if (!existsSync(this.updateDir)) return null
+      if (!this.updateDir || !existsSync(this.updateDir)) return null
       const current = parseVersion(app.getVersion())
       let best: { v: number[]; file: string } | null = null
       for (const f of readdirSync(this.updateDir)) {

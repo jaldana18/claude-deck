@@ -12,6 +12,7 @@ import {
 } from '@anthropic-ai/claude-agent-sdk'
 import type {
   ChatAttachment,
+  ChatHealth,
   ChatMessage,
   ChatResultMeta,
   ModelOption,
@@ -86,6 +87,14 @@ class ChatSession {
   commands: SlashCommandInfo[] = []
   /** modelos disponibles (se cargan tras el init) */
   models: ModelOption[] = []
+  /** salud de la sesión: el contexto ocupado lo reporta el usage de cada
+   *  mensaje assistant del hilo principal (input + caché = ventana en uso) */
+  private ctxTokens = 0
+  private ctxWindow = 200_000
+  private outTokens = 0
+  private costUsd = 0
+  private numTurns = 0
+  private sessionModel: string | undefined
 
   constructor(
     private tab: TabState,
@@ -104,6 +113,22 @@ class ChatSession {
 
   private status(status: string, detail?: string): void {
     this.send('tab:status', { tabId: this.tab.id, status, detail })
+  }
+
+  health(): ChatHealth {
+    return {
+      tabId: this.tab.id,
+      contextTokens: this.ctxTokens,
+      contextWindow: this.ctxWindow,
+      outputTokens: this.outTokens,
+      costUsd: this.costUsd,
+      numTurns: this.numTurns,
+      model: this.sessionModel
+    }
+  }
+
+  private sendHealth(): void {
+    this.send('chat:health', this.health())
   }
 
   private flushSubagents(): void {
@@ -251,6 +276,24 @@ class ChatSession {
             }
           }
         } else if (msg.type === 'assistant') {
+          // El usage de cada mensaje assistant refleja la ventana de contexto
+          // en uso: input + tokens servidos/creados en caché de ese request.
+          const usage = (msg.message as {
+            usage?: {
+              input_tokens?: number
+              cache_read_input_tokens?: number
+              cache_creation_input_tokens?: number
+              output_tokens?: number
+            }
+          }).usage
+          if (usage) {
+            this.ctxTokens =
+              (usage.input_tokens ?? 0) +
+              (usage.cache_read_input_tokens ?? 0) +
+              (usage.cache_creation_input_tokens ?? 0)
+            this.outTokens += usage.output_tokens ?? 0
+            this.sendHealth()
+          }
           const chat = toChatMessage(msg.uuid, msg.message)
           if (chat) {
             // Espejo del plan de tareas: interceptar TodoWrite del hilo principal
@@ -298,6 +341,9 @@ class ChatSession {
           this.updateSession((msg as { session_id?: string }).session_id)
           const initModel = (msg as { model?: string }).model
           if (initModel) {
+            this.sessionModel = initModel
+            // Los modelos con contexto de 1M llevan el sufijo [1m] en su id
+            this.ctxWindow = /\[1m\]/i.test(initModel) ? 1_000_000 : 200_000
             this.send('chat:init-model', { tabId: this.tab.id, model: initModel })
           }
           void this.loadCommands()
@@ -315,6 +361,9 @@ class ChatSession {
             errorText: msg.subtype !== 'success' ? msg.subtype : undefined
           }
           this.send('chat:result', meta)
+          this.costUsd = 'total_cost_usd' in msg ? msg.total_cost_usd : this.costUsd
+          this.numTurns = msg.num_turns
+          this.sendHealth()
           this.status('done', 'Claude terminó')
         }
       }
@@ -499,6 +548,10 @@ export class ChatSessionManager {
 
   modelsFor(tabId: string): ModelOption[] {
     return this.sessions.get(tabId)?.models ?? []
+  }
+
+  healthFor(tabId: string): ChatHealth | null {
+    return this.sessions.get(tabId)?.health() ?? null
   }
 
   async setModel(tabId: string, model: string | undefined): Promise<void> {

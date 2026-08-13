@@ -1,9 +1,18 @@
 {
   "name": "claude-deck",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "description": "Terminal multi-pestaña para sesiones de Claude Code con resurrección tras reinicio y gestión visual de agentes, skills, hooks y MCP",
   "main": "out/main/index.js",
-  "author": "jaldana",
+  "author": "Juan Danilo Aldana Tibabisco",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaldana18/claude-deck.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jaldana18/claude-deck/issues"
+  },
+  "homepage": "https://github.com/jaldana18/claude-deck#readme",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",

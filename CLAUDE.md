@@ -18,7 +18,7 @@ npm run dist       # build + electron-builder → instalador NSIS en release/
 
 Requiere Claude Code instalado en el PC: el binario embebido del SDK (~280 MB) se excluye del instalador, y `resolveClaudeCli()` en `src/main/chatSession.ts` lo busca en node_modules (dev), npm global o `~/.local/bin`.
 
-Para publicar una versión: subir `version` en `package.json` y correr `npm run dist`. La app instalada vigila la carpeta `release/` (ruta en `DEFAULT_UPDATE_DIR`, `src/shared/constants.ts`) y se auto-actualiza.
+Para publicar una versión: subir `version` en `package.json` y correr `npm run dist`. La app instalada vigila una carpeta de actualizaciones configurable (`store.updateDir`; en dev el fallback es la `release/` del proyecto — ver `src/main/updater.ts`) y se auto-actualiza.
 
 ## Arquitectura
 

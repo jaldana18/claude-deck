@@ -267,6 +267,7 @@ ipcMain.on(
 
 ipcMain.handle('chat:commands', (_e, tabId: string) => chatSessions.commandsFor(tabId))
 ipcMain.handle('chat:models', (_e, tabId: string) => chatSessions.modelsFor(tabId))
+ipcMain.handle('chat:health', (_e, tabId: string) => chatSessions.healthFor(tabId))
 ipcMain.handle('chat:setModel', (_e, args: { tabId: string; model?: string }) =>
   chatSessions.setModel(args.tabId, args.model)
 )

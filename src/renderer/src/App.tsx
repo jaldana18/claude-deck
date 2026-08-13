@@ -54,7 +54,7 @@ export default function App(): React.JSX.Element {
           kind,
           side: (kind === 'git' ? 'left' : 'right') as WidgetState['side'],
           order: 99,
-          height: kind === 'git' ? 380 : 320,
+          height: kind === 'git' ? 380 : kind === 'health' ? 250 : 320,
           config: {}
         }
       ]
@@ -334,6 +334,7 @@ export default function App(): React.JSX.Element {
         onToggleSessions={() => setShowSessions((v) => !v)}
         onToggleGit={() => addWidget('git')}
         onToggleBoard={() => addWidget('board')}
+        onToggleHealth={() => addWidget('health')}
       />
       <div className="body">
         {showSessions && activeTab && (

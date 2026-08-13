@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   AzureListItem,
   BoardData,
+  ChatHealth,
   GitInfo,
   TabState,
   TodoItem,
@@ -9,7 +10,7 @@ import type {
   WidgetSide,
   WidgetState
 } from '../../../shared/types'
-import { IconBoard, IconGitBranch, IconRefresh, IconTasks, IconX } from './Icons'
+import { IconBoard, IconGitBranch, IconPulse, IconRefresh, IconTasks, IconX } from './Icons'
 
 export interface AgentRun {
   id: string
@@ -31,7 +32,8 @@ interface DockProps {
 const WIDGET_TITLES: Record<WidgetKind, string> = {
   git: 'Git',
   board: 'Sprint',
-  agents: 'Actividad'
+  agents: 'Actividad',
+  health: 'Salud'
 }
 
 const LANE_COLORS = ['#d97757', '#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#f778ba', '#39c5cf']
@@ -170,6 +172,8 @@ function Widget(p: WidgetProps): React.JSX.Element {
       <IconGitBranch size={12} />
     ) : p.widget.kind === 'board' ? (
       <IconBoard size={12} />
+    ) : p.widget.kind === 'health' ? (
+      <IconPulse size={12} />
     ) : (
       <IconTasks size={12} />
     )
@@ -217,6 +221,7 @@ function Widget(p: WidgetProps): React.JSX.Element {
         {p.widget.kind === 'agents' && (
           <AgentsWidget agents={p.agents} todos={p.todos} onOpenSubagent={p.onOpenSubagent} />
         )}
+        {p.widget.kind === 'health' && <HealthWidget tab={p.tab} />}
       </div>
       <div
         className="widget-resize"
@@ -565,6 +570,92 @@ function groupByState(items: BoardData['items']): { state: string; items: BoardD
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
     })
     .map(([state, items]) => ({ state, items }))
+}
+
+// ---------- Widget: Salud de la sesión ----------
+
+/** Formatea tokens: 1234 → «1,2k», 156000 → «156k», 1000000 → «1M» */
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`
+  if (n >= 10_000) return `${Math.round(n / 1000)}k`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
+}
+
+/**
+ * Estado de la sesión de Claude: cuánta ventana de contexto va ocupada (con
+ * alerta cuando conviene un /compact), tokens de salida, turnos y costo.
+ * Los datos llegan del usage que el SDK reporta en cada respuesta.
+ */
+function HealthWidget(p: { tab: TabState }): React.JSX.Element {
+  const [health, setHealth] = useState<ChatHealth | null>(null)
+
+  useEffect(() => {
+    setHealth(null)
+    void window.deck.chatHealth(p.tab.id).then((h) => h && h.contextTokens > 0 && setHealth(h))
+    return window.deck.onChatHealth((h) => {
+      if (h.tabId === p.tab.id) setHealth(h)
+    })
+  }, [p.tab.id])
+
+  if (!health || health.contextTokens === 0) {
+    return (
+      <p className="hint" style={{ padding: 8 }}>
+        Aún no hay datos: se llenan con la primera respuesta de Claude en esta sesión.
+      </p>
+    )
+  }
+
+  const pct = health.contextWindow > 0 ? health.contextTokens / health.contextWindow : 0
+  const level = pct >= 0.8 ? 'danger' : pct >= 0.6 ? 'warn' : 'ok'
+
+  return (
+    <div className="healthw">
+      <div className="healthw-row">
+        <span className="healthw-label">Contexto</span>
+        <span className={`healthw-value ${level}`}>
+          {fmtTokens(health.contextTokens)} / {fmtTokens(health.contextWindow)} ·{' '}
+          {Math.round(pct * 100)}%
+        </span>
+      </div>
+      <div className="healthw-bar">
+        <div className={`healthw-fill ${level}`} style={{ width: `${Math.min(100, pct * 100)}%` }} />
+      </div>
+      {level === 'danger' && (
+        <div className="healthw-alert danger">
+          ⚠️ Contexto casi lleno: ejecuta <code>/compact</code> para resumir la conversación (o{' '}
+          <code>/clear</code> si quieres empezar de cero).
+        </div>
+      )}
+      {level === 'warn' && (
+        <div className="healthw-alert warn">
+          El contexto pasó del 60%. Buen momento para un <code>/compact</code> si el hilo es largo.
+        </div>
+      )}
+      <div className="healthw-grid">
+        <div className="healthw-stat">
+          <span className="healthw-label">Salida acumulada</span>
+          <span className="healthw-value">{fmtTokens(health.outputTokens)} tokens</span>
+        </div>
+        <div className="healthw-stat">
+          <span className="healthw-label">Turnos</span>
+          <span className="healthw-value">{health.numTurns}</span>
+        </div>
+        <div className="healthw-stat">
+          <span className="healthw-label">Costo sesión</span>
+          <span className="healthw-value">US$ {health.costUsd.toFixed(4)}</span>
+        </div>
+        {health.model && (
+          <div className="healthw-stat">
+            <span className="healthw-label">Modelo</span>
+            <span className="healthw-value" title={health.model}>
+              {health.model.replace(/^claude-/, '')}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ---------- Widget: Actividad (agentes + plan) ----------

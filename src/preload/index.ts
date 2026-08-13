@@ -4,6 +4,7 @@ import type {
   AzureListItem,
   BoardData,
   ChatAttachment,
+  ChatHealth,
   GitInfo,
   WidgetState,
   ChatDeltaEvent,
@@ -116,6 +117,9 @@ const api = {
   chatCommands: (tabId: string): Promise<SlashCommandInfo[]> =>
     ipcRenderer.invoke('chat:commands', tabId),
   chatModels: (tabId: string): Promise<ModelOption[]> => ipcRenderer.invoke('chat:models', tabId),
+  chatHealth: (tabId: string): Promise<ChatHealth | null> =>
+    ipcRenderer.invoke('chat:health', tabId),
+  onChatHealth: (cb: (p: ChatHealth) => void) => on('chat:health', cb),
   chatSetModel: (tabId: string, model?: string): Promise<void> =>
     ipcRenderer.invoke('chat:setModel', { tabId, model }),
   onChatModels: (cb: (p: { tabId: string; models: ModelOption[] }) => void) =>
