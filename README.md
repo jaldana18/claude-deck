@@ -20,7 +20,10 @@ configuración global del PC (~/.claude).
 **Diseño**: «editor clásico + técnica cálida» — tema claro crema con acento
 terracota (por defecto) y variante oscura cálida, tipografías Geist +
 JetBrains Mono empaquetadas localmente, terminal y código siempre oscuros.
-Los mockups de referencia viven en `mockups/`.
+La referencia de diseño vive en `UI mockups for Claude Deck/` (mockups +
+`Claude Deck UI Kit.dc.html` + `claude-deck-ui.css`, cargado globalmente como
+fuente de verdad de los tokens `cd-*`); los diálogos de creación de artefactos
+implementan la sección 8 del kit.
 
 ## Modo chat (v2)
 

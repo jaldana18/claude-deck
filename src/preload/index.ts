@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   ArtifactDraft,
   AzureListItem,
@@ -16,6 +16,7 @@ import type {
   LlmParams,
   ModelOption,
   PaneLayout,
+  PluginManifest,
   PermissionModeId,
   PermissionRequestEvent,
   ProjectConfig,
@@ -146,6 +147,16 @@ const api = {
   }): Promise<StoreResult> => ipcRenderer.invoke('store:importUrl', args),
   storePlugin: (args: string[], cwd: string): Promise<StoreResult> =>
     ipcRenderer.invoke('store:plugin', { args, cwd }),
+  storePluginManifest: (dir: string): Promise<PluginManifest> =>
+    ipcRenderer.invoke('store:pluginManifest', dir),
+  artifactDraft: (args: {
+    kind: 'agent' | 'skill' | 'command'
+    name: string
+    description: string
+  }): Promise<string> => ipcRenderer.invoke('artifact:draft', args),
+  pickFiles: (): Promise<string[]> => ipcRenderer.invoke('dialog:pickFiles'),
+  /** Ruta absoluta de un File arrastrado (Electron ya no expone File.path) */
+  pathForFile: (file: File): string => webUtils.getPathForFile(file),
   chatSetModel: (tabId: string, model?: string): Promise<void> =>
     ipcRenderer.invoke('chat:setModel', { tabId, model }),
   onChatModels: (cb: (p: { tabId: string; models: ModelOption[] }) => void) =>

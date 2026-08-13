@@ -9,6 +9,9 @@ import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/500.css'
 import '@fontsource/jetbrains-mono/600.css'
 import './styles.css'
+// Kit de UI (tokens cd-*): fuente de verdad de los diálogos de creación.
+// Se carga después de styles.css para que sus tokens ganen donde coincidan.
+import './claude-deck-ui.css'
 import '@xterm/xterm/css/xterm.css'
 
 // Aplicar el tema guardado antes del primer render para evitar flash.

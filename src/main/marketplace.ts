@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import { dialog } from 'electron'
-import type { ConfigScope, StoreResult } from '../shared/types'
+import type { ConfigScope, PluginManifest, StoreResult } from '../shared/types'
 import { backup, readJsonOr, writeJson } from './jsonEdit'
 
 /**
@@ -145,7 +145,61 @@ export async function importFromUrl(args: {
 
 // ---------- Plugins (CLI de Claude Code) ----------
 
-const PLUGIN_SUBCOMMANDS = new Set(['install', 'uninstall', 'enable', 'disable', 'list', 'marketplace'])
+const PLUGIN_SUBCOMMANDS = new Set([
+  'install',
+  'uninstall',
+  'enable',
+  'disable',
+  'list',
+  'details',
+  'marketplace'
+])
+
+/**
+ * Lee el manifiesto de un plugin local de Claude Code: .claude-plugin/plugin.json
+ * más el inventario real de commands/, agents/ y hooks/. Alimenta el bloque
+ * «ESTE PLUGIN APORTA» del diálogo de instalación.
+ */
+export function readLocalPluginManifest(dir: string): PluginManifest {
+  const empty: PluginManifest = { ok: false, commands: [], agents: [], hooks: [] }
+  try {
+    const manifestFile = join(dir, '.claude-plugin', 'plugin.json')
+    if (!existsSync(manifestFile)) {
+      return { ...empty, error: 'La carpeta no contiene .claude-plugin/plugin.json' }
+    }
+    const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'))
+    const mdNames = (sub: string): string[] => {
+      try {
+        return readdirSync(join(dir, sub))
+          .filter((f) => f.endsWith('.md'))
+          .map((f) => basename(f, '.md'))
+      } catch {
+        return []
+      }
+    }
+    const hooks: string[] = []
+    try {
+      const hooksFile = join(dir, 'hooks', 'hooks.json')
+      if (existsSync(hooksFile)) {
+        const parsed = JSON.parse(readFileSync(hooksFile, 'utf8'))
+        hooks.push(...Object.keys(parsed.hooks ?? parsed))
+      }
+    } catch {
+      hooks.push('hooks.json (ilegible)')
+    }
+    return {
+      ok: true,
+      name: String(manifest.name ?? basename(dir)),
+      version: manifest.version ? String(manifest.version) : undefined,
+      license: manifest.license ? String(manifest.license) : undefined,
+      commands: mdNames('commands'),
+      agents: mdNames('agents'),
+      hooks
+    }
+  } catch (err) {
+    return { ...empty, error: String(err) }
+  }
+}
 
 /**
  * Corre `claude plugin …` de forma headless y devuelve la salida. Solo se

@@ -7,6 +7,7 @@ import type {
   TabState
 } from '../../../shared/types'
 import { CreateDialog } from './CreateDialog'
+import { AgentDialog, CommandDialog, SkillDialog } from './CreateDialogs'
 import {
   IconBook,
   IconBot,
@@ -242,7 +243,8 @@ export function ConfigPanel(p: Props): React.JSX.Element {
                 <IconCommand size={13} /> Comandos
               </>,
               config.commands.length,
-              config.commands.map(itemRow)
+              config.commands.map(itemRow),
+              () => setCreating('command')
             )}
             {section(
               'skills',
@@ -296,9 +298,39 @@ export function ConfigPanel(p: Props): React.JSX.Element {
           <pre>{preview.content}</pre>
         </div>
       )}
-      {creating && (
+      {creating === 'hook' && (
         <CreateDialog
-          kind={creating}
+          kind="hook"
+          cwd={p.tab.cwd}
+          onClose={() => setCreating(null)}
+          onCreated={(cfg) => {
+            setConfig(cfg)
+            setCreating(null)
+          }}
+        />
+      )}
+      {creating === 'agent' && (
+        <AgentDialog
+          cwd={p.tab.cwd}
+          onClose={() => setCreating(null)}
+          onCreated={(cfg) => {
+            setConfig(cfg)
+            setCreating(null)
+          }}
+        />
+      )}
+      {creating === 'command' && (
+        <CommandDialog
+          cwd={p.tab.cwd}
+          onClose={() => setCreating(null)}
+          onCreated={(cfg) => {
+            setConfig(cfg)
+            setCreating(null)
+          }}
+        />
+      )}
+      {creating === 'skill' && (
+        <SkillDialog
           cwd={p.tab.cwd}
           onClose={() => setCreating(null)}
           onCreated={(cfg) => {

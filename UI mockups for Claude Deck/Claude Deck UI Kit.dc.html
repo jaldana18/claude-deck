@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e9e4d8;font-family:'Geist',system-ui,sans-serif;color:#2b2823}
+a{color:#b3541e}a:hover{color:#8f3f12}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes jiggle{0%,100%{transform:rotate(-.6deg)}50%{transform:rotate(.6deg)}}
+</style>
+</helmet>
+
+<div style="max-width:1150px;margin:0 auto;padding:40px 32px 80px">
+<h1 style="font:700 22px 'Geist',sans-serif;margin:0 0 6px">Claude Deck · UI Kit y especificación de componentes</h1>
+<p style="font-size:12.5px;color:#6d675c;max-width:760px;line-height:1.6;margin:0 0 8px">Fuente de verdad para implementación. Las clases citadas están en <span style="font-family:'JetBrains Mono',monospace;background:#f0ece2;padding:1px 6px;border-radius:4px">claude-deck-ui.css</span> (tokens en <span style="font-family:'JetBrains Mono',monospace;background:#f0ece2;padding:1px 6px;border-radius:4px">:root</span>, tema oscuro con <span style="font-family:'JetBrains Mono',monospace;background:#f0ece2;padding:1px 6px;border-radius:4px">[data-theme="dark"]</span>). Cada sección: ejemplo correcto + especificación + movimiento.</p>
+<p style="font-size:12px;color:#2b2823;background:#fbf4e2;border:1px solid rgba(217,161,59,.5);border-radius:8px;padding:10px 14px;max-width:760px;line-height:1.6"><b>Movimiento global:</b> duración 120–180&nbsp;ms, easing <span style="font-family:'JetBrains Mono',monospace;font-size:11px">cubic-bezier(.2,.8,.3,1)</span>. Nada supera 250&nbsp;ms salvo el «asentarse» del drag. Solo se animan <span style="font-family:'JetBrains Mono',monospace;font-size:11px">transform</span> y <span style="font-family:'JetBrains Mono',monospace;font-size:11px">opacity</span> (nunca width/height/top en listas largas). Respetar <span style="font-family:'JetBrains Mono',monospace;font-size:11px">prefers-reduced-motion</span>: sin pulso ni jiggle.</p>
+
+<!-- ============ TOKENS ============ -->
+<h2 style="font:700 15px 'Geist',sans-serif;margin:36px 0 12px;border-bottom:1px solid rgba(43,40,35,.12);padding-bottom:8px">1 · Tokens</h2>
+<div style="display:flex;gap:24px;flex-wrap:wrap">
+  <div style="flex:1;min-width:420px">
+    <div style="font:600 11px 'JetBrains Mono',monospace;color:#8a8375;margin-bottom:8px">TEMA CLARO</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font:10.5px 'JetBrains Mono',monospace">
+      <div><div style="height:40px;border-radius:6px;background:#f6f3ec;border:1px solid rgba(43,40,35,.14)"></div>--bg-app #f6f3ec</div>
+      <div><div style="height:40px;border-radius:6px;background:#f0ece2;border:1px solid rgba(43,40,35,.14)"></div>--bg-panel #f0ece2</div>
+      <div><div style="height:40px;border-radius:6px;background:#ebe6da;border:1px solid rgba(43,40,35,.14)"></div>--bg-bar #ebe6da</div>
+      <div><div style="height:40px;border-radius:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14)"></div>--bg-card #fdfcf9</div>
+      <div><div style="height:40px;border-radius:6px;background:#b3541e"></div>--accent #b3541e</div>
+      <div><div style="height:40px;border-radius:6px;background:#e8ddc9"></div>--accent-soft #e8ddc9</div>
+      <div><div style="height:40px;border-radius:6px;background:#2b2823"></div>--fg #2b2823</div>
+      <div><div style="height:40px;border-radius:6px;background:#211f1b"></div>--bg-code #211f1b</div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:420px">
+    <div style="font:600 11px 'JetBrains Mono',monospace;color:#8a8375;margin-bottom:8px">TEMA OSCURO</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font:10.5px 'JetBrains Mono',monospace">
+      <div><div style="height:40px;border-radius:6px;background:#1e1c19"></div>--bg-app #1e1c19</div>
+      <div><div style="height:40px;border-radius:6px;background:#242119"></div>--bg-panel #242119</div>
+      <div><div style="height:40px;border-radius:6px;background:#171512"></div>--bg-bar #171512</div>
+      <div><div style="height:40px;border-radius:6px;background:#1a1815"></div>--bg-card #1a1815</div>
+      <div><div style="height:40px;border-radius:6px;background:#e0955f"></div>--accent #e0955f</div>
+      <div><div style="height:40px;border-radius:6px;background:#3a2f22"></div>--accent-soft #3a2f22</div>
+      <div><div style="height:40px;border-radius:6px;background:#e8e4da"></div>--fg #e8e4da</div>
+      <div><div style="height:40px;border-radius:6px;background:#14120f"></div>--bg-term #14120f</div>
+    </div>
+  </div>
+</div>
+<div style="font-size:11.5px;color:#6d675c;line-height:1.7;margin-top:10px;max-width:860px">Tipografía: <b>Geist</b> para UI (base 13px, secundario 11–11.5px, títulos 13.5–15px peso 700) · <b>JetBrains Mono</b> para código, rutas, hashes, ids, costos y atajos. Estados de sesión: trabajando <span style="color:#4a7bd0">#4a7bd0</span> (pulso 1.4s), atención <span style="color:#b3822a">#d9a13b</span>, terminó <span style="color:#4a9b6f">#4a9b6f</span>, muerto <span style="color:#b03a2e">#b03a2e</span>, inactivo gris. Radios: tarjetas 8px, popovers 11px, botones 7px, chips 12px. <b>Prohibido:</b> azules/grises por defecto del framework, selects nativos sin estilo, fuentes distintas a las dos anteriores.</div>
+
+<!-- ============ CONTROLES ============ -->
+<h2 style="font:700 15px 'Geist',sans-serif;margin:36px 0 12px;border-bottom:1px solid rgba(43,40,35,.12);padding-bottom:8px">2 · Controles de formulario</h2>
+<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+  <div style="width:430px;background:#f6f3ec;border:1px solid rgba(43,40,35,.14);border-radius:10px;padding:18px">
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="padding:5px 14px;background:#b3541e;color:#fff;border-radius:7px;font:600 12px 'Geist',sans-serif">Primario</span>
+      <span style="padding:5px 14px;background:#2b2823;color:#f6f3ec;border-radius:7px;font:600 12px 'Geist',sans-serif">Confirmar</span>
+      <span style="padding:5px 14px;background:#fdfcf9;border:1px solid rgba(43,40,35,.22);border-radius:7px;font:500 12px 'Geist',sans-serif">Secundario</span>
+      <span style="padding:5px 14px;border:1px solid rgba(196,74,60,.4);border-radius:7px;font:600 12px 'Geist',sans-serif;color:#b03a2e">Denegar</span>
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:14px">
+      <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font:600 11px 'Geist',sans-serif">Read ✓</span>
+      <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font:600 11px 'Geist',sans-serif">Bash ✓</span>
+      <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.14);border-radius:12px;font:500 11px 'Geist',sans-serif;color:#6d675c">Edit</span>
+      <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.14);border-radius:12px;font:500 11px 'Geist',sans-serif;color:#6d675c">Write</span>
+    </div>
+    <div style="margin-bottom:11px"><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Nombre</div><div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font:12px 'JetBrains Mono',monospace">deploy-checker</div></div>
+    <div style="margin-bottom:11px"><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Input con foco</div><div style="background:#fdfcf9;border:1px solid #b3541e;border-radius:7px;padding:6px 10px;font:12.5px 'Geist',sans-serif;box-shadow:0 0 0 3px rgba(179,84,30,.14)">valor<span style="animation:pulse 1s infinite">▍</span></div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><span style="font:600 11.5px 'Geist',sans-serif">Toggle activo / inactivo</span>
+      <span style="display:flex;gap:10px"><span style="width:30px;height:17px;border-radius:9px;background:#b3541e;position:relative;display:inline-block"><span style="position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span>
+      <span style="width:30px;height:17px;border-radius:9px;background:rgba(43,40,35,.22);position:relative;display:inline-block"><span style="position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span></span>
+    </div>
+    <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Select estilizado (nunca nativo sin estilo)</div><div style="display:flex;align-items:center;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font:12.5px 'Geist',sans-serif">Usuario (~/.claude — todos los proyectos)<span style="margin-left:auto;font-size:9px;color:#8a8375">▾</span></div></div>
+  </div>
+  <div style="flex:1;min-width:380px;font-size:11.5px;color:#4d483f;line-height:1.75">
+    <b>Especificación.</b> Clases <span style="font-family:'JetBrains Mono',monospace">.cd-btn(--primary|--dark|--ghost|--danger), .cd-chip, .cd-input, .cd-select, .cd-textarea, .cd-toggle, .cd-label, .cd-field</span>. Labels 11.5px/600 encima del campo, ayuda 10.5px en <span style="font-family:'JetBrains Mono',monospace">--fg-3</span>. Campos monoespaciados (comandos, args, variables) usan <span style="font-family:'JetBrains Mono',monospace">.cd-input--mono</span>. Foco = borde acento + halo 3px al 14%; nunca el outline azul del navegador.<br>
+    <b>Movimiento.</b> Botones: hover <span style="font-family:'JetBrains Mono',monospace">brightness(.96)</span> 100ms, active <span style="font-family:'JetBrains Mono',monospace">scale(.985)</span>. Chips: fondo 100ms. Toggle: knob <span style="font-family:'JetBrains Mono',monospace">translateX</span> 150ms. Halo de foco aparece en 120ms.<br>
+    <b>No hacer:</b> botones azules del sistema, inputs de ancho completo sin <span style="font-family:'JetBrains Mono',monospace">box-sizing</span>, labels a la izquierda del campo (como en la Tienda actual) — siempre encima.
+  </div>
+</div>
+
+<!-- ============ WIDGET ============ -->
+<h2 style="font:700 15px 'Geist',sans-serif;margin:36px 0 12px;border-bottom:1px solid rgba(43,40,35,.12);padding-bottom:8px">3 · Widget acoplable — reposo vs. arrastre</h2>
+<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+  <div style="display:flex;gap:16px">
+    <div style="width:250px">
+      <div style="font:600 10px 'JetBrains Mono',monospace;color:#8a8375;margin-bottom:6px">REPOSO — sin bordes punteados</div>
+      <div style="background:#f0ece2;border:1px solid rgba(43,40,35,.14);border-radius:10px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;font:600 12px 'Geist',sans-serif;cursor:grab"><span style="color:#8a8375">⠿</span> Git · factura <span style="margin-left:auto;font:400 11px 'JetBrains Mono',monospace;color:#6d675c">main·3±</span><span style="color:#8a8375">×</span></div>
+        <div style="padding:0 12px 8px;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:6px;height:26px;font-size:11.5px;min-width:0"><span style="font-family:'JetBrains Mono',monospace;color:#b3541e">a41f2c</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">feat: G02-A10 → el QR es un BLOB y la cultura del dato</span><span style="font-size:9.5px;background:#e8ddc9;color:#b3541e;padding:1px 6px;border-radius:8px;flex:none">main</span></div>
+          <div style="display:flex;align-items:center;gap:6px;height:26px;font-size:11.5px;min-width:0;color:#4d483f"><span style="font-family:'JetBrains Mono',monospace;color:#6d675c">88c1d0</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">fix: G02-A10 → auditoría visual por píxeles del render</span></div>
+          <div style="display:flex;align-items:center;gap:6px;height:26px;font-size:11.5px;min-width:0;color:#4d483f"><span style="font-family:'JetBrains Mono',monospace;color:#6d675c">7302be</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">docs: alcance de la migración legacy</span></div>
+        </div>
+        <div style="height:8px;display:flex;justify-content:center;align-items:center;color:#c0b8a4;font-size:7px;letter-spacing:2px;cursor:ns-resize">———</div>
+      </div>
+    </div>
+    <div style="width:250px">
+      <div style="font:600 10px 'JetBrains Mono',monospace;color:#8a8375;margin-bottom:6px">DRAG ACTIVO — recién aparecen las zonas</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="border:2px dashed rgba(179,84,30,.55);border-radius:10px;background:rgba(179,84,30,.08);min-height:64px;display:flex;align-items:center;justify-content:center;font:600 11.5px 'Geist',sans-serif;color:#b3541e">soltar aquí</div>
+        <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.22);border-radius:10px;box-shadow:0 22px 44px rgba(43,40,35,.3);transform:rotate(2.5deg);padding-bottom:8px;cursor:grabbing">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;font:600 12px 'Geist',sans-serif"><span style="color:#b3541e">⠿</span> Git · factura</div>
+          <div style="padding:0 12px;font-size:11px;color:#6d675c">grafo de ramas · main</div>
+        </div>
+        <div style="background:#f0ece2;border:1px solid rgba(43,40,35,.14);border-radius:10px;padding:8px 12px;font:600 12px 'Geist',sans-serif;opacity:.9;animation:jiggle .35s infinite"><span style="color:#8a8375">⠿</span> Salud <span style="font:400 10px 'Geist',sans-serif;color:#8a8375">← reordenar: soltar encima</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:380px;font-size:11.5px;color:#4d483f;line-height:1.75">
+    <b>Especificación.</b> <span style="font-family:'JetBrains Mono',monospace">.cd-widget</span>: fondo <span style="font-family:'JetBrains Mono',monospace">--bg-panel</span>, borde <b>sólido</b> 1px, radio 10px. Cabecera 12px/600 con asa ⠿ (cursor grab) y ×; cuerpo con <span style="font-family:'JetBrains Mono',monospace">overflow-y:auto</span> y <span style="font-family:'JetBrains Mono',monospace">min-height:0</span> — <b>el contenido nunca desborda el widget</b> (el bug del listado git). Asa inferior 8px para redimensionar. <b>Los bordes punteados NO son decoración</b>: solo existen en <span style="font-family:'JetBrains Mono',monospace">.cd-dropzone</span>, ocultas por defecto y visibles únicamente con <span style="font-family:'JetBrains Mono',monospace">body.cd-drag-active</span>. Un dock en reposo se ve limpio, sin cajas punteadas vacías (el panel derecho de la captura está mal por esto).<br>
+    <b>Movimiento.</b> Al agarrar (150ms): el original baja a opacidad .35 y un ghost <span style="font-family:'JetBrains Mono',monospace">position:fixed</span> sigue el cursor con <span style="font-family:'JetBrains Mono',monospace">rotate(2.5deg)</span> + sombra grande. Dropzones hacen fade-in 120ms. Sobre una zona: fondo sube al 14% en 100ms. Al soltar: el ghost viaja a su hueco en 180ms <span style="font-family:'JetBrains Mono',monospace">cubic-bezier(.2,.8,.3,1)</span> y aterriza con <span style="font-family:'JetBrains Mono',monospace">scale(1.02→1)</span>. Reordenar: el widget objetivo hace jiggle ±0.6° (350ms loop) solo mientras el ghost está encima. Redimensionar: sin transición, sigue al cursor.
+  </div>
+</div>
+
+<!-- ============ LISTAS ============ -->
+<h2 style="font:700 15px 'Geist',sans-serif;margin:36px 0 12px;border-bottom:1px solid rgba(43,40,35,.12);padding-bottom:8px">4 · Listas (git, sesiones, artefactos, resultados)</h2>
+<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+  <div style="width:430px;display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;align-items:center;gap:7px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:6px 9px;font-size:11.5px;min-width:0"><span style="width:7px;height:7px;border-radius:50%;background:#4a9b6f;flex:none"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Sesión: refactor del parser de facturas y cobertura e2e</span><span style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375;flex:none">ayer 18:40</span></div>
+    <div style="display:flex;align-items:center;gap:7px;background:#f0ece2;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:6px 9px;font-size:11.5px;min-width:0"><span style="width:7px;height:7px;border-radius:50%;background:#8a8375;flex:none"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">Sesión: migración legacy — hover</span><span style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375;flex:none">lun 09:12</span></div>
+    <div style="display:flex;align-items:center;gap:7px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:6px 9px;font-size:11.5px;min-width:0"><span style="font-weight:600;flex:none">code-reviewer</span><span style="font-size:9.5px;background:#e8ddc9;color:#b3541e;padding:1px 6px;border-radius:8px;flex:none">proyecto</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6d675c">Revisa diffs antes de cada commit</span><span style="width:28px;height:16px;border-radius:8px;background:#b3541e;position:relative;flex:none"><span style="position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff"></span></span></div>
+    <div style="align-self:center;font-size:11px;color:#8a8375;background:#ebe6da;padding:3px 12px;border-radius:20px;margin-top:2px">↑ cargar anteriores</div>
+  </div>
+  <div style="flex:1;min-width:380px;font-size:11.5px;color:#4d483f;line-height:1.75">
+    <b>Especificación.</b> Dos patrones: filas planas <span style="font-family:'JetBrains Mono',monospace">.cd-row</span> (altura fija 26px, dentro de widgets) y tarjetas <span style="font-family:'JetBrains Mono',monospace">.cd-listcard</span> (sesiones, artefactos, resultados de búsqueda). Siempre <span style="font-family:'JetBrains Mono',monospace">display:flex; gap; min-width:0</span> y el texto principal con <span style="font-family:'JetBrains Mono',monospace">ellipsis</span> — <b>nunca envuelve a 2+ líneas dentro de un widget ni se sale del contenedor</b>. Metadatos (fechas, hashes, contadores) en JetBrains Mono 10.5px a la derecha, con <span style="font-family:'JetBrains Mono',monospace">flex:none</span>. Contenedor con scroll interno + «cargar anteriores» como pill centrada; virtualizar por ventana (~60) como ya hace el chat.<br>
+    <b>Movimiento.</b> Hover: fondo <span style="font-family:'JetBrains Mono',monospace">--bg-panel</span> en 100ms, sin mover la fila. Ítems nuevos: fade-in 140ms con stagger 30ms (máx. 8). Al restaurar sesión: la fila pulsa una vez con <span style="font-family:'JetBrains Mono',monospace">--accent-soft</span> 300ms.
+  </div>
+</div>
+
+<!-- ============ TIENDA ============ -->
+<h2 style="font:700 15px 'Geist',sans-serif;margin:36px 0 12px;border-bottom:1px solid rgba(43,40,35,.12);padding-bottom:8px">5 · Tienda (modal)</h2>
+<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+  <div style="width:560px;background:rgba(43,40,35,.35);border-radius:12px;padding:26px">
+    <div style="background:#f6f3ec;border-radius:12px;box-shadow:0 24px 60px rgba(43,40,35,.4);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px 0"><span style="font:700 14px 'Geist',sans-serif">🛍 Tienda</span><div style="flex:1"></div><span style="width:24px;height:24px;border:1px solid rgba(43,40,35,.18);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#6d675c;font-size:12px">×</span></div>
+      <div style="display:flex;align-items:center;gap:4px;padding:10px 18px;border-bottom:1px solid rgba(43,40,35,.12)">
+        <span style="padding:4px 12px;background:#e8ddc9;color:#b3541e;border-radius:12px;font:600 11.5px 'Geist',sans-serif">Servidores MCP</span>
+        <span style="padding:4px 12px;color:#6d675c;font:500 11.5px 'Geist',sans-serif">Agentes</span>
+        <span style="padding:4px 12px;color:#6d675c;font:500 11.5px 'Geist',sans-serif">Skills</span>
+        <span style="padding:4px 12px;color:#6d675c;font:500 11.5px 'Geist',sans-serif">Plugins</span>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:4px 10px;font-size:11.5px;color:#8a8375;width:150px">⌕ Buscar…</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 18px 0;font-size:11.5px"><span style="color:#6d675c;font-weight:600">Instalar en</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:4px 10px">Usuario · todos los proyectos<span style="font-size:9px;color:#8a8375">▾</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 18px 16px">
+        <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:9px;padding:11px 12px">
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:28px;height:28px;border-radius:7px;background:#e3ddcd;display:flex;align-items:center;justify-content:center;font-size:14px">🗂</span><div style="min-width:0"><div style="font:600 12.5px 'Geist',sans-serif">filesystem</div><div style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375">Anthropic · <span style="color:#4a9b6f">verificado</span></div></div><span style="margin-left:auto;padding:3px 12px;background:#b3541e;color:#fff;border-radius:6px;font:700 11px 'Geist',sans-serif;flex:none">Instalar</span></div>
+          <div style="font-size:11px;color:#6d675c;margin-top:7px;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">Acceso a archivos de carpetas específicas</div>
+        </div>
+        <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:9px;padding:11px 12px">
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:28px;height:28px;border-radius:7px;background:#e3ddcd;display:flex;align-items:center;justify-content:center;font-size:14px">🎭</span><div style="min-width:0"><div style="font:600 12.5px 'Geist',sans-serif">playwright</div><div style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375">Microsoft</div></div><span style="margin-left:auto;padding:3px 12px;border:1px solid rgba(43,40,35,.2);color:#6d675c;border-radius:6px;font:600 11px 'Geist',sans-serif;flex:none">Instalado ✓</span></div>
+          <div style="font-size:11px;color:#6d675c;margin-top:7px;line-height:1.5">Automatización de navegador: abrir, clic, capturas</div>
+        </div>
+        <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:9px;padding:11px 12px">
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:28px;height:28px;border-radius:7px;background:#e3ddcd;display:flex;align-items:center;justify-content:center;font-size:14px">☁</span><div style="min-width:0"><div style="font:600 12.5px 'Geist',sans-serif">azure-devops</div><div style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375">Microsoft</div></div><span style="margin-left:auto;padding:3px 12px;background:#b3541e;color:#fff;border-radius:6px;font:700 11px 'Geist',sans-serif;flex:none">Instalar</span></div>
+          <div style="font-size:11px;color:#6d675c;margin-top:7px;line-height:1.5">Work items, repos, pipelines y wikis</div>
+        </div>
+        <div style="border:1.5px dashed rgba(179,84,30,.45);border-radius:9px;padding:11px 12px;display:flex;align-items:center;justify-content:center;font:600 12px 'Geist',sans-serif;color:#b3541e">+ Agregar servidor manual</div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:380px;font-size:11.5px;color:#4d483f;line-height:1.75">
+    <b>Especificación.</b> Modal 640–720px sobre overlay <span style="font-family:'JetBrains Mono',monospace">rgba(43,40,35,.35)</span>. Cabecera: título + cerrar. Tabs como chips (no subrayado tipo browser). «Instalar en» es un select estilizado en la barra superior, no un banner gris. Catálogo en grid de 2 tarjetas <span style="font-family:'JetBrains Mono',monospace">.cd-card</span> con icono 28px, nombre 12.5/600, autor+verificado en mono 10.5, descripción máx. 2 líneas (line-clamp), y botón de acción a la derecha (<b>Instalar</b> primario / <b>Instalado ✓</b> ghost deshabilitado). «Agregar servidor manual» es la última celda punteada que <b>expande un formulario dentro del modal</b> (labels encima, campos mono para comando/args/variables, botón primario habilitado solo con nombre+comando válidos) — no un formulario siempre visible debajo del catálogo.<br>
+    <b>Movimiento.</b> Abrir: overlay fade 150ms + panel <span style="font-family:'JetBrains Mono',monospace">scale(.98→1)</span> y opacidad 150ms. Cambiar tab: crossfade 120ms del grid, sin saltos de altura (altura fija con scroll interno). Expandir formulario: 180ms ease-out. Al instalar: botón pasa a spinner 3 puntos → «Instalado ✓» con un pop <span style="font-family:'JetBrains Mono',monospace">scale(1.06→1)</span> 200ms.
+  </div>
+</div>
+
+<!-- ============ CONFIGURACIÓN ============ -->
+<h2 style="font:700 15px 'Geist',sans-serif;margin:36px 0 12px;border-bottom:1px solid rgba(43,40,35,.12);padding-bottom:8px">6 · Panel de configuración (lateral)</h2>
+<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+  <div style="width:340px;background:#f0ece2;border:1px solid rgba(43,40,35,.14);border-radius:10px;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px 8px"><span style="font:700 13.5px 'Geist',sans-serif">Configuración del proyecto</span><div style="flex:1"></div><span style="color:#6d675c;font-size:12px">⟳</span><span style="color:#6d675c;font-size:12px">×</span></div>
+    <div style="padding:0 16px 8px;font-size:10.5px;color:#8a8375;line-height:1.5">Los cambios aplican a sesiones nuevas.</div>
+    <div style="padding:0 12px 14px;display:flex;flex-direction:column;gap:7px">
+      <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:8px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 11px;font:600 12px 'Geist',sans-serif"><span style="color:#8a8375;font-size:9px">▾</span> Agentes <span style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375">2</span><span style="margin-left:auto;font:600 11px 'Geist',sans-serif;color:#b3541e">+ Nuevo</span></div>
+        <div style="border-top:1px solid rgba(43,40,35,.08);padding:6px 11px;display:flex;align-items:center;gap:7px;font-size:11.5px;min-width:0"><span style="font-weight:600;flex:none">code-reviewer</span><span style="font-size:9.5px;background:#e8ddc9;color:#b3541e;padding:1px 6px;border-radius:8px;flex:none">proyecto</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6d675c">Revisa diffs</span><span style="width:28px;height:16px;border-radius:8px;background:#b3541e;position:relative;flex:none"><span style="position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff"></span></span></div>
+        <div style="border-top:1px solid rgba(43,40,35,.08);padding:6px 11px;display:flex;align-items:center;gap:7px;font-size:11.5px;min-width:0;opacity:.55"><span style="font-weight:600;flex:none">docs-agent</span><span style="font-size:9.5px;background:#ebe6da;padding:1px 6px;border-radius:8px;flex:none">usuario</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6d675c">Desactivado</span><span style="width:28px;height:16px;border-radius:8px;background:rgba(43,40,35,.22);position:relative;flex:none"><span style="position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff"></span></span></div>
+      </div>
+      <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:8px;padding:8px 11px;display:flex;align-items:center;gap:8px;font:600 12px 'Geist',sans-serif"><span style="color:#8a8375;font-size:9px">▸</span> ›_ Comandos <span style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375">0</span><span style="margin-left:auto;font:600 11px 'Geist',sans-serif;color:#b3541e">+ Nuevo</span></div>
+      <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:8px;padding:8px 11px;display:flex;align-items:center;gap:8px;font:600 12px 'Geist',sans-serif"><span style="color:#8a8375;font-size:9px">▸</span> ⛨ Hooks <span style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375">4</span><span style="margin-left:auto;font:600 11px 'Geist',sans-serif;color:#b3541e">+ Nuevo</span></div>
+      <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:8px;padding:8px 11px;display:flex;align-items:center;gap:8px;font:600 12px 'Geist',sans-serif"><span style="color:#8a8375;font-size:9px">▸</span> ⚙ MCP servers <span style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375">1</span></div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:380px;font-size:11.5px;color:#4d483f;line-height:1.75">
+    <b>Especificación.</b> Panel lateral 340–380px, fondo <span style="font-family:'JetBrains Mono',monospace">--bg-panel</span>. Cada categoría es una tarjeta acordeón <span style="font-family:'JetBrains Mono',monospace">.cd-card</span> con: chevron, icono, nombre, contador en mono (no «(0)» entre paréntesis), y «+ Nuevo» en acento a la derecha. Ítems expandidos = filas <span style="font-family:'JetBrains Mono',monospace">.cd-listcard</span> dentro de la tarjeta con badge de origen y toggle; desactivados a opacidad .55. Hover en fila = vista previa en popover <span style="font-family:'JetBrains Mono',monospace">.cd-pop</span> a la izquierda tras 400ms. Nada de listas planas flotando en fondo vacío (captura actual): todo vive en tarjetas.<br>
+    <b>Movimiento.</b> Panel entra desde la derecha <span style="font-family:'JetBrains Mono',monospace">translateX(16px→0)</span> + fade 180ms. Acordeón: chevron rota 90° y el contenido despliega 160ms ease-out. Toggle igual que §2. Preview popover: fade+scale(.97→1) 140ms.
+  </div>
+</div>
+
+<!-- ============ TERMINAL ============ -->
+<h2 style="font:700 15px 'Geist',sans-serif;margin:36px 0 12px;border-bottom:1px solid rgba(43,40,35,.12);padding-bottom:8px">7 · Terminal inferior — sigue el tema + selector de shell</h2>
+<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+  <div style="width:560px;display:flex;flex-direction:column;gap:12px">
+    <div style="border:1px solid rgba(43,40,35,.14);border-radius:9px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:11px;background:#e3ddcd;border-bottom:1px solid rgba(43,40,35,.12)">
+        <span style="font:600 11px 'JetBrains Mono',monospace;color:#4d483f">›_ TERMINAL</span>
+        <span style="display:flex;align-items:center;gap:5px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:5px;padding:2px 8px;font:600 10.5px 'JetBrains Mono',monospace">PowerShell ▾</span>
+        <span style="font:10px 'JetBrains Mono',monospace;color:#8a8375">CMD · Bash (WSL)</span>
+        <div style="flex:1"></div>
+        <span style="display:flex;align-items:center;gap:5px;background:#fdfcf9;border-radius:5px;padding:2px 8px;font:600 10.5px 'JetBrains Mono',monospace;color:#2b2823">›_ factura <span style="width:6px;height:6px;border-radius:50%;background:#4a7bd0;animation:pulse 1.4s infinite;display:inline-block"></span></span>
+        <span style="font:10.5px 'JetBrains Mono',monospace;color:#8a8375">›_ api</span>
+        <span style="color:#8a8375">+ ◫ ▾</span>
+      </div>
+      <div style="background:#ebe6da;color:#3d3931;font:11.5px/1.65 'JetBrains Mono',monospace;padding:8px 14px"><span style="color:#3f7a54">PS C:\Users\jaldana\trabajo\factura&gt;</span> npm test<br><span style="color:#6d675c">Tests 24 passed (24)</span><span style="animation:pulse 1s infinite">▍</span></div>
+      <div style="padding:3px 12px;font:10px 'JetBrains Mono',monospace;color:#8a8375;background:#e3ddcd">TEMA CLARO — la terminal usa --bg-term claro</div>
+    </div>
+    <div style="border:1px solid rgba(255,255,255,.14);border-radius:9px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:11px;background:#171512;border-bottom:1px solid rgba(255,255,255,.08)">
+        <span style="font:600 11px 'JetBrains Mono',monospace;color:#a8a294">›_ TERMINAL</span>
+        <span style="display:flex;align-items:center;gap:5px;background:#1a1815;border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:2px 8px;font:600 10.5px 'JetBrains Mono',monospace;color:#e8e4da">Bash (WSL) ▾</span>
+        <div style="flex:1"></div>
+        <span style="color:#8f887a">+ ◫ ▾</span>
+      </div>
+      <div style="background:#14120f;color:#cfcabd;font:11.5px/1.65 'JetBrains Mono',monospace;padding:8px 14px"><span style="color:#7cb98a">jaldana@deck:~/trabajo/factura$</span> git status<span style="animation:pulse 1s infinite">▍</span></div>
+      <div style="padding:3px 12px;font:10px 'JetBrains Mono',monospace;color:#8f887a;background:#171512">TEMA OSCURO — misma estructura</div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:380px;font-size:11.5px;color:#4d483f;line-height:1.75">
+    <b>Especificación.</b> <span style="font-family:'JetBrains Mono',monospace">.cd-term</span> usa <span style="font-family:'JetBrains Mono',monospace">--bg-term/--fg-term</span>: claro <span style="font-family:'JetBrains Mono',monospace">#ebe6da/#3d3931</span>, oscuro <span style="font-family:'JetBrains Mono',monospace">#14120f/#cfcabd</span> — <b>sigue el tema del sistema</b>; solo los bloques de código del chat quedan siempre en <span style="font-family:'JetBrains Mono',monospace">--bg-code</span>. Barra: título, <b>selector de shell por pestaña</b> (<span style="font-family:'JetBrains Mono',monospace">.cd-shell-select</span>: PowerShell default, CMD, Bash/WSL si se detecta; persistir elección por proyecto; cada split puede tener shell distinto), pestañas de terminal una por conversación con su punto de estado, y acciones + ◫ ▾ a la derecha. Prompt PS en verde del tema.<br>
+    <b>Movimiento.</b> Colapsar/expandir (Ctrl+`): altura 180ms ease-out, el contenido no re-fluye (el chat se recorta por abajo). Cambio de pestaña de terminal: crossfade 100ms. Cursor ▍ pulso 1s. Nueva salida con panel colapsado: la pestaña de la barra pulsa el punto de estado.
+  </div>
+</div>
+
+<h2 style="font:700 15px 'Geist',sans-serif;margin:36px 0 12px;border-bottom:1px solid rgba(43,40,35,.12);padding-bottom:8px">8 · Formularios de creación — Agente · Comando · Skill · Plugin</h2>
+<p style="font-size:11.5px;color:#4d483f;line-height:1.7;max-width:860px;margin:0 0 16px"><b>Anatomía común (diálogo modal 520px):</b> cabecera con icono + título + select de alcance (Usuario / Proyecto) a la derecha · cuerpo con scroll interno, labels 11.5/600 encima de cada campo · tarjeta de <b>validación IA</b> que aparece al guardar si hay avisos · pie fijo con Cancelar (ghost) + acción primaria, deshabilitada hasta que los campos obligatorios son válidos. Abrir: overlay fade 150ms + scale(.98→1). Validación IA: la tarjeta despliega 180ms ease-out y hace un shake sutil ±3px 250ms si hay errores bloqueantes. «Aplicar versión mejorada» reemplaza los campos con un flash <span style="font-family:'JetBrains Mono',monospace">--accent-soft</span> 300ms por campo, escalonado 60ms.</p>
+<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+
+  <!-- FORM: AGENTE -->
+  <div style="width:520px;background:#f6f3ec;border:1px solid rgba(43,40,35,.15);border-radius:12px;box-shadow:0 14px 40px rgba(43,40,35,.16);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:9px;padding:13px 18px;border-bottom:1px solid rgba(43,40,35,.1)">
+      <span style="font-size:14px">🤖</span><span style="font:700 13.5px 'Geist',sans-serif">Nuevo agente</span>
+      <div style="flex:1"></div>
+      <span style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:4px 10px;font-size:11.5px">Proyecto <span style="font-size:9px;color:#8a8375">▾</span></span>
+      <span style="color:#6d675c;font-size:13px">×</span>
+    </div>
+    <div style="padding:14px 18px;display:flex;flex-direction:column;gap:11px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Nombre <span style="color:#b03a2e">*</span></div><div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font:12px 'JetBrains Mono',monospace">deploy-checker</div><div style="font-size:10px;color:#8a8375;margin-top:3px">kebab-case, sin espacios</div></div>
+        <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Modelo</div><div style="display:flex;align-items:center;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font-size:12px">haiku-4 · rápido<span style="margin-left:auto;font-size:9px;color:#8a8375">▾</span></div><div style="font-size:10px;color:#8a8375;margin-top:3px">heredar · haiku · sonnet · opus</div></div>
+      </div>
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Descripción <span style="color:#b03a2e">*</span></div><div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font-size:12px;color:#3d3931">Verifica que el build y los checks pasen antes de un deploy</div><div style="font-size:10px;color:#8a8375;margin-top:3px">Claude la usa para decidir cuándo delegarle trabajo</div></div>
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Herramientas permitidas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font:600 11px 'Geist',sans-serif">Read ✓</span>
+          <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font:600 11px 'Geist',sans-serif">Grep ✓</span>
+          <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font:600 11px 'Geist',sans-serif">Bash ✓</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.14);border-radius:12px;font:500 11px 'Geist',sans-serif;color:#6d675c">Edit</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.14);border-radius:12px;font:500 11px 'Geist',sans-serif;color:#6d675c">Write</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.14);border-radius:12px;font:500 11px 'Geist',sans-serif;color:#6d675c">WebFetch</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.14);border-radius:12px;font:500 11px 'Geist',sans-serif;color:#6d675c">Task</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;margin-top:7px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:5px 10px;font:11px 'JetBrains Mono',monospace;color:#6d675c">Bash: <span style="color:#2b2823">npm run build, npm test, gh pr checks</span></div>
+        <div style="font-size:10px;color:#8a8375;margin-top:3px">con Bash activo, lista blanca de comandos (recomendado)</div>
+      </div>
+      <div><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><span style="font:600 11.5px 'Geist',sans-serif">Prompt de sistema <span style="color:#b03a2e">*</span></span><span style="margin-left:auto;font-size:10px;color:#b3541e;font-weight:600">✦ Generar borrador con IA</span></div>
+        <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:8px 10px;font:11.5px/1.6 'JetBrains Mono',monospace;color:#3d3931;height:64px;overflow:hidden">Eres un verificador de deploys. Ejecuta build y tests, revisa los checks del PR y responde APTO o NO APTO con la lista de fallos. Termina cuando…</div>
+      </div>
+      <div style="border:1px solid rgba(217,161,59,.5);background:#fbf4e2;border-radius:8px;padding:10px 12px">
+        <div style="display:flex;align-items:center;gap:7px;font:700 11.5px 'Geist',sans-serif;color:#8a6d3b;margin-bottom:5px">⚠ Validación IA · 1 aviso · 1 sugerencia</div>
+        <div style="font-size:11px;color:#5c5546;line-height:1.55">· <b>Aviso:</b> el prompt no define límite de turnos → puede iterar de más.<br>· <b>Sugerencia:</b> añade el formato exacto de salida (APTO/NO APTO + JSON).</div>
+        <div style="display:flex;gap:8px;margin-top:8px"><span style="padding:4px 12px;background:#b3541e;color:#fff;border-radius:6px;font:600 11px 'Geist',sans-serif">Aplicar versión mejorada</span><span style="padding:4px 12px;border:1px solid rgba(43,40,35,.2);border-radius:6px;font:500 11px 'Geist',sans-serif;color:#6d675c">Ignorar y guardar</span></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid rgba(43,40,35,.1)">
+      <span style="font-size:10.5px;color:#8a8375;font-family:'JetBrains Mono',monospace">.claude/agents/deploy-checker.md</span>
+      <div style="flex:1"></div>
+      <span style="padding:5px 14px;border:1px solid rgba(43,40,35,.2);border-radius:7px;font:500 12px 'Geist',sans-serif">Cancelar</span>
+      <span style="padding:5px 14px;background:#2b2823;color:#f6f3ec;border-radius:7px;font:600 12px 'Geist',sans-serif">Guardar agente</span>
+    </div>
+  </div>
+
+  <!-- FORM: COMANDO -->
+  <div style="width:520px;background:#f6f3ec;border:1px solid rgba(43,40,35,.15);border-radius:12px;box-shadow:0 14px 40px rgba(43,40,35,.16);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:9px;padding:13px 18px;border-bottom:1px solid rgba(43,40,35,.1)">
+      <span style="font-size:14px">›_</span><span style="font:700 13.5px 'Geist',sans-serif">Nuevo comando</span>
+      <div style="flex:1"></div>
+      <span style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:4px 10px;font-size:11.5px">Usuario <span style="font-size:9px;color:#8a8375">▾</span></span>
+      <span style="color:#6d675c;font-size:13px">×</span>
+    </div>
+    <div style="padding:14px 18px;display:flex;flex-direction:column;gap:11px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Nombre <span style="color:#b03a2e">*</span></div><div style="display:flex;align-items:center;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font:12px 'JetBrains Mono',monospace"><span style="color:#8a8375">/</span>release</div></div>
+        <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Argumentos</div><div style="display:flex;align-items:center;gap:6px"><span style="width:30px;height:17px;border-radius:9px;background:#b3541e;position:relative;flex:none"><span style="position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span><span style="font:11px 'JetBrains Mono',monospace;color:#6d675c">$ARGUMENTS</span></div></div>
+      </div>
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Descripción</div><div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font-size:12px;color:#3d3931">Prepara changelog y bump de versión</div><div style="font-size:10px;color:#8a8375;margin-top:3px">se muestra en el menú de autocompletado «/»</div></div>
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Plantilla del prompt <span style="color:#b03a2e">*</span></div>
+        <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:8px 10px;font:11.5px/1.6 'JetBrains Mono',monospace;color:#3d3931;height:82px;overflow:hidden">Revisa los commits desde la última etiqueta.<br>Genera CHANGELOG.md agrupado por tipo.<br>Sube la versión <span style="background:#e8ddc9;color:#b3541e;border-radius:3px;padding:0 3px">$ARGUMENTS</span> en package.json.</div>
+        <div style="font-size:10px;color:#8a8375;margin-top:3px"><span style="font-family:'JetBrains Mono',monospace">$ARGUMENTS</span> se resalta en acento dentro del editor</div>
+      </div>
+      <div style="background:#f0ece2;border:1px solid rgba(43,40,35,.1);border-radius:8px;padding:9px 12px">
+        <div style="font:600 10px 'JetBrains Mono',monospace;color:#8a8375;margin-bottom:5px">VISTA PREVIA EN EL COMPOSER</div>
+        <div style="display:flex;align-items:center;gap:9px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:6px;padding:6px 10px;font-size:12px"><span style="font:600 12px 'JetBrains Mono',monospace;color:#b3541e">/release</span><span style="color:#6d675c">Prepara changelog y bump de versión</span><span style="margin-left:auto;font-size:9.5px;background:#ebe6da;padding:1px 6px;border-radius:8px">usuario</span></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid rgba(43,40,35,.1)">
+      <span style="font-size:10.5px;color:#8a8375;font-family:'JetBrains Mono',monospace">~/.claude/commands/release.md</span>
+      <div style="flex:1"></div>
+      <span style="padding:5px 14px;border:1px solid rgba(43,40,35,.2);border-radius:7px;font:500 12px 'Geist',sans-serif">Cancelar</span>
+      <span style="padding:5px 14px;background:#2b2823;color:#f6f3ec;border-radius:7px;font:600 12px 'Geist',sans-serif">Guardar comando</span>
+    </div>
+  </div>
+
+  <!-- FORM: SKILL -->
+  <div style="width:520px;background:#f6f3ec;border:1px solid rgba(43,40,35,.15);border-radius:12px;box-shadow:0 14px 40px rgba(43,40,35,.16);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:9px;padding:13px 18px;border-bottom:1px solid rgba(43,40,35,.1)">
+      <span style="font-size:14px">◆</span><span style="font:700 13.5px 'Geist',sans-serif">Nueva skill</span>
+      <div style="flex:1"></div>
+      <span style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:4px 10px;font-size:11.5px">Proyecto <span style="font-size:9px;color:#8a8375">▾</span></span>
+      <span style="color:#6d675c;font-size:13px">×</span>
+    </div>
+    <div style="padding:14px 18px;display:flex;flex-direction:column;gap:11px">
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Nombre <span style="color:#b03a2e">*</span></div><div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font:12px 'JetBrains Mono',monospace">factura-electronica</div></div>
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Cuándo se activa <span style="color:#b03a2e">*</span></div><div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font-size:12px;color:#3d3931">Cuando el usuario trabaje con XML de facturación, validación DIAN o plantillas fiscales</div><div style="font-size:10px;color:#8a8375;margin-top:3px">la descripción decide si Claude carga la skill — sé específico</div></div>
+      <div><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><span style="font:600 11.5px 'Geist',sans-serif">Contenido (SKILL.md) <span style="color:#b03a2e">*</span></span><span style="margin-left:auto;font-size:10px;color:#b3541e;font-weight:600">✦ Generar borrador con IA</span></div>
+        <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:8px 10px;font:11.5px/1.6 'JetBrains Mono',monospace;color:#3d3931;height:74px;overflow:hidden"># Facturación electrónica<br>## Estructura del XML<br>Las claves del AdditionalInfo se normalizan según…</div>
+      </div>
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Archivos adjuntos</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;align-items:center;gap:7px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 9px;font:11px 'JetBrains Mono',monospace"><span>📄</span>esquema-dian.xsd<span style="margin-left:auto;color:#8a8375">×</span></div>
+          <div style="display:flex;align-items:center;gap:7px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 9px;font:11px 'JetBrains Mono',monospace"><span>📄</span>claves-normalizadas.csv<span style="margin-left:auto;color:#8a8375">×</span></div>
+          <div style="border:1.5px dashed rgba(179,84,30,.4);border-radius:6px;padding:6px;text-align:center;font:600 11px 'Geist',sans-serif;color:#b3541e">+ arrastrar o elegir archivos</div>
+        </div>
+        <div style="font-size:10px;color:#8a8375;margin-top:3px">se copian a la carpeta de la skill; referéncialos desde el markdown</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid rgba(43,40,35,.1)">
+      <span style="font-size:10.5px;color:#8a8375;font-family:'JetBrains Mono',monospace">.claude/skills/factura-electronica/</span>
+      <div style="flex:1"></div>
+      <span style="padding:5px 14px;border:1px solid rgba(43,40,35,.2);border-radius:7px;font:500 12px 'Geist',sans-serif">Cancelar</span>
+      <span style="padding:5px 14px;background:#2b2823;color:#f6f3ec;border-radius:7px;font:600 12px 'Geist',sans-serif">Guardar skill</span>
+    </div>
+  </div>
+
+  <!-- FORM: PLUGIN -->
+  <div style="width:520px;background:#f6f3ec;border:1px solid rgba(43,40,35,.15);border-radius:12px;box-shadow:0 14px 40px rgba(43,40,35,.16);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:9px;padding:13px 18px;border-bottom:1px solid rgba(43,40,35,.1)">
+      <span style="font-size:14px">⬡</span><span style="font:700 13.5px 'Geist',sans-serif">Instalar plugin</span>
+      <div style="flex:1"></div>
+      <span style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:4px 10px;font-size:11.5px">Usuario <span style="font-size:9px;color:#8a8375">▾</span></span>
+      <span style="color:#6d675c;font-size:13px">×</span>
+    </div>
+    <div style="padding:14px 18px;display:flex;flex-direction:column;gap:11px">
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Fuente</div>
+        <div style="display:flex;gap:5px;margin-bottom:7px">
+          <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font:600 11px 'Geist',sans-serif">Marketplace</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.14);border-radius:12px;font:500 11px 'Geist',sans-serif;color:#6d675c">Repo git</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.14);border-radius:12px;font:500 11px 'Geist',sans-serif;color:#6d675c">Carpeta local</span>
+        </div>
+        <div style="display:flex;align-items:center;background:#fdfcf9;border:1px solid rgba(43,40,35,.14);border-radius:7px;padding:6px 10px;font:12px 'JetBrains Mono',monospace">anthropics/claude-code-plugins → pr-review<span style="margin-left:auto;font-size:9px;color:#8a8375">▾</span></div>
+      </div>
+      <div style="background:#f0ece2;border:1px solid rgba(43,40,35,.1);border-radius:8px;padding:10px 12px">
+        <div style="font:600 10px 'JetBrains Mono',monospace;color:#8a8375;margin-bottom:6px">ESTE PLUGIN APORTA</div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:11.5px">
+          <div style="display:flex;align-items:center;gap:7px"><span>›_</span>2 comandos: <span style="font-family:'JetBrains Mono',monospace;color:#b3541e">/pr-review · /pr-summary</span></div>
+          <div style="display:flex;align-items:center;gap:7px"><span>🤖</span>1 agente: <span style="font-family:'JetBrains Mono',monospace">style-checker</span></div>
+          <div style="display:flex;align-items:center;gap:7px"><span>⛨</span>1 hook: <span style="font-family:'JetBrains Mono',monospace">pre-commit</span> <span style="font-size:9.5px;background:#fbf4e2;border:1px solid rgba(217,161,59,.5);color:#8a6d3b;padding:1px 6px;border-radius:8px">requiere revisión</span></div>
+        </div>
+      </div>
+      <div><div style="font:600 11.5px 'Geist',sans-serif;margin-bottom:4px">Permisos</div>
+        <div style="display:flex;flex-direction:column;gap:5px;font-size:11.5px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:30px;height:17px;border-radius:9px;background:#b3541e;position:relative;flex:none"><span style="position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span>Activar sus comandos y agentes</div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:30px;height:17px;border-radius:9px;background:rgba(43,40,35,.22);position:relative;flex:none"><span style="position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span>Ejecutar sus hooks automáticamente <span style="font-size:10px;color:#8a8375">(revisar primero)</span></div>
+        </div>
+      </div>
+      <div style="border:1px solid rgba(217,161,59,.5);background:#fbf4e2;border-radius:8px;padding:9px 12px;font-size:11px;color:#5c5546;line-height:1.55"><b style="color:#8a6d3b">⚠ Revisión de seguridad IA:</b> el hook pre-commit ejecuta un script externo. Revisa su contenido antes de activarlo.</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid rgba(43,40,35,.1)">
+      <span style="font-size:10.5px;color:#8a8375;font-family:'JetBrains Mono',monospace">v1.3.0 · MIT · 2,1k instalaciones</span>
+      <div style="flex:1"></div>
+      <span style="padding:5px 14px;border:1px solid rgba(43,40,35,.2);border-radius:7px;font:500 12px 'Geist',sans-serif">Cancelar</span>
+      <span style="padding:5px 14px;background:#b3541e;color:#fff;border-radius:7px;font:600 12px 'Geist',sans-serif">Instalar plugin</span>
+    </div>
+  </div>
+</div>
+
+<div style="font-size:11.5px;color:#4d483f;line-height:1.75;max-width:1060px;margin-top:18px">
+<b>Especificación común.</b> Todos los diálogos comparten: ancho 520px, radio 12px, sombra <span style="font-family:'JetBrains Mono',monospace">0 14px 40px rgba(43,40,35,.16)</span>; alcance (Usuario/Proyecto) como select en la cabecera — decide la ruta de guardado que se muestra en mono 10.5px en el pie; campos obligatorios con <span style="color:#b03a2e">*</span>; ayudas 10px bajo el campo; editores de prompt/markdown en JetBrains Mono 11.5px con mín. 4 líneas y crecimiento hasta 12; «✦ Generar borrador con IA» alineado a la derecha del label en acento. Botón primario: oscuro (<span style="font-family:'JetBrains Mono',monospace">--fg</span>) para guardar artefactos propios, acento para acciones de instalación. Errores de validación local: borde <span style="font-family:'JetBrains Mono',monospace">--danger</span> + mensaje 10.5px rojo bajo el campo, aparece en 120ms.<br>
+<b>Por tipo.</b> <b>Agente:</b> nombre kebab-case validado en vivo, modelo (heredar/haiku/sonnet/opus), chips de herramientas + lista blanca de Bash cuando Bash está activo, prompt de sistema, validación IA al guardar (avisos no bloquean: «Ignorar y guardar»). <b>Comando:</b> prefijo «/» fijo en el input, toggle <span style="font-family:'JetBrains Mono',monospace">$ARGUMENTS</span> (resaltado en acento dentro del editor) y vista previa en vivo de cómo se verá en el autocompletado del composer. <b>Skill:</b> «cuándo se activa» es el campo crítico (ayuda explícita), contenido SKILL.md, adjuntos con drag&drop (zona punteada SOLO aquí, es un dropzone real). <b>Plugin:</b> fuente por chips (Marketplace/repo/carpeta), resumen «este plugin aporta» leído del manifiesto, permisos granulares con hooks desactivados por defecto + aviso de seguridad IA.<br>
+<b>Movimiento.</b> Cambio de alcance: la ruta del pie hace crossfade 120ms. Chips de herramientas: al activar Bash, el campo de lista blanca despliega 160ms. Vista previa del comando: se actualiza en vivo con flash sutil 200ms. Adjuntos: al soltar, la fila entra con fade+translateY(4px→0) 140ms.
+</div>
+
+<p style="margin-top:40px;font-size:11.5px;color:#6d675c;border-top:1px solid rgba(43,40,35,.12);padding-top:14px;max-width:860px;line-height:1.7"><b>Checklist de verificación para Claude Code:</b> ① ningún texto desborda su widget (ellipsis + scroll interno) · ② cero bordes punteados en reposo — solo durante drag activo · ③ terminal cambia con el tema y tiene selector PowerShell/CMD/Bash · ④ formularios con labels encima, foco acento, sin controles nativos sin estilo · ⑤ Tienda como modal con tabs-chips, grid de tarjetas y formulario colapsado · ⑥ configuración como tarjetas acordeón con contadores en mono y «+ Nuevo» en acento · ⑦ duraciones 120–180ms, easing <span style="font-family:'JetBrains Mono',monospace">cubic-bezier(.2,.8,.3,1)</span>, respetando <span style="font-family:'JetBrains Mono',monospace">prefers-reduced-motion</span>.</p>
+</div>
+</x-dc>
+</body>
+</html>

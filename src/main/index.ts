@@ -24,7 +24,7 @@ import { SessionTracker } from './sessionTracker'
 import { HookServer, installDeckHooks } from './hookServer'
 import { listGlobalAgents, scanProject } from './configScanner'
 import { toggleHook, toggleItem } from './configToggle'
-import { createArtifact, validateArtifact } from './validator'
+import { createArtifact, generateDraft, validateArtifact } from './validator'
 import { searchChats } from './chatSearch'
 import { listSessions } from '@anthropic-ai/claude-agent-sdk'
 import { getGitInfo } from './gitPanel'
@@ -43,6 +43,7 @@ import {
   importAgents,
   importFromUrl,
   importSkill,
+  readLocalPluginManifest,
   runPluginCommand
 } from './marketplace'
 
@@ -245,6 +246,22 @@ ipcMain.handle('config:installDeckHooks', (_e, args: { cwd: string; install: boo
 })
 
 ipcMain.handle('artifact:validate', (_e, draft: ArtifactDraft) => validateArtifact(draft))
+
+ipcMain.handle(
+  'artifact:draft',
+  (_e, args: { kind: 'agent' | 'skill' | 'command'; name: string; description: string }) =>
+    generateDraft(args)
+)
+
+ipcMain.handle('store:pluginManifest', (_e, dir: string) => readLocalPluginManifest(dir))
+
+ipcMain.handle('dialog:pickFiles', async () => {
+  const r = await dialog.showOpenDialog({
+    title: 'Elegir archivos',
+    properties: ['openFile', 'multiSelections']
+  })
+  return r.canceled ? [] : r.filePaths
+})
 
 ipcMain.handle('artifact:create', (_e, draft: ArtifactDraft) => {
   const res = createArtifact(draft)

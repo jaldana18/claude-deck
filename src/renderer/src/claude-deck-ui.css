@@ -1,0 +1,204 @@
+/* Claude Deck UI Kit — fuente de verdad para Claude Code.
+   Cargar globalmente. Tema: [data-theme="dark"] en <html> o <body>. */
+
+:root{
+  --font-ui:'Geist',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  /* tema claro */
+  --bg-app:#f6f3ec; --bg-panel:#f0ece2; --bg-bar:#ebe6da; --bg-card:#fdfcf9;
+  --bg-code:#211f1b; --bg-term:#ebe6da; --fg-term:#3d3931;
+  --fg:#2b2823; --fg-2:#6d675c; --fg-3:#8a8375;
+  --border:rgba(43,40,35,.14); --border-soft:rgba(43,40,35,.10); --border-strong:rgba(43,40,35,.22);
+  --accent:#b3541e; --accent-soft:#e8ddc9; --accent-fg-on:#ffffff;
+  --ok:#4a9b6f; --warn:#d9a13b; --busy:#4a7bd0; --danger:#b03a2e;
+  --warn-bg:#fbf4e2; --warn-border:rgba(217,161,59,.5);
+  --shadow-pop:0 12px 30px rgba(43,40,35,.22);
+  --r-card:8px; --r-pop:11px; --r-btn:7px; --r-pill:12px;
+}
+[data-theme="dark"]{
+  --bg-app:#1e1c19; --bg-panel:#242119; --bg-bar:#171512; --bg-card:#1a1815;
+  --bg-code:#14120f; --bg-term:#14120f; --fg-term:#cfcabd;
+  --fg:#e8e4da; --fg-2:#a8a294; --fg-3:#8f887a;
+  --border:rgba(255,255,255,.10); --border-soft:rgba(255,255,255,.07); --border-strong:rgba(255,255,255,.18);
+  --accent:#e0955f; --accent-soft:#3a2f22; --accent-fg-on:#1e1c19;
+  --warn-bg:#2e2417; --shadow-pop:0 12px 30px rgba(0,0,0,.5);
+}
+
+body{font-family:var(--font-ui);color:var(--fg);background:var(--bg-app);font-size:13px}
+code,pre,kbd,.mono{font-family:var(--font-mono)}
+
+/* Botones */
+.cd-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:var(--r-btn);
+  font:600 12px var(--font-ui);border:1px solid transparent;cursor:pointer}
+.cd-btn--primary{background:var(--accent);color:var(--accent-fg-on)}
+.cd-btn--dark{background:var(--fg);color:var(--bg-app)}
+.cd-btn--ghost{background:var(--bg-card);border-color:var(--border-strong);color:var(--fg);font-weight:500}
+.cd-btn--danger{background:transparent;border-color:rgba(196,74,60,.4);color:var(--danger)}
+.cd-btn:hover{filter:brightness(.96)}
+.cd-btn:disabled{opacity:.45;cursor:default}
+
+/* Chips (selección) y badges */
+.cd-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-pill);
+  font:500 11px var(--font-ui);border:1px solid var(--border);color:var(--fg-2);cursor:pointer;background:transparent}
+.cd-chip[aria-pressed="true"],.cd-chip--on{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
+.cd-badge{font:600 9.5px var(--font-ui);padding:1px 6px;border-radius:8px;background:var(--bg-bar);color:var(--fg-2)}
+.cd-badge--proyecto{background:var(--accent-soft);color:var(--accent)}
+
+/* Inputs */
+.cd-input,.cd-select,.cd-textarea{width:100%;box-sizing:border-box;background:var(--bg-card);color:var(--fg);
+  border:1px solid var(--border);border-radius:var(--r-btn);padding:6px 10px;font:400 12.5px var(--font-ui)}
+.cd-input--mono{font-family:var(--font-mono);font-size:12px}
+.cd-input:focus,.cd-select:focus,.cd-textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
+.cd-label{display:block;font:600 11.5px var(--font-ui);margin:0 0 4px}
+.cd-help{font:400 10.5px var(--font-ui);color:var(--fg-3)}
+.cd-field{display:flex;flex-direction:column;gap:0;margin:0 0 11px}
+
+/* Toggle */
+.cd-toggle{width:30px;height:17px;border-radius:9px;background:var(--border-strong);position:relative;cursor:pointer;border:none;flex:none}
+.cd-toggle[aria-checked="true"]{background:var(--accent)}
+.cd-toggle::after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .15s}
+.cd-toggle[aria-checked="true"]::after{transform:translateX(13px)}
+
+/* Tarjeta base y popover */
+.cd-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-card)}
+.cd-pop{background:var(--bg-card);border:1px solid var(--border-strong);border-radius:var(--r-pop);box-shadow:var(--shadow-pop)}
+
+/* Widget acoplable.
+   REGLA: en reposo el widget tiene borde SÓLIDO (o ninguno dentro del dock).
+   Los bordes PUNTEADOS solo existen en .cd-dropzone y SOLO mientras hay un drag activo. */
+.cd-widget{background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+.cd-widget__head{display:flex;align-items:center;gap:8px;padding:8px 12px;font:600 12px var(--font-ui);cursor:grab;user-select:none}
+.cd-widget__head .grip{color:var(--fg-3)}
+.cd-widget__body{padding:0 12px 10px;overflow-y:auto;min-height:0}  /* scroll interno, nunca desborda */
+.cd-widget__resize{height:8px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;color:var(--fg-3);font-size:7px;letter-spacing:2px}
+.cd-widget--dragging{opacity:.35}
+.cd-widget-ghost{position:fixed;pointer-events:none;transform:rotate(2.5deg);box-shadow:0 22px 44px rgba(0,0,0,.35);
+  background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;z-index:100}
+.cd-dropzone{display:none;border:2px dashed color-mix(in srgb,var(--accent) 55%,transparent);
+  border-radius:10px;background:color-mix(in srgb,var(--accent) 8%,transparent);
+  color:var(--accent);font:600 11.5px var(--font-ui);align-items:center;justify-content:center;min-height:80px}
+body.cd-drag-active .cd-dropzone{display:flex}
+
+/* Filas de lista (git, sesiones, resultados, artefactos).
+   REGLA: altura fija 26px, una línea, ellipsis. El texto NUNCA se desborda del widget. */
+.cd-row{display:flex;align-items:center;gap:6px;height:26px;font-size:11.5px;min-width:0}
+.cd-row .hash{font-family:var(--font-mono);color:var(--fg-2);flex:none}
+.cd-row .hash--head{color:var(--accent)}
+.cd-row .msg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-row .ref{flex:none;font-size:9.5px;background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:8px}
+.cd-listcard{display:flex;align-items:center;gap:7px;background:var(--bg-card);border:1px solid var(--border-soft);
+  border-radius:6px;padding:5px 8px;font-size:11.5px;min-width:0}
+.cd-listcard:hover{background:var(--bg-panel)}
+.cd-listcard .msg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Terminal (sigue el tema del sistema; SOLO los bloques de código del chat son siempre oscuros) */
+.cd-term{background:var(--bg-term);color:var(--fg-term);border-top:1px solid var(--border)}
+.cd-term__bar{display:flex;align-items:center;gap:10px;padding:4px 12px;font-size:11px;border-bottom:1px solid var(--border-soft)}
+.cd-term__body{font:11.5px/1.65 var(--font-mono);padding:8px 14px}
+.cd-shell-select{font:600 11px var(--font-mono);background:var(--bg-card);border:1px solid var(--border);
+  border-radius:5px;padding:2px 8px;color:var(--fg)}
+
+/* Aviso / validación IA */
+.cd-callout--warn{border:1px solid var(--warn-border);background:var(--warn-bg);border-radius:var(--r-card);padding:10px 12px}
+
+/* Estados de sesión */
+.cd-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.cd-dot--busy{background:var(--busy);animation:cd-pulse 1.4s infinite}
+.cd-dot--warn{background:var(--warn)} .cd-dot--ok{background:var(--ok)}
+.cd-dot--dead{background:var(--danger)} .cd-dot--idle{background:var(--fg-3)}
+@keyframes cd-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ============================================================
+   Extensiones de Claude Deck sobre el kit (mismos tokens)
+   ============================================================ */
+
+/* Puente de fuentes: @fontsource registra la familia como 'Geist Sans' */
+:root{--font-ui:'Geist Sans','Geist',system-ui,sans-serif}
+
+/* ---- Diálogos de creación (kit · sección 8) ---- */
+.cd-overlay{position:fixed;inset:0;background:rgba(43,40,35,.35);z-index:60;display:flex;align-items:center;justify-content:center;animation:cdFade .15s cubic-bezier(.2,.8,.3,1)}
+.cd-dialog{width:520px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;background:var(--bg-app);border:1px solid rgba(43,40,35,.15);border-radius:12px;box-shadow:0 14px 40px rgba(43,40,35,.16);overflow:hidden;animation:cdPop .15s cubic-bezier(.2,.8,.3,1)}
+[data-theme='dark'] .cd-dialog{border-color:var(--border-strong)}
+.cd-overlay.closing{animation:cdFadeOut .1s cubic-bezier(.2,.8,.3,1) forwards}
+.cd-overlay.closing .cd-dialog{animation:cdPopOut .1s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes cdFade{from{opacity:0}}
+@keyframes cdPop{from{transform:scale(.98);opacity:.5}}
+@keyframes cdFadeOut{to{opacity:0}}
+@keyframes cdPopOut{to{transform:scale(.98);opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .cd-overlay,.cd-dialog,.cd-overlay.closing,.cd-overlay.closing .cd-dialog,
+  .cd-flash,.cd-reveal,.cd-file,.cd-previewrow.flash,.cd-shake,.cd-path{animation:none!important}
+}
+
+.cd-dialog__head{display:flex;align-items:center;gap:9px;padding:13px 18px;border-bottom:1px solid var(--border-soft);flex:none}
+.cd-dialog__icon{font-size:14px}
+.cd-dialog__title{font:700 13.5px var(--font-ui)}
+.cd-dialog__head .cd-select{width:auto;padding:4px 10px;font-size:11.5px;margin-left:auto}
+.cd-dialog__close{border:none;background:none;color:var(--fg-2);font-size:14px;cursor:pointer;padding:2px 7px;border-radius:5px;line-height:1}
+.cd-dialog__close:hover{color:var(--danger)}
+.cd-dialog__body{padding:14px 18px;display:flex;flex-direction:column;gap:11px;overflow-y:auto;min-height:0}
+.cd-dialog__foot{display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--border-soft);flex:none}
+.cd-path{font:400 10.5px var(--font-mono);color:var(--fg-3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;animation:cdFade .12s cubic-bezier(.2,.8,.3,1)}
+
+.cd-req{color:var(--danger)}
+.cd-err{font-size:10.5px;color:var(--danger);margin-top:3px;animation:cdFade .12s}
+.cd-input--invalid,.cd-textarea--invalid{border-color:var(--danger)!important}
+.cd-label-row{display:flex;align-items:baseline;gap:8px;margin:0 0 4px}
+.cd-label-row .cd-label{margin:0}
+.cd-ai{margin-left:auto;font:600 10px var(--font-ui);color:var(--accent);cursor:pointer;border:none;background:none;padding:0}
+.cd-ai:disabled{opacity:.5;cursor:default}
+.cd-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cd-textarea--code{font-family:var(--font-mono);font-size:11.5px;line-height:1.6;resize:none;overflow:hidden}
+.cd-field-flash{animation:cdFlash .3s}
+@keyframes cdFlash{0%{background:var(--accent-soft);border-radius:7px}100%{background:transparent}}
+.cd-shake{animation:cdShake .25s}
+@keyframes cdShake{0%,100%{transform:none}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+
+/* input con prefijo fijo (comando «/») */
+.cd-prefix{display:flex;align-items:center;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-btn);padding:0 0 0 10px;font:400 12px var(--font-mono)}
+.cd-prefix span{color:var(--fg-3);flex:none}
+.cd-prefix input{border:none;background:none;outline:none;padding:6px 10px 6px 1px;flex:1;min-width:0;font:400 12px var(--font-mono);color:var(--fg)}
+.cd-prefix:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent)}
+
+/* despliegue (lista blanca de Bash) */
+.cd-reveal{animation:cdReveal .16s cubic-bezier(.2,.8,.3,1)}
+@keyframes cdReveal{from{opacity:0;transform:translateY(-4px)}}
+
+/* editor con $ARGUMENTS resaltado (pre coloreado detrás, textarea transparente) */
+.cd-hlwrap{position:relative;background:var(--bg-card);border-radius:var(--r-btn)}
+.cd-hlwrap pre{margin:0;position:absolute;inset:0;padding:6px 10px;border:1px solid transparent;border-radius:var(--r-btn);font:400 11.5px/1.6 var(--font-mono);white-space:pre-wrap;word-break:break-word;color:var(--fg);pointer-events:none;overflow:hidden}
+.cd-hlwrap pre mark{background:var(--accent-soft);color:var(--accent);border-radius:3px;padding:0 1px}
+.cd-hlwrap .cd-textarea--code{position:relative;background:transparent;color:transparent;caret-color:var(--fg)}
+.cd-hlwrap .cd-textarea--code::selection{background:color-mix(in srgb,var(--accent) 25%,transparent)}
+
+/* vista previa del comando en el composer */
+.cd-previewbox{background:var(--bg-panel);border:1px solid var(--border-soft);border-radius:8px;padding:9px 12px}
+.cd-previewbox__tag{font:600 10px var(--font-mono);color:var(--fg-3);margin-bottom:5px}
+.cd-previewrow{display:flex;align-items:center;gap:9px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;min-width:0}
+.cd-previewrow .cmd{font:600 12px var(--font-mono);color:var(--accent);flex:none}
+.cd-previewrow .desc{color:var(--fg-2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-previewrow.flash{animation:cdFlash .2s}
+
+/* adjuntos de skill (único dropzone legítimo fuera del drag de widgets) */
+.cd-file{display:flex;align-items:center;gap:7px;background:var(--bg-card);border:1px solid var(--border-soft);border-radius:6px;padding:5px 9px;font:400 11px var(--font-mono);min-width:0;animation:cdFileIn .14s cubic-bezier(.2,.8,.3,1)}
+@keyframes cdFileIn{from{opacity:0;transform:translateY(4px)}}
+.cd-file .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-file button{border:none;background:none;color:var(--fg-3);cursor:pointer;padding:0 2px}
+.cd-file button:hover{color:var(--danger)}
+.cd-filedrop{border:1.5px dashed color-mix(in srgb,var(--accent) 40%,transparent);border-radius:6px;padding:6px;text-align:center;font:600 11px var(--font-ui);color:var(--accent);cursor:pointer}
+.cd-filedrop.over{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+
+/* bloque «este plugin aporta» + permisos */
+.cd-manifest{background:var(--bg-panel);border:1px solid var(--border-soft);border-radius:8px;padding:10px 12px}
+.cd-manifest__tag{font:600 10px var(--font-mono);color:var(--fg-3);margin-bottom:6px}
+.cd-manifest__row{display:flex;align-items:center;gap:7px;font-size:11.5px;min-width:0}
+.cd-manifest__row .mono{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-manifest pre{margin:0;font:400 10.5px/1.5 var(--font-mono);color:var(--fg-2);white-space:pre-wrap;word-break:break-word;max-height:150px;overflow-y:auto}
+.cd-badge--warn{font:600 9.5px var(--font-ui);background:var(--warn-bg);border:1px solid var(--warn-border);color:#8a6d3b;padding:1px 6px;border-radius:8px}
+.cd-permrow{display:flex;align-items:center;gap:8px;font-size:11.5px}
+
+/* validación IA */
+.cd-callout__title{display:flex;align-items:center;gap:7px;font:700 11.5px var(--font-ui);color:#8a6d3b;margin-bottom:5px}
+.cd-callout__list{font-size:11px;color:#5c5546;line-height:1.55}
+[data-theme='dark'] .cd-callout__title,[data-theme='dark'] .cd-badge--warn{color:#d9b36a}
+[data-theme='dark'] .cd-callout__list{color:#c9bda0}

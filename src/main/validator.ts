@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import type { ArtifactDraft, ValidationResult } from '../shared/types'
 import { scanProject } from './configScanner'
 import { backup, readJsonOr, writeJson } from './jsonEdit'
@@ -40,6 +40,9 @@ function summarizeExisting(draft: ArtifactDraft): string {
     if (draft.kind === 'skill') {
       return cfg.skills.map((s) => `- ${s.name}: ${s.description}`.slice(0, 200)).join('\n')
     }
+    if (draft.kind === 'command') {
+      return cfg.commands.map((c) => `- ${c.name}: ${c.description}`.slice(0, 200)).join('\n')
+    }
     return cfg.hooks.map((h) => `- [${h.event}] matcher="${h.matcher}" cmd=${h.command.slice(0, 120)}`).join('\n')
   } catch {
     return '(no se pudo leer la configuración existente)'
@@ -48,7 +51,13 @@ function summarizeExisting(draft: ArtifactDraft): string {
 
 function buildPrompt(draft: ArtifactDraft, existing: string): string {
   const kindLabel =
-    draft.kind === 'agent' ? 'subagente' : draft.kind === 'skill' ? 'skill' : 'hook'
+    draft.kind === 'agent'
+      ? 'subagente'
+      : draft.kind === 'skill'
+        ? 'skill'
+        : draft.kind === 'command'
+          ? 'slash command'
+          : 'hook'
   const body = JSON.stringify(draft.data, null, 2)
   return `Eres el revisor de calidad de configuraciones de Claude Code de la app claude-deck.
 Evalúa si el siguiente borrador de ${kindLabel} tiene lo MÍNIMO VIABLE para funcionar bien.
@@ -159,6 +168,37 @@ function asStringArray(v: unknown): string[] {
   return Array.isArray(v) ? v.map(String) : []
 }
 
+/**
+ * «✦ Generar borrador con IA»: produce el cuerpo (prompt de sistema, SKILL.md
+ * o plantilla de comando) a partir del nombre y la descripción del formulario.
+ */
+export async function generateDraft(args: {
+  kind: 'agent' | 'skill' | 'command'
+  name: string
+  description: string
+}): Promise<string> {
+  const target =
+    args.kind === 'agent'
+      ? 'el PROMPT DE SISTEMA de un subagente de Claude Code (instrucciones directas en segunda persona, con criterio claro de cuándo terminar)'
+      : args.kind === 'skill'
+        ? 'el contenido del SKILL.md de una skill de Claude Code (markdown con títulos, instrucciones concretas y ejemplos si aplican; SIN frontmatter)'
+        : 'la PLANTILLA de un slash command de Claude Code (el prompt que se envía al invocarlo; usa $ARGUMENTS donde vaya el argumento del usuario)'
+  const prompt = `Escribe ${target}.
+Nombre: ${args.name}
+Propósito/descripción: ${args.description}
+
+Responde ÚNICAMENTE con el texto del contenido en español, sin explicaciones, sin fences de markdown alrededor.`
+  const raw = await runClaudeHeadless(prompt, 120_000)
+  let text = raw
+  try {
+    const outer = JSON.parse(raw)
+    if (typeof outer.result === 'string') text = outer.result
+  } catch {
+    /* raw ya es texto */
+  }
+  return text.trim().replace(/^```[a-z]*\n?|```$/g, '').trim()
+}
+
 function slugify(name: string): string {
   return (
     name
@@ -210,6 +250,32 @@ export function createArtifact(draft: ArtifactDraft): { path: string } {
       '---',
       '',
       draft.data.content,
+      ''
+    ].join('\n')
+    writeFileSync(file, content, 'utf8')
+    // adjuntos: se copian a la carpeta de la skill para referenciarlos desde el md
+    for (const src of draft.data.attachments ?? []) {
+      try {
+        copyFileSync(src, join(dir, basename(src)))
+      } catch (err) {
+        throw new Error(`La skill se creó pero falló copiar ${basename(src)}: ${err}`)
+      }
+    }
+    return { path: file }
+  }
+
+  if (draft.kind === 'command') {
+    const dir = join(baseDir, 'commands')
+    mkdirSync(dir, { recursive: true })
+    const slug = slugify(draft.data.name)
+    const file = join(dir, `${slug}.md`)
+    if (existsSync(file)) throw new Error(`Ya existe un comando en ${file}`)
+    const content = [
+      '---',
+      `description: ${draft.data.description.replace(/\r?\n/g, ' ') || slug}`,
+      '---',
+      '',
+      draft.data.template,
       ''
     ].join('\n')
     writeFileSync(file, content, 'utf8')

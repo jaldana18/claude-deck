@@ -29,7 +29,8 @@ const HOOK_EVENTS = [
 const KIND_LABEL: Record<ArtifactKind, string> = {
   agent: 'agente',
   skill: 'skill',
-  hook: 'hook'
+  hook: 'hook',
+  command: 'comando'
 }
 
 /** Herramientas integradas de Claude Code seleccionables por checklist */

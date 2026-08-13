@@ -199,7 +199,7 @@ export interface Snippet {
   projectCwd?: string
 }
 
-export type ArtifactKind = 'agent' | 'skill' | 'hook'
+export type ArtifactKind = 'agent' | 'skill' | 'hook' | 'command'
 export type ConfigScope = 'user' | 'project'
 
 export interface ConfigItem {
@@ -262,6 +262,27 @@ export interface SkillDraft {
   content: string
   /** allowed-tools del SKILL.md (vacío = todas) */
   tools?: string
+  /** rutas absolutas de archivos que se copian a la carpeta de la skill */
+  attachments?: string[]
+}
+
+export interface CommandDraft {
+  /** sin el prefijo «/» */
+  name: string
+  description: string
+  template: string
+}
+
+/** Manifiesto resumido de un plugin de Claude Code (lectura local) */
+export interface PluginManifest {
+  ok: boolean
+  error?: string
+  name?: string
+  version?: string
+  license?: string
+  commands: string[]
+  agents: string[]
+  hooks: string[]
 }
 
 export interface HookDraft {
@@ -275,6 +296,7 @@ export type ArtifactDraft =
   | { kind: 'agent'; scope: ConfigScope; cwd: string; data: AgentDraft }
   | { kind: 'skill'; scope: ConfigScope; cwd: string; data: SkillDraft }
   | { kind: 'hook'; scope: ConfigScope; cwd: string; data: HookDraft }
+  | { kind: 'command'; scope: ConfigScope; cwd: string; data: CommandDraft }
 
 export interface ValidationResult {
   ok: boolean

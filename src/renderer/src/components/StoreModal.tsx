@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { StoreResult, TabState } from '../../../shared/types'
+import { PluginDialog } from './CreateDialogs'
 import { IconStore, IconX } from './Icons'
 
 type StoreTab = 'mcp' | 'agents' | 'skills' | 'plugins'
@@ -112,6 +113,7 @@ export function StoreModal(p: { tab: TabState | null; onClose: () => void }): Re
   // plugins
   const [marketplaceSrc, setMarketplaceSrc] = useState('')
   const [pluginName, setPluginName] = useState('')
+  const [pluginWizard, setPluginWizard] = useState(false)
 
   const run = async (fn: () => Promise<StoreResult>): Promise<void> => {
     setWorking(true)
@@ -314,6 +316,9 @@ export function StoreModal(p: { tab: TabState | null; onClose: () => void }): Re
                 instalan desde <b>marketplaces</b> (repos de GitHub). Esto usa tu CLI de{' '}
                 <code>claude</code>; lo instalado funciona también en la consola.
               </p>
+              <button className="iconbtn primary" onClick={() => setPluginWizard(true)}>
+                ⬡ Asistente de instalación (marketplace, repo git o carpeta local)
+              </button>
               <div className="side-section-title">1. Agregar marketplace</div>
               <div className="store-urlrow">
                 <input
@@ -382,6 +387,7 @@ export function StoreModal(p: { tab: TabState | null; onClose: () => void }): Re
           )}
         </div>
       </div>
+      {pluginWizard && <PluginDialog cwd={cwd} onClose={() => setPluginWizard(false)} />}
     </div>
   )
 }
