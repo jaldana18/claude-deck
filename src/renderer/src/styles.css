@@ -27,7 +27,8 @@
   --blue: #4a7bd0;
   /* código y terminal se quedan oscuros en ambos temas (estilo VS Code) */
   --code-bg: #211f1b;
-  --term-bg: #14120f;
+  --term-bg: #ebe6da;
+  --term-fg: #3d3931;
 
   --font-ui: 'Geist Sans', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
@@ -60,6 +61,8 @@
   --yellow: #dcb055;
   --red: #e07a70;
   --blue: #6f95dd;
+  --term-bg: #14120f;
+  --term-fg: #cfcabd;
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.4);
   --shadow-3: 0 20px 60px rgba(0, 0, 0, 0.55);
@@ -2772,41 +2775,70 @@ kbd {
   border-radius: 12px 12px 3px 12px;
 }
 
-/* --- widgets: grip + cabecera compacta --- */
+/* --- widgets según UI Kit §3: tarjeta sólida en reposo, CERO punteados --- */
 .widget-grip {
   color: var(--text-faint);
   cursor: grab;
   font-size: 11px;
   line-height: 1;
+  flex: none;
 }
 .widget {
-  border-radius: 0;
-  border: none;
-  border-bottom: 1px solid var(--border-soft);
+  border-radius: 10px;
+  border: 1px solid var(--border);
   background: var(--bg-soft);
   box-shadow: none;
+  flex: none;
+}
+/* altura = contenido salvo que el usuario la fije con el asa (height>0) */
+.widget.auto {
+  max-height: 360px;
 }
 .widget-head {
   background: none;
   border-bottom: none;
   padding: 8px 12px 4px;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.widget-title {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.widget-suffix {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.widget-head .widget-btn {
+  margin-left: auto;
+}
+.widget .hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 0;
 }
 .widget-dock {
   background: var(--bg-soft);
   border-color: var(--border-soft);
-  gap: 0;
-  padding: 0;
+  gap: 8px;
+  padding: 8px;
 }
 .widget-dock.empty {
   min-width: 26px;
-}
-.widget-dock.drag-over {
-  outline: 2px dashed var(--accent);
-  outline-offset: -6px;
-  background: var(--accent-soft);
+  background: transparent;
 }
 .widget-resize {
-  height: 9px;
+  height: 8px;
+  border-top: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2819,16 +2851,67 @@ kbd {
   opacity: 0.6;
 }
 
+/* estados de arrastre (kit §3): SOLO visibles con body.cd-drag-active */
+.widget.cd-widget--dragging {
+  opacity: 0.35;
+}
+.cd-jiggle {
+  animation: cdJiggle 0.35s infinite;
+}
+@keyframes cdJiggle {
+  0%,
+  100% {
+    transform: rotate(-0.6deg);
+  }
+  50% {
+    transform: rotate(0.6deg);
+  }
+}
+.cd-land {
+  animation: cdLand 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes cdLand {
+  from {
+    transform: scale(1.02);
+  }
+}
+.widget-dock .cd-dropzone {
+  flex: none;
+  min-height: 80px;
+  animation: fadeIn 0.12s;
+}
+.deck-widget-ghost {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  transform: rotate(2.5deg);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.35);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: grabbing;
+}
+.deck-widget-ghost.returning {
+  transition: left 0.15s cubic-bezier(0.2, 0.8, 0.3, 1), top 0.15s cubic-bezier(0.2, 0.8, 0.3, 1),
+    opacity 0.15s;
+}
+
 /* --- panel de terminal estilo VS Code --- */
 .term-panel-head {
-  background: var(--code-bg);
-  color: #a8a294;
+  background: var(--bg-tabbar);
+  color: var(--text-dim);
   border-top: 1px solid var(--border-soft);
   font-family: var(--font-mono);
   font-size: 11px;
 }
 .term-panel-head .hint {
-  color: #6d675c;
+  color: var(--text-faint);
   font-family: var(--font-mono);
 }
 .term-panel {
@@ -2866,4 +2949,44 @@ kbd {
 }
 .bubble.assistant::before {
   left: 6px;
+}
+
+/* rutas locales clicables en las respuestas del chat */
+.inline-code.path-link {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.inline-code.path-link:hover {
+  color: var(--accent);
+}
+
+/* listas §4: nada se desborda del widget (fila git con min-width) */
+.gitw-row,
+.gitw-commit {
+  min-width: 0;
+}
+.gitw-commit {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* configuración §6: contador en mono, «+ Nuevo» en acento */
+.section .count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-weight: 400;
+}
+.section-head .iconbtn.new {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* selector de shell del terminal (kit §7) */
+.term-panel-head .cd-shell-select {
+  width: auto;
+  flex: none;
 }

@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import type { PaneLayout, TabState, WidgetState } from '../../../shared/types'
+import type { PaneLayout, ShellId, TabState, WidgetState } from '../../../shared/types'
+import { paneIdsFor } from '../../../shared/types'
 import { ChatView } from './ChatView'
 import { LayoutPicker, PaneGrid } from './PaneGrid'
 
@@ -21,7 +22,22 @@ interface Props {
 export const ChatTabView = memo(function ChatTabView(p: Props): React.JSX.Element {
   const [showTerm, setShowTerm] = useState(false)
   const [termHeight, setTermHeight] = useState(280)
+  const [shell, setShell] = useState<ShellId>('powershell')
   const dragging = useRef(false)
+
+  useEffect(() => {
+    void window.deck.getProjectPrefs(p.tab.cwd).then((prefs) => setShell(prefs.shell ?? 'powershell'))
+  }, [p.tab.cwd])
+
+  /** Selector de shell (kit §7): persiste por proyecto y relanza los paneles */
+  const changeShell = async (next: ShellId): Promise<void> => {
+    setShell(next)
+    const prefs = await window.deck.getProjectPrefs(p.tab.cwd)
+    await window.deck.setProjectPrefs(p.tab.cwd, { ...prefs, shell: next })
+    for (const paneId of paneIdsFor(p.tab.id, p.tab.paneLayout)) {
+      await window.deck.restartPane(paneId)
+    }
+  }
 
   useEffect(() => {
     if (!p.visible) return
@@ -82,6 +98,17 @@ export const ChatTabView = memo(function ChatTabView(p: Props): React.JSX.Elemen
             {showTerm ? '▾' : '▴'} TERMINAL <kbd>Ctrl+`</kbd>
           </button>
           <LayoutPicker layout={p.tab.paneLayout ?? 'single'} onChange={(l) => void setLayout(l)} />
+          <select
+            className="cd-shell-select"
+            value={shell}
+            onChange={(e) => void changeShell(e.target.value as ShellId)}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="Shell de los paneles de este proyecto (relanza los terminales)"
+          >
+            <option value="powershell">PowerShell</option>
+            <option value="cmd">CMD</option>
+            <option value="bash">Bash</option>
+          </select>
           <span className="hint" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {p.tab.cwd}
           </span>

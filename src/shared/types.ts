@@ -56,7 +56,11 @@ export interface ModelOption {
   displayName: string
 }
 
+export type ShellId = 'powershell' | 'cmd' | 'bash'
+
 export interface ProjectPrefs {
+  /** shell de los paneles de terminal del proyecto (default: PowerShell) */
+  shell?: ShellId
   useGlobalConfig?: boolean
   /** Proyecto y equipo de Azure DevOps para el board del sprint */
   azureProject?: string

@@ -63,7 +63,8 @@ export default function App(): React.JSX.Element {
           kind,
           side: (kind === 'git' ? 'left' : 'right') as WidgetState['side'],
           order: 99,
-          height: kind === 'git' ? 380 : kind === 'health' ? 250 : 320,
+          // 0 = altura automática (contenido); el usuario puede fijarla con el asa
+          height: 0,
           config: {}
         }
       ]

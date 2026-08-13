@@ -45,7 +45,6 @@ const DONE_STATES = new Set(['Done', 'Closed', 'Resolved', 'Removed'])
  * ajusta con el asa inferior. El layout persiste en deck-state.json.
  */
 export function WidgetDock(p: DockProps): React.JSX.Element | null {
-  const [dragOver, setDragOver] = useState(false)
   const mine = p.widgets.filter((w) => w.side === p.side).sort((a, b) => a.order - b.order)
 
   // Siempre operar sobre la lista VIVA: los listeners de mouse/drag pueden
@@ -64,43 +63,18 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
     siblings.splice(insertAt < 0 ? siblings.length : insertAt, 0, widget)
     siblings.forEach((w, i) => (w.order = i))
     p.onChange(next)
-  }
-
-  if (mine.length === 0 && !dragOver) {
-    // zona de drop finita aunque el dock esté vacío (para poder arrastrar hacia él)
-    return (
-      <div
-        className="widget-dock empty"
-        onDragOver={(e) => {
-          e.preventDefault()
-          setDragOver(true)
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragOver(false)
-          const id = e.dataTransfer.getData('deck/widget')
-          if (id) moveWidget(id, p.side)
-        }}
-      />
-    )
+    // aterrizaje 180ms scale(1.02→1) sobre el widget movido (kit §3)
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-widget-id="${id}"]`)
+      if (el) {
+        el.classList.add('cd-land')
+        setTimeout(() => el.classList.remove('cd-land'), 220)
+      }
+    })
   }
 
   return (
-    <div
-      className={`widget-dock ${dragOver ? 'drag-over' : ''}`}
-      onDragOver={(e) => {
-        e.preventDefault()
-        setDragOver(true)
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setDragOver(false)
-        const id = e.dataTransfer.getData('deck/widget')
-        if (id) moveWidget(id, p.side)
-      }}
-    >
+    <div className={`widget-dock ${mine.length === 0 ? 'empty' : ''}`} data-dock-side={p.side}>
       {mine.map((w) => (
         <Widget
           key={w.id}
@@ -109,7 +83,7 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
           agents={p.agents}
           todos={p.todos}
           onOpenSubagent={p.onOpenSubagent}
-          onDropBefore={(draggedId) => moveWidget(draggedId, p.side, w.id)}
+          onMove={moveWidget}
           onResize={(h) => {
             p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, height: h } : x)))
           }}
@@ -119,6 +93,10 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
           onClose={() => p.onChange(widgetsRef.current.filter((x) => x.id !== w.id))}
         />
       ))}
+      {/* punteado SOLO visible durante un arrastre (body.cd-drag-active, kit §3) */}
+      <div className="cd-dropzone" data-dock-side={p.side}>
+        soltar aquí
+      </div>
     </div>
   )
 }
@@ -129,7 +107,7 @@ interface WidgetProps {
   agents: AgentRun[]
   todos: TodoItem[]
   onOpenSubagent: (id: string) => void
-  onDropBefore: (draggedId: string) => void
+  onMove: (id: string, side: WidgetSide, beforeId?: string) => void
   onResize: (height: number) => void
   onConfig: (config: WidgetState['config']) => void
   onClose: () => void
@@ -137,6 +115,8 @@ interface WidgetProps {
 
 function Widget(p: WidgetProps): React.JSX.Element {
   const resizing = useRef(false)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  // height 0 = automática (contenido); >0 = fijada por el usuario con el asa
   const [liveHeight, setLiveHeight] = useState(p.widget.height)
   // props vivas para los listeners globales (evita stale closures al soltar)
   const propsRef = useRef(p)
@@ -167,6 +147,123 @@ function Widget(p: WidgetProps): React.JSX.Element {
     }
   }, [])
 
+  /**
+   * Arrastre por puntero (kit §3): se activa a los 4px de movimiento; el
+   * original queda a .35, un ghost fijo sigue el cursor rotado 2.5°, las
+   * dropzones aparecen con body.cd-drag-active, el widget bajo el cursor
+   * hace jiggle, Esc o soltar fuera cancela (el ghost vuelve a su origen).
+   */
+  const onHeadPointerDown = (e: React.PointerEvent): void => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.widget-btn')) return
+    const startX = e.clientX
+    const startY = e.clientY
+    const root = rootRef.current
+    if (!root) return
+    const origin = root.getBoundingClientRect()
+    let ghost: HTMLDivElement | null = null
+    let jiggling: Element | null = null
+    let started = false
+
+    const clearJiggle = (): void => {
+      jiggling?.classList.remove('cd-jiggle')
+      jiggling = null
+    }
+
+    const start = (): void => {
+      started = true
+      document.body.classList.add('cd-drag-active')
+      root.classList.add('cd-widget--dragging')
+      ghost = document.createElement('div')
+      ghost.className = 'deck-widget-ghost'
+      ghost.style.width = `${origin.width}px`
+      ghost.textContent = `⠿ ${WIDGET_TITLES[propsRef.current.widget.kind]}`
+      document.body.appendChild(ghost)
+    }
+
+    const place = (x: number, y: number): void => {
+      if (!ghost) return
+      ghost.style.left = `${x - 30}px`
+      ghost.style.top = `${y - 14}px`
+    }
+
+    const cleanup = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('keydown', onKey, true)
+      document.body.classList.remove('cd-drag-active')
+      root.classList.remove('cd-widget--dragging')
+      clearJiggle()
+    }
+
+    const cancel = (): void => {
+      cleanup()
+      if (ghost) {
+        // el ghost vuelve a su origen 150ms y desaparece
+        const g = ghost
+        g.classList.add('returning')
+        g.style.left = `${origin.left}px`
+        g.style.top = `${origin.top}px`
+        g.style.opacity = '0'
+        setTimeout(() => g.remove(), 170)
+      }
+    }
+
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') {
+        ev.stopPropagation()
+        cancel()
+      }
+    }
+
+    const onMove = (ev: PointerEvent): void => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 4) return
+        start()
+      }
+      place(ev.clientX, ev.clientY)
+      // jiggle del widget bajo el cursor (objetivo de reorden)
+      const under = document
+        .elementsFromPoint(ev.clientX, ev.clientY)
+        .find((el) => el !== root && el.hasAttribute?.('data-widget-id'))
+      if (under !== jiggling) {
+        clearJiggle()
+        if (under) {
+          jiggling = under
+          under.classList.add('cd-jiggle')
+        }
+      }
+    }
+
+    const onUp = (ev: PointerEvent): void => {
+      if (!started) {
+        cleanup()
+        return
+      }
+      const stack = document.elementsFromPoint(ev.clientX, ev.clientY)
+      const targetWidget = stack.find(
+        (el) => el !== root && el.hasAttribute?.('data-widget-id')
+      ) as HTMLElement | undefined
+      const targetDock = stack.find((el) => el.hasAttribute?.('data-dock-side')) as
+        | HTMLElement
+        | undefined
+      cleanup()
+      ghost?.remove()
+      const id = propsRef.current.widget.id
+      if (targetWidget) {
+        const side = (targetWidget.closest('[data-dock-side]') as HTMLElement | null)?.dataset
+          .dockSide as WidgetSide | undefined
+        propsRef.current.onMove(id, side ?? propsRef.current.widget.side, targetWidget.dataset.widgetId)
+      } else if (targetDock) {
+        propsRef.current.onMove(id, targetDock.dataset.dockSide as WidgetSide)
+      }
+      // soltar fuera de toda zona: no-op (equivale a cancelar)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('keydown', onKey, true)
+  }
+
   const icon =
     p.widget.kind === 'git' ? (
       <IconGitBranch size={12} />
@@ -188,23 +285,14 @@ function Widget(p: WidgetProps): React.JSX.Element {
 
   return (
     <div
-      className="widget"
-      style={{ height: liveHeight }}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        const id = e.dataTransfer.getData('deck/widget')
-        if (id && id !== p.widget.id) p.onDropBefore(id)
-      }}
+      ref={rootRef}
+      className={`widget ${liveHeight > 0 ? '' : 'auto'}`}
+      style={liveHeight > 0 ? { height: liveHeight } : undefined}
+      data-widget-id={p.widget.id}
     >
       <div
         className="widget-head"
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData('deck/widget', p.widget.id)
-          e.dataTransfer.effectAllowed = 'move'
-        }}
+        onPointerDown={onHeadPointerDown}
         title="Arrastra para mover el widget al otro lateral o reordenarlo"
       >
         <span className="widget-grip">⠿</span>
@@ -230,6 +318,10 @@ function Widget(p: WidgetProps): React.JSX.Element {
           e.preventDefault()
           resizing.current = true
           document.body.style.cursor = 'ns-resize'
+          // si la altura era automática, partir de la altura real actual
+          if (liveHeight <= 0 && rootRef.current) {
+            setLiveHeight(rootRef.current.offsetHeight)
+          }
         }}
         title="Arrastra para cambiar la altura"
       />

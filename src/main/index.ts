@@ -1,7 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { join } from 'node:path'
+import { extname, isAbsolute, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { readFileSync, statSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import type {
   ArtifactDraft,
   ChatAttachment,
@@ -64,7 +65,7 @@ function startTab(tab: TabState): void {
   for (const paneId of panes) {
     // solo el panel principal de una pestaña terminal corre la TUI de claude
     const command = paneId === tab.id ? ptys.buildCommand(tab) : null
-    ptys.startPane(paneId, tab.cwd, command)
+    ptys.startPane(paneId, tab.cwd, command, store.getProjectPrefs(tab.cwd).shell)
   }
   if (tab.mode !== 'chat' && tab.profile === 'claude') {
     tracker.startTracking(tab.id, tab.cwd)
@@ -201,7 +202,7 @@ ipcMain.handle('panes:set', (_e, args: { tabId: string; layout: PaneLayout }) =>
   for (const paneId of wanted) {
     if (!ptys.isRunning(paneId)) {
       const command = paneId === tab.id ? ptys.buildCommand(tab) : null
-      ptys.startPane(paneId, tab.cwd, command)
+      ptys.startPane(paneId, tab.cwd, command, store.getProjectPrefs(tab.cwd).shell)
     }
   }
   return tab
@@ -212,7 +213,7 @@ ipcMain.handle('panes:restart', (_e, paneId: string) => {
   const tab = store.tabs.find((t) => t.id === paneTabId(paneId))
   if (!tab) return
   const command = paneId === tab.id ? ptys.buildCommand(tab) : null
-  ptys.startPane(paneId, tab.cwd, command)
+  ptys.startPane(paneId, tab.cwd, command, store.getProjectPrefs(tab.cwd).shell)
 })
 
 // ---------- IPC: scrollback (por panel) ----------
@@ -254,6 +255,46 @@ ipcMain.handle(
 )
 
 ipcMain.handle('store:pluginManifest', (_e, dir: string) => readLocalPluginManifest(dir))
+
+/** Extensiones que se abren en VS Code; el resto va a la app predeterminada */
+const CODE_EXTS = new Set([
+  'md', 'json', 'jsonc', 'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'css', 'scss', 'less',
+  'html', 'htm', 'py', 'yml', 'yaml', 'txt', 'xml', 'cs', 'java', 'kt', 'sql', 'ps1',
+  'psm1', 'sh', 'bat', 'cmd', 'toml', 'ini', 'env', 'csv', 'log', 'vue', 'svelte', 'go',
+  'rs', 'rb', 'php', 'lock', 'gitignore', 'editorconfig', 'prisma', 'graphql', 'tf'
+])
+
+/**
+ * Abre lo que el LLM devolvió en el chat: URL → navegador; ruta local de
+ * código/texto (o carpeta) → VS Code; binarios (pdf, imágenes…) → app
+ * predeterminada del sistema. Las rutas relativas se resuelven contra el cwd
+ * de la pestaña.
+ */
+ipcMain.handle('open:target', async (_e, a: { target: string; cwd?: string }) => {
+  const t = a.target.trim()
+  if (/^https?:\/\//i.test(t)) {
+    await shell.openExternal(t)
+    return { ok: true }
+  }
+  let file = t.replace(/^file:\/{2,3}/i, '')
+  if (!isAbsolute(file)) file = join(a.cwd ?? '', file)
+  if (!existsSync(file)) return { ok: false, message: `No existe: ${file}` }
+  const isDir = statSync(file).isDirectory()
+  const ext = extname(file).slice(1).toLowerCase()
+  if (isDir || CODE_EXTS.has(ext) || ext === '') {
+    // shell:true resuelve el shim code.cmd en Windows; si VS Code no está,
+    // cae a la app predeterminada del sistema
+    const child = spawn('code', [file], { shell: true, detached: true, stdio: 'ignore' })
+    child.on('exit', (code) => {
+      if (code !== 0) void shell.openPath(file)
+    })
+    child.on('error', () => void shell.openPath(file))
+    child.unref()
+    return { ok: true }
+  }
+  const err = await shell.openPath(file)
+  return err ? { ok: false, message: err } : { ok: true }
+})
 
 ipcMain.handle('dialog:pickFiles', async () => {
   const r = await dialog.showOpenDialog({

@@ -14,6 +14,24 @@ interface Props {
   onFocus?: () => void
 }
 
+/** Tema del terminal según el tema de la app (kit §7): crema o oscuro cálido */
+function termTheme(): { background: string; foreground: string; cursor: string; selectionBackground: string } {
+  const dark = document.documentElement.dataset.theme === 'dark'
+  return dark
+    ? {
+        background: '#14120f',
+        foreground: '#cfcabd',
+        cursor: '#e0955f',
+        selectionBackground: 'rgba(224,149,95,0.35)'
+      }
+    : {
+        background: '#ebe6da',
+        foreground: '#3d3931',
+        cursor: '#b3541e',
+        selectionBackground: 'rgba(179,84,30,0.25)'
+      }
+}
+
 /** Atajos globales que xterm NO debe consumir (los maneja App en fase captura) */
 function isGlobalShortcut(e: KeyboardEvent): boolean {
   if (!e.ctrlKey) return false
@@ -36,6 +54,15 @@ export function TerminalView(p: Props): React.JSX.Element {
   const visibleRef = useRef(p.visible)
   visibleRef.current = p.visible
 
+  // Cambio de tema en vivo: observar data-theme del <html> y repintar xterm
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      if (termRef.current) termRef.current.options.theme = termTheme()
+    })
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+
   useEffect(() => {
     const holder = holderRef.current
     if (!holder) return
@@ -45,13 +72,8 @@ export function TerminalView(p: Props): React.JSX.Element {
       fontSize: 13,
       scrollback: 8000,
       allowProposedApi: true,
-      // terminal siempre oscuro cálido (rediseño 2a), en ambos temas
-      theme: {
-        background: '#14120f',
-        foreground: '#cfcabd',
-        cursor: '#e0955f',
-        selectionBackground: 'rgba(224,149,95,0.35)'
-      }
+      // el terminal SIGUE el tema (kit §7): claro crema u oscuro cálido
+      theme: termTheme()
     })
     const fit = new FitAddon()
     const serialize = new SerializeAddon()

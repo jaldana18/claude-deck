@@ -14,7 +14,7 @@ import type {
   WidgetState
 } from '../../../shared/types'
 import { WidgetDock } from './WidgetDock'
-import { Markdown } from './Markdown'
+import { Markdown, MarkdownCwd } from './Markdown'
 import {
   IconCommand,
   IconEye,
@@ -964,7 +964,7 @@ export function ChatView(p: Props): React.JSX.Element {
     if (runningAgents > 0 && prevRunning.current === 0 && !p.widgets.some((w) => w.kind === 'agents')) {
       p.onWidgetsChange([
         ...p.widgets,
-        { id: `w-agents-${Date.now()}`, kind: 'agents', side: 'right', order: 99, height: 320, config: {} }
+        { id: `w-agents-${Date.now()}`, kind: 'agents', side: 'right', order: 99, height: 0, config: {} }
       ])
     }
     prevRunning.current = runningAgents
@@ -974,6 +974,7 @@ export function ChatView(p: Props): React.JSX.Element {
   const [paramsOpen, setParamsOpen] = useState(false)
 
   return (
+    <MarkdownCwd.Provider value={p.tab.cwd}>
     <div
       className="chat-view"
       style={{ display: p.visible ? 'flex' : 'none' }}
@@ -1049,7 +1050,7 @@ export function ChatView(p: Props): React.JSX.Element {
               else
                 p.onWidgetsChange([
                   ...p.widgets,
-                  { id: `w-agents-${Date.now()}`, kind: 'agents', side: 'right', order: 99, height: 320, config: {} }
+                  { id: `w-agents-${Date.now()}`, kind: 'agents', side: 'right', order: 99, height: 0, config: {} }
                 ])
             }}
             title="Mostrar/quitar el widget de actividad (agentes y plan)"
@@ -1337,5 +1338,6 @@ export function ChatView(p: Props): React.JSX.Element {
         </div>
       )}
     </div>
+    </MarkdownCwd.Provider>
   )
 }

@@ -112,7 +112,7 @@ export function ConfigPanel(p: Props): React.JSX.Element {
     <div className="section">
       <div className="section-head" onClick={() => setOpen((o) => ({ ...o, [key]: !o[key] }))}>
         <span className="section-title">
-          {open[key] ? '▾' : '▸'} {title} <span className="count">({count})</span>
+          {open[key] ? '▾' : '▸'} {title} <span className="count">{count}</span>
         </span>
         {onCreate && (
           <button

@@ -155,6 +155,9 @@ const api = {
     description: string
   }): Promise<string> => ipcRenderer.invoke('artifact:draft', args),
   pickFiles: (): Promise<string[]> => ipcRenderer.invoke('dialog:pickFiles'),
+  /** URL → navegador · código/carpeta → VS Code · binarios → app del sistema */
+  openTarget: (target: string, cwd?: string): Promise<StoreResult> =>
+    ipcRenderer.invoke('open:target', { target, cwd }),
   /** Ruta absoluta de un File arrastrado (Electron ya no expone File.path) */
   pathForFile: (file: File): string => webUtils.getPathForFile(file),
   chatSetModel: (tabId: string, model?: string): Promise<void> =>

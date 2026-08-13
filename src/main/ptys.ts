@@ -24,12 +24,31 @@ export class PtyManager {
     return tab.claudeSessionId ? `claude --resume ${tab.claudeSessionId}` : 'claude'
   }
 
-  startPane(paneId: string, cwd: string, command: string | null, cols = 120, rows = 30): void {
+  startPane(
+    paneId: string,
+    cwd: string,
+    command: string | null,
+    shell: 'powershell' | 'cmd' | 'bash' = 'powershell',
+    cols = 120,
+    rows = 30
+  ): void {
     this.kill(paneId)
     this.buffers.set(paneId, '')
-    const args = ['-NoLogo', '-NoExit']
-    if (command) args.push('-Command', command)
-    const pty = spawn('powershell.exe', args, {
+    // Selector de shell (kit §7). El panel con la TUI de claude siempre corre
+    // en PowerShell (command != null); los paneles planos usan el elegido.
+    const exe =
+      command || shell === 'powershell'
+        ? 'powershell.exe'
+        : shell === 'cmd'
+          ? 'cmd.exe'
+          : 'bash.exe'
+    const args =
+      exe === 'powershell.exe'
+        ? ['-NoLogo', '-NoExit', ...(command ? ['-Command', command] : [])]
+        : exe === 'cmd.exe'
+          ? []
+          : ['-i']
+    const pty = spawn(exe, args, {
       name: 'xterm-256color',
       cols,
       rows,
