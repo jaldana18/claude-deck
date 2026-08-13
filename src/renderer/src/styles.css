@@ -3236,3 +3236,58 @@ kbd {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* ============================================================
+   Reparto del ancho: chat centrado angosto, laterales amplios
+   ============================================================ */
+/* columna de lectura: mismo ancho que el composer (700px), centrada */
+.chat-column {
+  max-width: 700px;
+  margin: 0 auto;
+}
+/* los docks crecen con la pantalla: 280px mínimo, ~22% del ancho, tope 430px */
+.widget-dock {
+  width: clamp(280px, 22vw, 430px);
+}
+.widget-dock.drag-over {
+  width: clamp(280px, 22vw, 430px);
+}
+.widget-dock.empty {
+  width: 26px;
+  min-width: 26px;
+}
+
+/* instancias de terminal estilo VS Code (tira a la derecha del panel) */
+.term-instances {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+.term-inst {
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.term-inst:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.term-inst.active {
+  background: var(--bg-raised);
+  color: var(--text);
+  font-weight: 600;
+}
+.term-inst.in-split {
+  color: var(--text-dim);
+}
+.term-inst:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

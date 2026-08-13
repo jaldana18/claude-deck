@@ -69,10 +69,51 @@ export const ChatTabView = memo(function ChatTabView(p: Props): React.JSX.Elemen
     }
   }, [])
 
+  // Estilo VS Code: lista de instancias a la derecha; clic muestra esa sola,
+  // el selector de layouts hace de «split», + agrega terminal, × cierra la última
+  const [solo, setSolo] = useState<string | null>(null)
+  const [maximized, setMaximized] = useState(false)
+  const heightBefore = useRef(280)
+
   const setLayout = async (layout: PaneLayout): Promise<void> => {
     const updated = await window.deck.setPaneLayout(p.tab.id, layout)
     if (updated) p.onLayoutChange(updated)
     if (layout !== 'single') setShowTerm(true)
+    setSolo(null)
+  }
+
+  const paneIds = paneIdsFor(p.tab.id, p.tab.paneLayout)
+
+  const addTerminal = async (): Promise<void> => {
+    const next: PaneLayout = paneIds.length === 1 ? 'cols' : 'grid'
+    if (paneIds.length >= 4) return
+    const updated = await window.deck.setPaneLayout(p.tab.id, next)
+    if (updated) {
+      p.onLayoutChange(updated)
+      setShowTerm(true)
+      // mostrar la instancia nueva sola, como hace VS Code al crear terminal
+      setSolo(paneIdsFor(p.tab.id, next).at(-1) ?? null)
+    }
+  }
+
+  const closeLast = async (): Promise<void> => {
+    const prev: PaneLayout = paneIds.length > 2 ? 'cols' : 'single'
+    const updated = await window.deck.setPaneLayout(p.tab.id, prev)
+    if (updated) {
+      p.onLayoutChange(updated)
+      setSolo(null)
+    }
+  }
+
+  const toggleMaximize = (): void => {
+    if (maximized) {
+      setTermHeight(heightBefore.current)
+    } else {
+      heightBefore.current = termHeight
+      setTermHeight(Math.max(300, window.innerHeight - 160))
+      setShowTerm(true)
+    }
+    setMaximized((v) => !v)
   }
 
   return (
@@ -113,6 +154,45 @@ export const ChatTabView = memo(function ChatTabView(p: Props): React.JSX.Elemen
           <span className="hint" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {p.tab.cwd}
           </span>
+          <span style={{ flex: 1 }} />
+          {/* lista de instancias estilo VS Code */}
+          <span className="term-instances" onMouseDown={(e) => e.stopPropagation()}>
+            {paneIds.map((pid, i) => (
+              <button
+                key={pid}
+                className={`term-inst ${
+                  paneIds.length === 1 || solo === pid ? 'active' : solo ? '' : 'in-split'
+                }`}
+                title={solo === pid ? 'Instancia visible' : 'Mostrar solo esta instancia'}
+                onClick={() => {
+                  setShowTerm(true)
+                  setSolo(paneIds.length === 1 ? null : pid)
+                }}
+              >
+                ›_ {shell} {i + 1}
+              </button>
+            ))}
+            {paneIds.length > 1 && (
+              <button className="term-inst" title="Cerrar la última instancia" onClick={() => void closeLast()}>
+                ×
+              </button>
+            )}
+            <button
+              className="term-inst"
+              title="Nueva instancia de terminal"
+              disabled={paneIds.length >= 4}
+              onClick={() => void addTerminal()}
+            >
+              +
+            </button>
+            <button
+              className="term-inst"
+              title={maximized ? 'Restaurar tamaño del panel' : 'Maximizar panel'}
+              onClick={toggleMaximize}
+            >
+              {maximized ? '⌄' : '⌃'}
+            </button>
+          </span>
         </div>
         {/* Los terminales quedan montados siempre para no perder su estado */}
         <div className="term-panel-body" style={{ display: showTerm ? 'block' : 'none' }}>
@@ -122,6 +202,7 @@ export const ChatTabView = memo(function ChatTabView(p: Props): React.JSX.Elemen
             exitedPanes={p.exitedPanes}
             onRestartPane={p.onRestartPane}
             mainRestartLabel="Relanzar shell"
+            solo={solo}
           />
         </div>
       </div>

@@ -9,6 +9,8 @@ interface GridProps {
   onRestartPane: (paneId: string) => void
   /** etiqueta del botón de reinicio del panel principal */
   mainRestartLabel?: string
+  /** estilo VS Code: mostrar SOLO esta instancia (las demás siguen montadas) */
+  solo?: string | null
 }
 
 const GRID_STYLE: Record<PaneLayout, React.CSSProperties> = {
@@ -22,13 +24,18 @@ const GRID_STYLE: Record<PaneLayout, React.CSSProperties> = {
 export function PaneGrid(p: GridProps): React.JSX.Element {
   const layout = p.tab.paneLayout ?? 'single'
   const panes = paneIdsFor(p.tab.id, layout)
+  const solo = p.solo && panes.includes(p.solo) ? p.solo : null
   return (
-    <div className="pane-grid" style={GRID_STYLE[layout]}>
+    <div className="pane-grid" style={GRID_STYLE[solo ? 'single' : layout]}>
       {panes.map((paneId) => (
-        <div key={paneId} className="pane-cell">
+        <div
+          key={paneId}
+          className="pane-cell"
+          style={solo && solo !== paneId ? { display: 'none' } : undefined}
+        >
           <TerminalView
             paneId={paneId}
-            visible={p.visible}
+            visible={p.visible && (!solo || solo === paneId)}
             exited={Boolean(p.exitedPanes[paneId])}
             restartLabel={
               paneId === p.tab.id ? (p.mainRestartLabel ?? 'Relanzar') : 'Relanzar shell'
