@@ -341,9 +341,7 @@ export default function App(): React.JSX.Element {
         onPalette={() => setShowPalette(true)}
         onToggleConfig={() => setShowConfig((v) => !v)}
         onToggleSessions={() => setShowSessions((v) => !v)}
-        onToggleGit={() => addWidget('git')}
-        onToggleBoard={() => addWidget('board')}
-        onToggleHealth={() => addWidget('health')}
+        onAddWidget={addWidget}
         onToggleStore={() => setShowStore(true)}
       />
       <div className="body">

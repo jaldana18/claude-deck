@@ -207,6 +207,7 @@ function Widget(p: WidgetProps): React.JSX.Element {
         }}
         title="Arrastra para mover el widget al otro lateral o reordenarlo"
       >
+        <span className="widget-grip">⠿</span>
         <span className="widget-title iconlabel">
           {icon} {WIDGET_TITLES[p.widget.kind]}
           {suffix && <span className="widget-suffix">· {suffix}</span>}

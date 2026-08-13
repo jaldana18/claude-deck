@@ -1,57 +1,68 @@
 /* ============================================================
    Claude Deck — sistema de diseño
-   Tokens + tema oscuro (default) y claro ([data-theme='light'])
+   Tokens + tema claro crema (default) y oscuro cálido ([data-theme='dark'])
    ============================================================ */
 
+/* Rediseño 2a: «editor clásico + técnica cálida» — cremas con acento
+   terracota, Geist + JetBrains Mono; terminal y código siempre oscuros.
+   El tema por defecto es el CLARO; [data-theme='dark'] es la variante 1b. */
 :root {
-  --bg: #0d1117;
-  --bg-soft: #151b23;
-  --bg-raised: #1c232e;
-  --bg-hover: #222b38;
-  --border: #2b3442;
-  --border-soft: #232b37;
-  --text: #e6edf3;
-  --text-dim: #8b98a5;
-  --accent: #d97757;
-  --accent-strong: #e08563;
-  --accent-soft: rgba(217, 119, 87, 0.14);
-  --green: #3fb950;
-  --yellow: #d29922;
-  --red: #f85149;
-  --blue: #58a6ff;
+  --bg: #f6f3ec;
+  --bg-soft: #f0ece2;
+  --bg-raised: #fdfcf9;
+  --bg-hover: #ebe6da;
+  --bg-tabbar: #ebe6da;
+  --bg-inset: #e8ddc9;
+  --border: rgba(43, 40, 35, 0.18);
+  --border-soft: rgba(43, 40, 35, 0.11);
+  --text: #2b2823;
+  --text-dim: #6d675c;
+  --text-faint: #8a8375;
+  --accent: #b3541e;
+  --accent-strong: #8f3f12;
+  --accent-soft: rgba(179, 84, 30, 0.1);
+  --green: #4a9b6f;
+  --yellow: #b3822a;
+  --red: #b03a2e;
+  --blue: #4a7bd0;
   /* código y terminal se quedan oscuros en ambos temas (estilo VS Code) */
-  --code-bg: #0a0e14;
-  --term-bg: #0d1117;
+  --code-bg: #211f1b;
+  --term-bg: #14120f;
+
+  --font-ui: 'Geist Sans', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
 
   --radius-s: 6px;
   --radius-m: 10px;
   --radius-l: 14px;
-  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.25);
-  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.35);
-  --shadow-3: 0 20px 60px rgba(0, 0, 0, 0.5);
+  --shadow-1: 0 1px 3px rgba(43, 40, 35, 0.1);
+  --shadow-2: 0 8px 28px rgba(43, 40, 35, 0.18);
+  --shadow-3: 0 20px 60px rgba(43, 40, 35, 0.28);
   --ease: cubic-bezier(0.2, 0.8, 0.25, 1);
 }
 
-:root[data-theme='light'] {
-  --bg: #ffffff;
-  --bg-soft: #f6f8fa;
-  --bg-raised: #eef1f5;
-  --bg-hover: #e7ebf0;
-  --border: #d1d9e0;
-  --border-soft: #e3e8ee;
-  --text: #1f2328;
-  --text-dim: #59636e;
-  --accent: #c2542f;
-  --accent-strong: #a94523;
-  --accent-soft: rgba(194, 84, 47, 0.1);
-  --green: #1a7f37;
-  --yellow: #9a6700;
-  --red: #cf222e;
-  --blue: #0969da;
-  --code-bg: #161b22;
-  --shadow-1: 0 1px 3px rgba(31, 35, 40, 0.08);
-  --shadow-2: 0 8px 28px rgba(31, 35, 40, 0.14);
-  --shadow-3: 0 20px 60px rgba(31, 35, 40, 0.22);
+:root[data-theme='dark'] {
+  --bg: #1e1c19;
+  --bg-soft: #242119;
+  --bg-raised: #2a2722;
+  --bg-hover: #31281f;
+  --bg-tabbar: #171512;
+  --bg-inset: #33302a;
+  --border: rgba(255, 255, 255, 0.14);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --text: #e8e4da;
+  --text-dim: #a8a294;
+  --text-faint: #8f887a;
+  --accent: #e0955f;
+  --accent-strong: #e8a878;
+  --accent-soft: rgba(224, 149, 95, 0.14);
+  --green: #7cb98a;
+  --yellow: #dcb055;
+  --red: #e07a70;
+  --blue: #6f95dd;
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.4);
+  --shadow-3: 0 20px 60px rgba(0, 0, 0, 0.55);
 }
 
 * {
@@ -65,7 +76,7 @@ body,
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-ui);
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
 }
@@ -472,7 +483,7 @@ button {
   color: var(--accent);
 }
 .statusline .session {
-  font-family: Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 .empty-state {
@@ -727,7 +738,7 @@ button {
   border: 1px solid var(--border-soft);
   border-radius: 4px;
   padding: 0 5px;
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
@@ -738,7 +749,7 @@ button {
   border-radius: var(--radius-m);
   padding: 12px 14px;
   overflow-x: auto;
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.55;
   margin: 10px 0;
@@ -786,7 +797,7 @@ button {
   overflow-x: auto;
   max-height: 260px;
   overflow-y: auto;
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -844,7 +855,7 @@ button {
   max-height: 200px;
   overflow-y: auto;
   white-space: pre-wrap;
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
 }
 .perm-actions {
   display: flex;
@@ -1186,7 +1197,7 @@ button {
   background: var(--accent-soft);
 }
 .slash-item b {
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   flex-shrink: 0;
   color: var(--accent);
   font-weight: 600;
@@ -1529,7 +1540,7 @@ button {
   margin: 0;
   padding: 10px 12px;
   overflow: hidden;
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -1660,7 +1671,7 @@ button {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .modal textarea {
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   min-height: 110px;
   resize: vertical;
 }
@@ -1696,7 +1707,7 @@ button {
 .search-item .preview {
   color: var(--text-dim);
   font-size: 11.5px;
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1770,7 +1781,7 @@ kbd {
   border-radius: 4px;
   padding: 1px 5px;
   font-size: 11px;
-  font-family: Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 /* ============ widgets acoplables ============ */
@@ -2131,7 +2142,7 @@ kbd {
 .board-id {
   font-size: 10.5px;
   color: var(--text-dim);
-  font-family: Consolas, monospace;
+  font-family: var(--font-mono);
 }
 .board-title {
   font-size: 12px;
@@ -2195,7 +2206,7 @@ kbd {
   padding: 4px 12px;
   cursor: pointer;
   font-size: 12px;
-  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   transition: all 0.12s var(--ease);
 }
 .tool-chip:hover {
@@ -2488,4 +2499,371 @@ kbd {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* ============================================================
+   REDISEÑO 2a — «editor clásico + técnica cálida»
+   Capa de overrides sobre los estilos base (cascada: gana lo último)
+   ============================================================ */
+
+/* --- barra de pestañas estilo editor (file tabs) --- */
+.tabbar {
+  background: var(--bg-tabbar);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 7px 10px 0;
+  gap: 8px;
+  align-items: flex-end;
+}
+.tabbar .tabs {
+  gap: 2px;
+  align-items: flex-end;
+}
+.tab {
+  border-radius: 8px 8px 0 0;
+  padding: 7px 12px;
+  margin-bottom: 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  min-width: 150px;
+}
+.tab.active {
+  background: var(--bg);
+  border-color: var(--border-soft);
+  border-bottom: none;
+  box-shadow: none;
+  margin-bottom: -1px;
+  padding-bottom: 8px;
+}
+.tab.active::after {
+  display: none;
+}
+.tab.term .title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.tab .title {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.tab:not(.active) .title {
+  font-weight: 400;
+}
+.tab .dot {
+  margin-left: auto;
+}
+.tab-new {
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  -webkit-app-region: no-drag;
+  align-self: center;
+}
+.tab-new:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tabbar .actions {
+  align-items: center;
+  padding-bottom: 7px;
+  gap: 6px;
+}
+.tabbar .actions .caret {
+  font-size: 9px;
+  color: var(--text-faint);
+}
+.iconbtn.open {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-inset);
+}
+
+/* --- dropdowns de la barra (galería de widgets y menú ⋯) --- */
+.menu-anchor {
+  position: relative;
+}
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+}
+.dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: var(--shadow-2);
+  animation: fadeUp 0.15s var(--ease);
+  overflow: hidden;
+}
+.widget-gallery {
+  width: 290px;
+}
+.dropdown-head {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dropdown-head b {
+  font-size: 12.5px;
+}
+.gallery-grid {
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.gallery-item {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 9px 10px;
+  cursor: pointer;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.12s var(--ease), background 0.12s var(--ease);
+}
+.gallery-item:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.gallery-item .gallery-icon {
+  color: var(--accent);
+}
+.gallery-item b {
+  font-size: 11.5px;
+}
+.gallery-item span:last-child {
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.dropdown-foot {
+  padding: 9px 14px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 11.5px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dropdown-foot:hover {
+  background: var(--accent-soft);
+}
+.overflow-menu {
+  width: 240px;
+  padding: 5px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: var(--bg-hover);
+}
+.menu-item kbd {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+}
+.menu-sep {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 5px 8px;
+}
+
+/* --- header del chat: control segmentado de permisos --- */
+.mode-seg {
+  display: flex;
+  background: var(--bg-hover);
+  border-radius: 7px;
+  padding: 2px;
+  font-size: 11.5px;
+}
+.mode-seg button {
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.mode-seg button.active {
+  background: var(--bg-raised);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: var(--shadow-1);
+}
+
+/* --- composer tipo tarjeta --- */
+.chat-input {
+  max-width: 700px;
+  padding: 8px 24px 12px;
+}
+.composer {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  padding: 8px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.composer textarea {
+  border: none;
+  background: none;
+  padding: 3px 4px;
+  border-radius: 0;
+}
+.composer textarea:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.composer-actions .iconbtn {
+  padding: 3px 9px;
+  font-size: 11.5px;
+}
+.composer-actions .iconbtn.primary {
+  padding: 5px 15px;
+  font-size: 12px;
+  border-radius: 7px;
+}
+.slash-menu {
+  left: 24px;
+  right: 24px;
+  bottom: calc(100% - 2px);
+}
+
+/* --- burbujas: usuario crema, assistant sin fondo --- */
+.bubble.user .bubble-body,
+.bubble.user {
+  border-radius: 12px 12px 3px 12px;
+}
+
+/* --- widgets: grip + cabecera compacta --- */
+.widget-grip {
+  color: var(--text-faint);
+  cursor: grab;
+  font-size: 11px;
+  line-height: 1;
+}
+.widget {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-soft);
+  box-shadow: none;
+}
+.widget-head {
+  background: none;
+  border-bottom: none;
+  padding: 8px 12px 4px;
+}
+.widget-dock {
+  background: var(--bg-soft);
+  border-color: var(--border-soft);
+  gap: 0;
+  padding: 0;
+}
+.widget-dock.empty {
+  min-width: 26px;
+}
+.widget-dock.drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -6px;
+  background: var(--accent-soft);
+}
+.widget-resize {
+  height: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 7px;
+  letter-spacing: 2px;
+}
+.widget-resize::after {
+  content: '———';
+  opacity: 0.6;
+}
+
+/* --- panel de terminal estilo VS Code --- */
+.term-panel-head {
+  background: var(--code-bg);
+  color: #a8a294;
+  border-top: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.term-panel-head .hint {
+  color: #6d675c;
+  font-family: var(--font-mono);
+}
+.term-panel {
+  border-top: none;
+}
+
+/* --- barra de estado: mono cálido --- */
+.statusline {
+  background: var(--bg-tabbar);
+  border-top: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.statusline .chip {
+  font-family: var(--font-mono);
+}
+
+/* --- costo y números en mono --- */
+.chat-header .chip {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- burbujas (rediseño): usuario crema sólido, assistant plano --- */
+.bubble.user {
+  background: var(--bg-inset);
+  border: none;
+  border-radius: 12px 12px 3px 12px;
+  max-width: 75%;
+}
+.bubble.assistant {
+  background: none;
+  border: none;
+  padding-left: 30px;
+}
+.bubble.assistant::before {
+  left: 6px;
 }

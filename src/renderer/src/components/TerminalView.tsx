@@ -41,15 +41,16 @@ export function TerminalView(p: Props): React.JSX.Element {
     if (!holder) return
 
     const term = new Terminal({
-      fontFamily: '"Cascadia Mono", Consolas, monospace',
-      fontSize: 13.5,
+      fontFamily: '"JetBrains Mono", "Cascadia Mono", Consolas, monospace',
+      fontSize: 13,
       scrollback: 8000,
       allowProposedApi: true,
+      // terminal siempre oscuro cálido (rediseño 2a), en ambos temas
       theme: {
-        background: '#0d1117',
-        foreground: '#e6edf3',
-        cursor: '#d97757',
-        selectionBackground: 'rgba(217,119,87,0.35)'
+        background: '#14120f',
+        foreground: '#cfcabd',
+        cursor: '#e0955f',
+        selectionBackground: 'rgba(224,149,95,0.35)'
       }
     })
     const fit = new FitAddon()

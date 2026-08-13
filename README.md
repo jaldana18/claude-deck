@@ -17,6 +17,11 @@ Incluye un panel visual por proyecto para agentes, skills, hooks y MCP servers
 (estilo Google AI Studio) y decisión explícita por proyecto sobre usar o no la
 configuración global del PC (~/.claude).
 
+**Diseño**: «editor clásico + técnica cálida» — tema claro crema con acento
+terracota (por defecto) y variante oscura cálida, tipografías Geist +
+JetBrains Mono empaquetadas localmente, terminal y código siempre oscuros.
+Los mockups de referencia viven en `mockups/`.
+
 ## Modo chat (v2)
 
 - **Sin costo extra de tokens**: el modelo emite el mismo markdown que en la TUI; la app

@@ -973,18 +973,17 @@ export function ChatView(p: Props): React.JSX.Element {
       }}
     >
       <div className="chat-header">
-        <select
-          className="mode-select"
-          value={modeState}
-          onChange={(e) => setMode(e.target.value as PermissionModeId)}
-          title="Modo de permisos de esta pestaña"
-        >
+        <div className="mode-seg" title="Modo de permisos de esta pestaña">
           {(Object.keys(MODE_LABEL) as PermissionModeId[]).map((m) => (
-            <option key={m} value={m}>
-              {MODE_LABEL[m]}
-            </option>
+            <button
+              key={m}
+              className={modeState === m ? 'active' : ''}
+              onClick={() => setMode(m)}
+            >
+              {MODE_LABEL[m].replace(/^\S+\s/, '')}
+            </button>
           ))}
-        </select>
+        </div>
         <select
           className="mode-select"
           value={modelSel}
@@ -1236,47 +1235,52 @@ export function ChatView(p: Props): React.JSX.Element {
             e.target.value = ''
           }}
         />
-        <button
-          className="iconbtn big"
-          onClick={() => fileRef.current?.click()}
-          title="Adjuntar imágenes (o pega/arrastra). Una captura 1080p ≈ 1.5-2k tokens"
-        >
-          <IconPaperclip size={16} />
-        </button>
-        <button
-          className="iconbtn big"
-          onClick={() => window.dispatchEvent(new CustomEvent('deck:open-palette'))}
-          title="Paleta de comandos y snippets (Ctrl+Shift+P)"
-        >
-          <IconCommand size={16} />
-        </button>
-        <textarea
-          ref={inputRef}
-          value={input}
-          placeholder="Escribe tu mensaje… (/ comandos, Enter envía, Shift+Enter salto, Ctrl+C detiene)"
-          rows={Math.min(6, Math.max(1, input.split('\n').length))}
-          onChange={(e) => {
-            setInput(e.target.value)
-            setSlashSel(0)
-            if (!e.target.value.startsWith('/')) setSlashDismissed(false)
-          }}
-          onKeyDown={onInputKeyDown}
-          onPaste={onPaste}
-        />
-        {busy ? (
-          <button className="stopbtn big" onClick={interrupt} title="Detener (Ctrl+C)">
-            <IconStop size={16} />
-          </button>
-        ) : (
-          <button
-            className="iconbtn primary big"
-            onClick={send}
-            disabled={!input.trim() && attachments.length === 0}
-            title="Enviar (Enter)"
-          >
-            <IconSend size={16} />
-          </button>
-        )}
+        <div className="composer">
+          <textarea
+            ref={inputRef}
+            value={input}
+            placeholder="Escribe un mensaje… «/» comandos · Enter envía · Shift+Enter salto"
+            rows={Math.min(6, Math.max(1, input.split('\n').length))}
+            onChange={(e) => {
+              setInput(e.target.value)
+              setSlashSel(0)
+              if (!e.target.value.startsWith('/')) setSlashDismissed(false)
+            }}
+            onKeyDown={onInputKeyDown}
+            onPaste={onPaste}
+          />
+          <div className="composer-actions">
+            <button
+              className="iconbtn"
+              onClick={() => fileRef.current?.click()}
+              title="Adjuntar imágenes (o pega/arrastra). Una captura 1080p ≈ 1.5-2k tokens"
+            >
+              <IconPaperclip size={13} />
+            </button>
+            <button
+              className="iconbtn iconlabel"
+              onClick={() => window.dispatchEvent(new CustomEvent('deck:open-palette'))}
+              title="Paleta de comandos y snippets (Ctrl+Shift+P)"
+            >
+              <IconCommand size={12} /> Snippets
+            </button>
+            <span style={{ flex: 1 }} />
+            {busy ? (
+              <button className="stopbtn iconlabel" onClick={interrupt} title="Detener (Ctrl+C / Esc)">
+                <IconStop size={13} /> Detener
+              </button>
+            ) : (
+              <button
+                className="iconbtn primary iconlabel"
+                onClick={send}
+                disabled={!input.trim() && attachments.length === 0}
+                title="Enviar (Enter)"
+              >
+                Enviar <IconSend size={13} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {imageView && (

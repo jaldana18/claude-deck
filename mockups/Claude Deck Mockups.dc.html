@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e9e4d8;font-family:'Geist',system-ui,sans-serif}
+a{color:#b3541e}a:hover{color:#8f3f12}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(43,40,35,.1);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.dv-tid{font:600 10px 'JetBrains Mono',monospace;padding:3px 7px;background:#2b2823;color:#f4f1ea;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 'Geist',sans-serif;color:#2b2823}
+.dv-intro{margin:0 0 20px;font:400 11.5px/1.55 'Geist',sans-serif;color:rgba(43,40,35,.62);max-width:860px}
+.dv-opts{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px 'JetBrains Mono',monospace;padding:3px 7px;background:rgba(43,40,35,.1);color:#2b2823;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11.5px/1.3 'Geist',sans-serif;color:rgba(43,40,35,.62);max-width:1100px}
+.dv-card{max-width:100%;background:#f6f3ec;border:1px solid rgba(43,40,35,.15);border-radius:10px;box-shadow:0 10px 34px rgba(43,40,35,.18);overflow:hidden}
+.dv-opt:target .dv-oid{background:#b3541e;color:#fff}
+.dv-next{margin:24px 0 0;font:12px/1.5 'Geist',sans-serif;color:rgba(43,40,35,.55)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes jiggle{0%,100%{transform:rotate(-.6deg)}50%{transform:rotate(.6deg)}}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Unificación de <a class="dv-oid" href="#1a">1a</a> + <a class="dv-oid" href="#1c">1c</a></span></div>
+<p class="dv-intro"><a class="dv-oid" href="#2a">2a</a> es la propuesta unificada: widgets acoplables a ambos lados con galería de widgets (drawer desde «+ Widget»), y terminal inferior estilo VS Code con una pestaña por conversación. <a class="dv-oid" href="#2b">2b</a> muestra el momento «snap tipo Windows»: al arrastrar una pestaña a un lateral aparecen las zonas de ajuste y la pantalla se divide sola.</p>
+<div class="dv-opts">
+
+<!-- ==================== 2a UNIFICADA ==================== -->
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Propuesta unificada — docks a ambos lados, galería de widgets abierta, terminal inferior por conversación (VS Code)</div>
+<div class="dv-card" style="width:1280px">
+<div style="position:relative;display:flex;flex-direction:column;height:800px;background:#f6f3ec;color:#2b2823;font-size:13px">
+  <div style="display:flex;align-items:flex-end;gap:2px;padding:8px 10px 0;background:#ebe6da;border-bottom:1px solid rgba(43,40,35,.14)">
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#f6f3ec;border:1px solid rgba(43,40,35,.14);border-bottom:none;border-radius:8px 8px 0 0;min-width:180px;margin-bottom:-1px">
+      <span style="font-size:11px;color:#8a8375">◨</span><span style="font-weight:600;font-size:12.5px">deck-frontend</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#4a7bd0;animation:pulse 1.4s infinite;margin-left:auto"></span><span style="color:#8a8375;font-size:15px;line-height:.8">×</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;min-width:150px;color:#6d675c;font-size:12.5px"><span style="font-size:11px">◨</span><span>api-server</span><span style="width:8px;height:8px;border-radius:50%;background:#d9a13b;margin-left:auto"></span><span style="font-size:15px;line-height:.8">×</span></div>
+    <div style="padding:5px 11px;color:#6d675c;font-size:16px;line-height:1">+</div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:6px;padding-bottom:7px">
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 11px;background:#e8ddc9;border:1px solid #b3541e;border-radius:6px;font-size:12px;font-weight:600;color:#b3541e">⊞ Widgets</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 11px;background:#f6f3ec;border:1px solid rgba(43,40,35,.18);border-radius:6px;font-size:12px;color:#4d483f">⌕ Buscar</div>
+      <div style="padding:5px 10px;background:#f6f3ec;border:1px solid rgba(43,40,35,.18);border-radius:6px;font-size:12px;color:#4d483f">⋯</div>
+    </div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <!-- left dock -->
+    <div style="width:250px;border-right:1px solid rgba(43,40,35,.12);background:#f0ece2;display:flex;flex-direction:column;gap:0;min-height:0">
+      <div style="border-bottom:1px solid rgba(43,40,35,.12)">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:grab"><span style="color:#8a8375">⠿</span> Sprint · Equipo Web <span style="margin-left:auto;color:#8a8375;font-weight:400">×</span></div>
+        <div style="padding:0 12px 10px;display:flex;flex-direction:column;gap:6px;font-size:11px">
+          <div style="height:6px;border-radius:3px;background:#ddd6c4;overflow:hidden"><div style="width:58%;height:100%;background:#4a9b6f"></div></div>
+          <div style="display:flex;justify-content:space-between;color:#6d675c"><span>Sprint 14 · 58%</span><span>12/21</span></div>
+          <div style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 8px"><span style="width:6px;height:6px;border-radius:50%;background:#4a7bd0"></span>Refactor SessionList <span style="margin-left:auto;color:#8a8375">RM</span></div>
+          <div style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 8px"><span style="width:6px;height:6px;border-radius:50%;background:#d9a13b"></span>Auth timeout <span style="margin-left:auto;color:#8a8375">JC</span></div>
+        </div>
+        <div style="height:8px;display:flex;justify-content:center;align-items:center;color:#c0b8a4;cursor:ns-resize;font-size:7px;letter-spacing:2px">———</div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:grab"><span style="color:#8a8375">⠿</span> Actividad <span style="margin-left:auto;color:#8a8375;font-weight:400">×</span></div>
+        <div style="padding:0 12px 12px;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
+          <div style="display:flex;align-items:center;gap:7px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 8px"><span style="animation:pulse 1.4s infinite;color:#4a7bd0">●</span>Subagente: tests <span style="margin-left:auto;color:#b3541e">abrir →</span></div>
+          <div style="display:flex;align-items:center;gap:7px;color:#4d483f"><span style="color:#4a9b6f">✓</span>Localizar causa del bug</div>
+          <div style="display:flex;align-items:center;gap:7px;color:#4d483f"><span style="color:#4a7bd0">◐</span>Escribir tests de regresión</div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="margin:10px;border:1.5px dashed rgba(43,40,35,.25);border-radius:9px;padding:10px;text-align:center;font-size:11px;color:#8a8375">arrastra widgets aquí<br>← o al lado derecho →</div>
+    </div>
+    <!-- center -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid rgba(43,40,35,.1)">
+        <div style="display:flex;background:#ebe6da;border-radius:7px;padding:2px;font-size:11.5px">
+          <span style="padding:3px 10px;color:#6d675c">Preguntar</span>
+          <span style="padding:3px 10px;background:#fff;color:#b3541e;border-radius:5px;font-weight:600;box-shadow:0 1px 2px rgba(43,40,35,.12)">Auto-editar</span>
+          <span style="padding:3px 10px;color:#6d675c">Auto total</span>
+          <span style="padding:3px 10px;color:#6d675c">Plan</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid rgba(43,40,35,.16);border-radius:6px;font-size:11.5px">auto · <span style="font-family:'JetBrains Mono',monospace;color:#b3541e;font-weight:500">sonnet-4.5</span> <span style="font-size:9px;color:#8a8375">▾</span></div>
+        <div style="flex:1"></div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#6d675c">$1.24</span>
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 12px;background:rgba(196,74,60,.1);border:1px solid rgba(196,74,60,.4);border-radius:6px;color:#b03a2e;font-size:11.5px;font-weight:600">■ Detener</div>
+      </div>
+      <div style="flex:1;overflow:hidden;display:flex;justify-content:center;padding:14px 20px 0">
+        <div style="width:100%;max-width:600px;display:flex;flex-direction:column;gap:12px;border-left:1px dashed rgba(43,40,35,.18);border-right:1px dashed rgba(43,40,35,.18);padding:0 24px">
+          <div style="align-self:flex-end;max-width:75%;background:#e8ddc9;border-radius:12px 12px 3px 12px;padding:9px 13px;line-height:1.55">Corrige el bug del scroll en la lista de sesiones y añade tests.</div>
+          <div style="max-width:92%;line-height:1.6;color:#3d3931">Encontré el problema: el contenedor no fija <span style="font-family:'JetBrains Mono',monospace;background:#ebe6da;padding:1px 5px;border-radius:4px;font-size:12px">min-height:0</span>. Aplico el arreglo:</div>
+          <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;background:#fdfcf9;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px"><span style="color:#4a9b6f">✓</span><span style="font-family:'JetBrains Mono',monospace;font-weight:600">Edit</span><span style="color:#6d675c">src/components/SessionList.tsx</span><span style="margin-left:auto;color:#8a8375;font-size:10px">▾</span></div>
+            <div style="border-top:1px solid rgba(43,40,35,.1);background:#211f1b;padding:9px 14px;font:11.5px/1.6 'JetBrains Mono',monospace">
+              <div style="color:#c96a5a">- .list { overflow: auto; }</div>
+              <div style="color:#7cb98a">+ .list { overflow: auto; min-height: 0; }</div>
+            </div>
+          </div>
+          <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;background:#fdfcf9;padding:7px 12px;display:flex;align-items:center;gap:8px;font-size:12px"><span style="animation:pulse 1.4s infinite;color:#4a7bd0">●</span><span style="font-family:'JetBrains Mono',monospace;font-weight:600">Task</span><span style="color:#6d675c">subagente · escribir tests</span><span style="margin-left:auto;color:#b3541e;font-size:11.5px;font-weight:500">ver chat →</span></div>
+        </div>
+      </div>
+      <div style="padding:8px 20px 8px;display:flex;justify-content:center">
+        <div style="width:100%;max-width:600px;border:1.5px solid rgba(43,40,35,.22);border-radius:12px;background:#fdfcf9;padding:8px 12px 7px">
+          <div style="color:#8a8375;font-size:13px;padding:2px 4px 8px">Escribe un mensaje… <span style="font-family:'JetBrains Mono',monospace">/</span> comandos</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="padding:3px 8px;border:1px solid rgba(43,40,35,.16);border-radius:6px;font-size:11.5px;color:#4d483f">📎</span>
+            <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.16);border-radius:6px;font-size:11.5px;color:#4d483f">❯ Snippets</span>
+            <div style="flex:1"></div>
+            <span style="padding:4px 16px;background:#b3541e;color:#fff;border-radius:7px;font-size:12px;font-weight:600">Enviar ➤</span>
+          </div>
+        </div>
+      </div>
+      <!-- VS Code style bottom terminal, per-conversation tabs -->
+      <div style="border-top:1px solid rgba(43,40,35,.14);background:#211f1b;color:#a8a294;height:170px;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:0;padding:0 10px;font-size:11px;border-bottom:1px solid rgba(255,255,255,.08)">
+          <span style="padding:6px 12px;border-bottom:2px solid #e0955f;color:#e8e4da;font-weight:600">TERMINAL</span>
+          <span style="padding:6px 12px;color:#6d675c">PROBLEMAS</span>
+          <span style="padding:6px 12px;color:#6d675c">SALIDA</span>
+          <div style="flex:1"></div>
+          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace">
+            <span style="display:flex;align-items:center;gap:5px;background:#2e2a24;border-radius:5px;padding:2px 8px;color:#e8e4da">›_ deck-frontend <span style="width:6px;height:6px;border-radius:50%;background:#4a7bd0;animation:pulse 1.4s infinite"></span></span>
+            <span style="display:flex;align-items:center;gap:5px;padding:2px 8px;color:#6d675c">›_ api-server</span>
+            <span style="color:#6d675c">+</span><span style="color:#6d675c">◫</span><span style="color:#6d675c">▾</span>
+          </div>
+        </div>
+        <div style="flex:1;display:flex">
+          <div style="flex:1;padding:8px 14px;font:11.5px/1.65 'JetBrains Mono',monospace;border-right:1px solid rgba(255,255,255,.06)">
+            <div><span style="color:#7cb98a">PS C:\dev\deck-frontend&gt;</span> npm test</div>
+            <div style="color:#6d675c">Test Files  6 passed (6)</div>
+            <div style="color:#6d675c">     Tests  24 passed (24)</div>
+            <div><span style="color:#7cb98a">PS C:\dev\deck-frontend&gt;</span> <span style="animation:pulse 1s infinite">▍</span></div>
+          </div>
+          <div style="flex:1;padding:8px 14px;font:11.5px/1.65 'JetBrains Mono',monospace;color:#6d675c">
+            <div><span style="color:#7cb98a">PS&gt;</span> npm run dev</div>
+            <div>VITE v6.2 ready — localhost:5173</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:3px 14px;font:10px 'JetBrains Mono',monospace;color:#6d675c;border-top:1px solid rgba(255,255,255,.06)">cada conversación conserva su terminal · Ctrl+` alterna · scrollback persistente</div>
+      </div>
+    </div>
+    <!-- right dock -->
+    <div style="width:260px;border-left:1px solid rgba(43,40,35,.12);background:#f0ece2;display:flex;flex-direction:column;min-height:0">
+      <div style="border-bottom:1px solid rgba(43,40,35,.12)">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:grab"><span style="color:#8a8375">⠿</span> Git · deck-frontend <span style="margin-left:auto;font-weight:400;color:#6d675c;font-family:'JetBrains Mono',monospace">main·3±</span><span style="color:#8a8375">×</span></div>
+        <div style="padding:2px 12px 10px">
+          <div style="display:grid;grid-template-columns:24px 1fr;font-size:11px">
+            <div style="position:relative;height:24px"><span style="position:absolute;left:7px;top:0;bottom:0;width:2px;background:#b3541e"></span><span style="position:absolute;left:4px;top:8px;width:8px;height:8px;border-radius:50%;background:#b3541e"></span></div><div style="display:flex;align-items:center;gap:5px;height:24px"><span style="font-family:'JetBrains Mono',monospace;color:#b3541e">a41f2c</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">fix: scroll sesiones</span><span style="font-size:9px;background:#e8ddc9;padding:1px 5px;border-radius:8px">main</span></div>
+            <div style="position:relative;height:24px"><span style="position:absolute;left:7px;top:0;bottom:0;width:2px;background:#b3541e"></span><span style="position:absolute;left:15px;top:0;bottom:12px;width:2px;background:#9a8fbc"></span><span style="position:absolute;left:8px;top:10px;width:9px;height:2px;background:#9a8fbc"></span><span style="position:absolute;left:4px;top:8px;width:8px;height:8px;border-radius:50%;background:#b3541e"></span></div><div style="display:flex;align-items:center;gap:5px;height:24px;color:#4d483f"><span style="font-family:'JetBrains Mono',monospace;color:#6d675c">88c1d0</span>merge: feature/tests</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:grab"><span style="color:#8a8375">⠿</span> Salud del contexto <span style="margin-left:auto;color:#8a8375;font-weight:400">×</span></div>
+        <div style="padding:0 12px 12px;display:flex;flex-direction:column;gap:8px">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#6d675c;margin-bottom:4px"><span>Contexto</span><span style="font-family:'JetBrains Mono',monospace;color:#b3822a">72%</span></div>
+            <div style="height:7px;border-radius:4px;background:#ddd6c4;overflow:hidden"><div style="width:72%;height:100%;background:linear-gradient(90deg,#4a9b6f 55%,#d9a13b 90%)"></div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10.5px">
+            <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 8px"><div style="color:#8a8375">Costo</div><div style="font:600 12px 'JetBrains Mono',monospace">$1.24</div></div>
+            <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 8px"><div style="color:#8a8375">Turnos</div><div style="font:600 12px 'JetBrains Mono',monospace">37</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+    </div>
+    <!-- widget gallery drawer -->
+    <div style="position:absolute;top:52px;right:300px;z-index:6;width:280px;background:#fdfcf9;border:1px solid rgba(43,40,35,.18);border-radius:11px;box-shadow:0 16px 40px rgba(43,40,35,.28);overflow:hidden">
+      <div style="padding:10px 14px 8px;border-bottom:1px solid rgba(43,40,35,.1)"><span style="font-weight:700;font-size:12.5px">Galería de widgets</span><div style="font-size:10.5px;color:#8a8375;margin-top:2px">arrastra uno hacia un lado del chat</div></div>
+      <div style="padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;padding:9px;cursor:grab;background:#f6f3ec"><div style="font-size:15px">⎇</div><div style="font-weight:600;font-size:11.5px;margin-top:3px">Git</div><div style="font-size:10px;color:#8a8375">grafo de ramas</div></div>
+        <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;padding:9px;cursor:grab;background:#f6f3ec"><div style="font-size:15px">▦</div><div style="font-weight:600;font-size:11.5px;margin-top:3px">Sprint</div><div style="font-size:10px;color:#8a8375">Azure DevOps</div></div>
+        <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;padding:9px;cursor:grab;background:#f6f3ec"><div style="font-size:15px">♥</div><div style="font-weight:600;font-size:11.5px;margin-top:3px">Salud</div><div style="font-size:10px;color:#8a8375">contexto y costo</div></div>
+        <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;padding:9px;cursor:grab;background:#f6f3ec"><div style="font-size:15px">◎</div><div style="font-weight:600;font-size:11.5px;margin-top:3px">Actividad</div><div style="font-size:10px;color:#8a8375">subagentes y plan</div></div>
+      </div>
+      <div style="padding:8px 14px;border-top:1px solid rgba(43,40,35,.1);font-size:11px;color:#b3541e;font-weight:600">🛍 Más widgets en la Tienda →</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;padding:4px 14px;background:#ebe6da;border-top:1px solid rgba(43,40,35,.14);font:11px 'JetBrains Mono',monospace;color:#6d675c">
+    <span>📁 C:\dev\deck-frontend</span><span>sesión 3f9a…c21e</span><div style="flex:1"></div><span>v2.4.1</span>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ==================== 2b SNAP DE PESTAÑAS ==================== -->
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Snap tipo Windows — arrastras una pestaña al lateral y la pantalla se divide sola; zonas de ajuste con vista previa</div>
+<div class="dv-card" style="width:1280px">
+<div style="position:relative;display:flex;flex-direction:column;height:720px;background:#f6f3ec;color:#2b2823;font-size:13px">
+  <div style="display:flex;align-items:flex-end;gap:2px;padding:8px 10px 0;background:#ebe6da;border-bottom:1px solid rgba(43,40,35,.14)">
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#f6f3ec;border:1px solid rgba(43,40,35,.14);border-bottom:none;border-radius:8px 8px 0 0;min-width:180px;margin-bottom:-1px">
+      <span style="font-size:11px;color:#8a8375">◨</span><span style="font-weight:600;font-size:12.5px">deck-frontend</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#4a7bd0;animation:pulse 1.4s infinite;margin-left:auto"></span><span style="color:#8a8375;font-size:15px;line-height:.8">×</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;min-width:130px;color:#6d675c;font-size:12.5px;font-family:'JetBrains Mono',monospace;opacity:.35"><span>›_</span><span>infra</span><span style="width:8px;height:8px;border-radius:50%;background:#4a9b6f;margin-left:auto"></span></div>
+    <div style="padding:5px 11px;color:#6d675c;font-size:16px;line-height:1">+</div>
+    <div style="flex:1"></div>
+  </div>
+  <div style="position:relative;flex:1;display:flex;min-height:0">
+    <!-- left: existing chat shrinking -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;opacity:.7">
+      <div style="flex:1;display:flex;justify-content:center;padding:16px 18px 0">
+        <div style="width:100%;max-width:480px;display:flex;flex-direction:column;gap:11px">
+          <div style="align-self:flex-end;max-width:80%;background:#e8ddc9;border-radius:12px 12px 3px 12px;padding:8px 12px;line-height:1.5">Corrige el bug del scroll y añade tests.</div>
+          <div style="max-width:92%;line-height:1.6;color:#3d3931">Aplicando el arreglo en <span style="font-family:'JetBrains Mono',monospace;background:#ebe6da;padding:1px 5px;border-radius:4px;font-size:12px">SessionList.tsx</span>…</div>
+        </div>
+      </div>
+      <div style="padding:8px 18px 10px;display:flex;justify-content:center"><div style="width:100%;max-width:480px;border:1.5px solid rgba(43,40,35,.22);border-radius:12px;background:#fdfcf9;padding:8px 12px;color:#8a8375;font-size:13px">Escribe un mensaje…</div></div>
+    </div>
+    <!-- right half snap preview -->
+    <div style="width:46%;background:rgba(179,84,30,.09);border-left:2.5px solid #b3541e;display:flex;align-items:center;justify-content:center;position:relative">
+      <div style="position:absolute;inset:8px;border:2px dashed rgba(179,84,30,.5);border-radius:12px"></div>
+      <div style="text-align:center;color:#b3541e;font-weight:600;font-size:12.5px;z-index:1">la pestaña «infra» ocupará<br>esta mitad al soltar</div>
+    </div>
+    <!-- dragged tab ghost -->
+    <div style="position:absolute;top:120px;right:34%;transform:rotate(2.5deg);z-index:7;display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fdfcf9;border:1px solid rgba(43,40,35,.22);border-radius:9px;box-shadow:0 20px 40px rgba(43,40,35,.35);font-size:12.5px;font-family:'JetBrains Mono',monospace;cursor:grabbing">
+      <span>›_</span><span style="font-weight:600">infra</span><span style="width:8px;height:8px;border-radius:50%;background:#4a9b6f"></span>
+    </div>
+    <!-- snap layout picker (Windows 11 style) -->
+    <div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:6;background:#fdfcf9;border:1px solid rgba(43,40,35,.18);border-radius:11px;box-shadow:0 14px 34px rgba(43,40,35,.26);padding:9px;display:flex;gap:8px">
+      <div style="width:64px;height:42px;border:1px solid #b3541e;border-radius:6px;display:flex;gap:2px;padding:3px;background:rgba(179,84,30,.1)"><span style="flex:1;background:#d8cdb6;border-radius:3px"></span><span style="flex:1;background:#b3541e;border-radius:3px"></span></div>
+      <div style="width:64px;height:42px;border:1px solid rgba(43,40,35,.16);border-radius:6px;display:flex;flex-direction:column;gap:2px;padding:3px"><span style="flex:1;background:#e3ddcd;border-radius:3px"></span><span style="flex:1;background:#d8cdb6;border-radius:3px"></span></div>
+      <div style="width:64px;height:42px;border:1px solid rgba(43,40,35,.16);border-radius:6px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;padding:3px"><span style="background:#e3ddcd;border-radius:3px"></span><span style="background:#d8cdb6;border-radius:3px"></span><span style="background:#d8cdb6;border-radius:3px"></span><span style="background:#e3ddcd;border-radius:3px"></span></div>
+      <div style="width:64px;height:42px;border:1px solid rgba(43,40,35,.16);border-radius:6px;display:flex;gap:2px;padding:3px"><span style="flex:2;background:#e3ddcd;border-radius:3px"></span><span style="flex:1;background:#d8cdb6;border-radius:3px"></span></div>
+    </div>
+    <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:6;font-size:10.5px;color:#b3541e;font-weight:600;background:#fbf4e2;border:1px solid rgba(217,161,59,.5);padding:3px 12px;border-radius:10px;white-space:nowrap">también funciona arrastrando arriba (fila) o a una esquina (2×2) · cada celda mantiene su terminal</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;padding:4px 14px;background:#ebe6da;border-top:1px solid rgba(43,40,35,.14);font:11px 'JetBrains Mono',monospace;color:#6d675c">
+    <span>📁 C:\dev\deck-frontend</span><div style="flex:1"></div><span>v2.4.1</span>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Prueba: «haz <a class="dv-oid" href="#2a">2a</a> en tema oscuro» · «muestra <a class="dv-oid" href="#2b">2b</a> ya dividida en 2 con ambos chats activos» · «prototipo interactivo del arrastre y snap»</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Claude Deck — rediseño · 3 direcciones + pantallas de soporte</span></div>
+<p class="dv-intro">Dirección visual: editor clásico + técnica cálida (cremas, acento terracota, Geist + JetBrains Mono; terminal y código siempre oscuros). Densidad compacta, UI en español. <a class="dv-oid" href="#1a">1a</a> refina la estructura actual (tema claro): agrupa los ~10 iconos en «+ Widget» y «⋯», paleta junto al composer. <a class="dv-oid" href="#1b">1b</a> (tema oscuro) mueve todo a un raíl lateral estilo editor y añade la Tienda. <a class="dv-oid" href="#1c">1c</a> explora los widgets dinámicos tipo teléfono (arrastre con zonas de anclaje) + panel de parámetros del LLM + autocompletado «/». Abajo: <a class="dv-oid" href="#1d">1d</a> configuración con validación IA y <a class="dv-oid" href="#1e">1e</a> modo terminal con splits.</p>
+<div class="dv-opts">
+
+<!-- ==================== 1a REFINADA (claro) ==================== -->
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Refinada — estructura actual, acciones agrupadas, menú «⋯» abierto, tarjetas de herramienta/subagente/permiso, terminal colapsable</div>
+<div class="dv-card" style="width:1240px">
+<div style="position:relative;display:flex;flex-direction:column;height:780px;background:#f6f3ec;color:#2b2823;font-size:13px">
+  <div style="display:flex;align-items:flex-end;gap:2px;padding:8px 10px 0;background:#ebe6da;border-bottom:1px solid rgba(43,40,35,.14)">
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#f6f3ec;border:1px solid rgba(43,40,35,.14);border-bottom:none;border-radius:8px 8px 0 0;min-width:180px;margin-bottom:-1px">
+      <span style="font-size:11px;color:#8a8375">◨</span><span style="font-weight:600;font-size:12.5px">deck-frontend</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#4a7bd0;animation:pulse 1.4s infinite;margin-left:auto"></span>
+      <span style="color:#8a8375;font-size:15px;line-height:.8">×</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;min-width:150px;color:#6d675c;font-size:12.5px">
+      <span style="font-size:11px">◨</span><span>api-server</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#d9a13b;margin-left:auto"></span><span style="font-size:15px;line-height:.8">×</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;min-width:130px;color:#6d675c;font-size:12.5px;font-family:'JetBrains Mono',monospace">
+      <span>›_</span><span>infra</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#4a9b6f;margin-left:auto"></span><span style="font-size:15px;line-height:.8">×</span>
+    </div>
+    <div style="padding:5px 11px;color:#6d675c;font-size:16px;line-height:1">+</div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:6px;padding-bottom:7px">
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 11px;background:#f6f3ec;border:1px solid rgba(43,40,35,.18);border-radius:6px;font-size:12px;font-weight:500">+ Widget <span style="font-size:9px;color:#8a8375">▾</span></div>
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 11px;background:#f6f3ec;border:1px solid rgba(43,40,35,.18);border-radius:6px;font-size:12px;color:#4d483f">⌕ Buscar</div>
+      <div style="padding:5px 10px;background:#f6f3ec;border:1px solid rgba(43,40,35,.18);border-radius:6px;font-size:12px;color:#4d483f">⊞</div>
+      <div style="padding:5px 10px;background:#e8ddc9;border:1px solid #b3541e;border-radius:6px;font-size:12px;color:#b3541e;font-weight:600">⋯</div>
+    </div>
+  </div>
+  <!-- overflow menu open -->
+  <div style="position:absolute;top:44px;right:10px;z-index:5;width:230px;background:#fdfcf9;border:1px solid rgba(43,40,35,.18);border-radius:9px;box-shadow:0 12px 30px rgba(43,40,35,.22);padding:6px;font-size:12.5px">
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px"><span style="width:16px;text-align:center;color:#8a8375">🕘</span>Historial de sesiones<span style="margin-left:auto;font:10.5px 'JetBrains Mono',monospace;color:#a39b89">⌃⇧H</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;background:#f0ece2"><span style="width:16px;text-align:center;color:#8a8375">❯</span>Paleta de comandos<span style="margin-left:auto;font:10.5px 'JetBrains Mono',monospace;color:#a39b89">⌃⇧P</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px"><span style="width:16px;text-align:center;color:#8a8375">⚙</span>Configuración<span style="margin-left:auto;font:10.5px 'JetBrains Mono',monospace;color:#a39b89">⌃⇧G</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px"><span style="width:16px;text-align:center;color:#8a8375">🛍</span>Tienda <span style="font-size:9.5px;background:#b3541e;color:#fff;padding:1px 6px;border-radius:8px;font-weight:600">nuevo</span></div>
+    <div style="height:1px;background:rgba(43,40,35,.1);margin:5px 8px"></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px"><span style="width:16px;text-align:center;color:#8a8375">◐</span>Tema: claro<span style="margin-left:auto;color:#a39b89;font-size:11px">cambiar</span></div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid rgba(43,40,35,.1)">
+        <div style="display:flex;background:#ebe6da;border-radius:7px;padding:2px;font-size:11.5px">
+          <span style="padding:3px 10px;color:#6d675c">Preguntar</span>
+          <span style="padding:3px 10px;background:#fff;color:#b3541e;border-radius:5px;font-weight:600;box-shadow:0 1px 2px rgba(43,40,35,.12)">Auto-editar</span>
+          <span style="padding:3px 10px;color:#6d675c">Auto total</span>
+          <span style="padding:3px 10px;color:#6d675c">Plan</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid rgba(43,40,35,.16);border-radius:6px;font-size:11.5px">auto · <span style="font-family:'JetBrains Mono',monospace;color:#b3541e;font-weight:500">sonnet-4.5</span> <span style="font-size:9px;color:#8a8375">▾</span></div>
+        <div style="flex:1"></div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#6d675c">$1.24</span>
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 12px;background:rgba(196,74,60,.1);border:1px solid rgba(196,74,60,.4);border-radius:6px;color:#b03a2e;font-size:11.5px;font-weight:600">■ Detener</div>
+      </div>
+      <div style="flex:1;overflow:hidden;display:flex;justify-content:center;padding:16px 20px 0">
+        <div style="width:100%;max-width:640px;display:flex;flex-direction:column;gap:12px;border-left:1px dashed rgba(43,40,35,.18);border-right:1px dashed rgba(43,40,35,.18);padding:0 24px">
+          <div style="align-self:center;font-size:11px;color:#8a8375;background:#ebe6da;padding:3px 12px;border-radius:20px">↑ cargar 214 mensajes anteriores</div>
+          <div style="align-self:flex-end;max-width:75%;background:#e8ddc9;border-radius:12px 12px 3px 12px;padding:9px 13px;line-height:1.55">Corrige el bug del scroll en la lista de sesiones y añade tests.
+            <div style="display:flex;gap:6px;margin-top:8px"><div style="width:54px;height:38px;border-radius:5px;background:repeating-linear-gradient(45deg,#d8cdb6,#d8cdb6 4px,#cfc3aa 4px,#cfc3aa 8px);display:flex;align-items:center;justify-content:center;font:9px 'JetBrains Mono',monospace;color:#6d675c">captura</div></div>
+          </div>
+          <div style="max-width:92%;line-height:1.6;color:#3d3931">Encontré el problema: el contenedor no fija <span style="font-family:'JetBrains Mono',monospace;background:#ebe6da;padding:1px 5px;border-radius:4px;font-size:12px">min-height:0</span>. Aplico el arreglo y añado el test:</div>
+          <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;background:#fdfcf9;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px"><span style="color:#4a9b6f">✓</span><span style="font-family:'JetBrains Mono',monospace;font-weight:600">Edit</span><span style="color:#6d675c">src/components/SessionList.tsx</span><span style="margin-left:auto;color:#8a8375;font-size:10px">▾</span></div>
+            <div style="border-top:1px solid rgba(43,40,35,.1);background:#211f1b;padding:9px 14px;font:11.5px/1.6 'JetBrains Mono',monospace">
+              <div style="color:#c96a5a">- .list { overflow: auto; }</div>
+              <div style="color:#7cb98a">+ .list { overflow: auto; min-height: 0; }</div>
+            </div>
+          </div>
+          <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;background:#fdfcf9;padding:7px 12px;display:flex;align-items:center;gap:8px;font-size:12px"><span style="animation:pulse 1.4s infinite;color:#4a7bd0">●</span><span style="font-family:'JetBrains Mono',monospace;font-weight:600">Task</span><span style="color:#6d675c">subagente · escribir tests</span><span style="margin-left:auto;color:#b3541e;font-size:11.5px;font-weight:500">ver chat del subagente →</span></div>
+          <div style="border:1px solid rgba(217,161,59,.5);border-radius:8px;background:#fbf4e2;padding:11px 14px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:9px"><span style="color:#b3822a">⚠</span><span style="font-weight:600">Permiso solicitado</span><span style="font-family:'JetBrains Mono',monospace;color:#6d675c">Bash · npm test</span></div>
+            <div style="display:flex;gap:8px">
+              <span style="padding:4px 14px;background:#2b2823;color:#f6f3ec;border-radius:6px;font-size:12px;font-weight:600">Permitir</span>
+              <span style="padding:4px 14px;border:1px solid rgba(43,40,35,.25);border-radius:6px;font-size:12px">Permitir siempre</span>
+              <span style="padding:4px 14px;border:1px solid rgba(43,40,35,.25);border-radius:6px;font-size:12px;color:#b03a2e">Denegar</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:10px 20px 6px;display:flex;justify-content:center">
+        <div style="width:100%;max-width:640px;border:1.5px solid rgba(43,40,35,.22);border-radius:12px;background:#fdfcf9;padding:9px 12px 7px">
+          <div style="color:#8a8375;font-size:13px;padding:2px 4px 9px">Escribe un mensaje… <span style="font-family:'JetBrains Mono',monospace">/</span> para comandos</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="padding:3px 8px;border:1px solid rgba(43,40,35,.16);border-radius:6px;font-size:11.5px;color:#4d483f">📎</span>
+            <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.16);border-radius:6px;font-size:11.5px;color:#4d483f">❯ Snippets</span>
+            <div style="flex:1"></div>
+            <span style="font-size:10.5px;color:#8a8375">Ctrl+↵ enviar</span>
+            <span style="padding:4px 16px;background:#b3541e;color:#fff;border-radius:7px;font-size:12px;font-weight:600">Enviar ➤</span>
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(43,40,35,.14);background:#211f1b;color:#a8a294">
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 14px;font-size:11px;border-bottom:1px solid rgba(255,255,255,.08)"><span style="font-family:'JetBrains Mono',monospace">›_ TERMINAL · PowerShell</span><span style="color:#6d675c">Ctrl+`</span><div style="flex:1"></div><span>◫</span><span>▾</span></div>
+        <div style="padding:7px 14px 9px;font:11.5px/1.6 'JetBrains Mono',monospace"><span style="color:#7cb98a">PS C:\dev\deck-frontend&gt;</span> npm test <span style="color:#6d675c">— 24 passed, 0 failed</span><span style="animation:pulse 1s infinite">▍</span></div>
+      </div>
+    </div>
+    <div style="width:290px;border-left:1px solid rgba(43,40,35,.12);background:#f0ece2;display:flex;flex-direction:column;min-height:0">
+      <div style="border-bottom:1px solid rgba(43,40,35,.12)">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 13px;font-size:12px;font-weight:600;cursor:grab"><span style="color:#8a8375">⠿</span> Git · deck-frontend <span style="margin-left:auto;font-weight:400;color:#6d675c;font-family:'JetBrains Mono',monospace">main · 3±</span><span style="color:#8a8375">×</span></div>
+        <div style="padding:2px 13px 10px">
+          <div style="display:grid;grid-template-columns:26px 1fr;font-size:11.5px">
+            <div style="position:relative;height:26px"><span style="position:absolute;left:8px;top:0;bottom:0;width:2px;background:#b3541e"></span><span style="position:absolute;left:5px;top:9px;width:8px;height:8px;border-radius:50%;background:#b3541e"></span></div><div style="display:flex;align-items:center;gap:6px;height:26px"><span style="font-family:'JetBrains Mono',monospace;color:#b3541e">a41f2c</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">fix: scroll sesiones</span><span style="font-size:9.5px;background:#e8ddc9;padding:1px 6px;border-radius:8px">main</span></div>
+            <div style="position:relative;height:26px"><span style="position:absolute;left:8px;top:0;bottom:0;width:2px;background:#b3541e"></span><span style="position:absolute;left:16px;top:0;bottom:13px;width:2px;background:#9a8fbc"></span><span style="position:absolute;left:9px;top:11px;width:9px;height:2px;background:#9a8fbc"></span><span style="position:absolute;left:5px;top:9px;width:8px;height:8px;border-radius:50%;background:#b3541e"></span></div><div style="display:flex;align-items:center;gap:6px;height:26px"><span style="font-family:'JetBrains Mono',monospace;color:#6d675c">88c1d0</span><span style="color:#4d483f">merge: feature/tests</span></div>
+            <div style="position:relative;height:26px"><span style="position:absolute;left:8px;top:0;bottom:0;width:2px;background:#b3541e"></span><span style="position:absolute;left:5px;top:9px;width:8px;height:8px;border-radius:50%;background:#f0ece2;border:2px solid #b3541e;box-sizing:border-box"></span></div><div style="display:flex;align-items:center;gap:6px;height:26px"><span style="font-family:'JetBrains Mono',monospace;color:#6d675c">7302be</span><span style="color:#4d483f">chore: deps</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="border-bottom:1px solid rgba(43,40,35,.12)">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 13px;font-size:12px;font-weight:600;cursor:grab"><span style="color:#8a8375">⠿</span> Salud del contexto <span style="margin-left:auto;color:#8a8375;font-weight:400">×</span></div>
+        <div style="padding:0 13px 12px;display:flex;flex-direction:column;gap:9px">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#6d675c;margin-bottom:4px"><span>Ventana de contexto</span><span style="font-family:'JetBrains Mono',monospace;color:#b3822a">72%</span></div>
+            <div style="height:7px;border-radius:4px;background:#ddd6c4;overflow:hidden"><div style="width:72%;height:100%;background:linear-gradient(90deg,#4a9b6f 55%,#d9a13b 90%)"></div></div>
+            <div style="font-size:10.5px;color:#b3822a;margin-top:4px">⚠ Considera compactar la conversación</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:11px">
+            <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:6px 9px"><div style="color:#8a8375">Tokens salida</div><div style="font:600 13px 'JetBrains Mono',monospace">48,2k</div></div>
+            <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:6px 9px"><div style="color:#8a8375">Turnos</div><div style="font:600 13px 'JetBrains Mono',monospace">37</div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 13px;font-size:12px;font-weight:600;cursor:grab"><span style="color:#8a8375">⠿</span> Actividad <span style="margin-left:auto;color:#8a8375;font-weight:400">×</span></div>
+        <div style="padding:0 13px 12px;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
+          <div style="display:flex;align-items:center;gap:7px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:6px 9px"><span style="animation:pulse 1.4s infinite;color:#4a7bd0">●</span>Subagente: tests <span style="margin-left:auto;color:#b3541e">abrir →</span></div>
+          <div style="display:flex;align-items:center;gap:7px;color:#4d483f"><span style="color:#4a9b6f">✓</span>Localizar causa del bug</div>
+          <div style="display:flex;align-items:center;gap:7px;color:#4d483f"><span style="color:#4a7bd0">◐</span>Escribir tests de regresión</div>
+          <div style="display:flex;align-items:center;gap:7px;color:#8a8375"><span>○</span>Verificar en CI</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;padding:4px 14px;background:#ebe6da;border-top:1px solid rgba(43,40,35,.14);font:11px 'JetBrains Mono',monospace;color:#6d675c">
+    <span>📁 C:\dev\deck-frontend</span><span>sesión 3f9a…c21e</span>
+    <div style="flex:1"></div>
+    <span style="background:#e8ddc9;color:#8a6d3b;padding:1px 8px;border-radius:8px">v2.4.1 · hay actualización</span>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ==================== 1b RAÍL DE EDITOR (oscuro) ==================== -->
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Raíl de editor (oscuro) — acciones globales en raíl izquierdo estilo VS Code, header fusionado con el composer, Tienda abierta como panel</div>
+<div class="dv-card" style="width:1240px;background:#1e1c19;border-color:rgba(255,255,255,.12)">
+<div style="display:flex;flex-direction:column;height:780px;background:#1e1c19;color:#e8e4da;font-size:13px">
+  <div style="display:flex;align-items:center;gap:2px;padding:6px 10px 0;background:#171512;border-bottom:1px solid rgba(255,255,255,.08)">
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#1e1c19;border:1px solid rgba(255,255,255,.1);border-bottom:none;border-radius:8px 8px 0 0;min-width:180px;margin-bottom:-1px">
+      <span style="font-size:11px;color:#8f887a">◨</span><span style="font-weight:600;font-size:12.5px">deck-frontend</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#6f95dd;animation:pulse 1.4s infinite;margin-left:auto"></span>
+      <span style="color:#8f887a;font-size:15px;line-height:.8">×</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;min-width:150px;color:#8f887a;font-size:12.5px"><span style="font-size:11px">◨</span><span>api-server</span><span style="width:8px;height:8px;border-radius:50%;background:#dcb055;margin-left:auto"></span><span style="font-size:15px;line-height:.8">×</span></div>
+    <div style="padding:5px 11px;color:#8f887a;font-size:16px;line-height:1">+</div>
+    <div style="flex:1"></div>
+    <span style="font:11px 'JetBrains Mono',monospace;color:#6d675c;padding-bottom:6px">Ctrl+Tab cambia · Ctrl+1-9 directa</span>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <!-- rail -->
+    <div style="width:46px;background:#171512;border-right:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0">
+      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8f887a;font-size:15px">◨</div>
+      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8f887a;font-size:15px">🕘</div>
+      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8f887a;font-size:15px">⌕</div>
+      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8f887a;font-size:15px">❯</div>
+      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#31281f;color:#e0955f;font-size:15px;border:1px solid rgba(224,149,95,.4)">🛍</div>
+      <div style="flex:1"></div>
+      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8f887a;font-size:15px">◐</div>
+      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8f887a;font-size:15px">⚙</div>
+    </div>
+    <!-- Tienda panel -->
+    <div style="width:330px;background:#242119;border-right:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;min-height:0">
+      <div style="padding:12px 16px 10px;border-bottom:1px solid rgba(255,255,255,.08)">
+        <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px">Tienda <span style="font-size:9.5px;background:#e0955f;color:#1e1c19;padding:1px 7px;border-radius:8px;font-weight:700">beta</span></div>
+        <div style="margin-top:9px;display:flex;align-items:center;gap:7px;background:#1a1815;border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:6px 10px;font-size:12px;color:#8f887a">⌕ Buscar MCPs, agentes, skills…</div>
+        <div style="display:flex;gap:5px;margin-top:9px;font-size:11px">
+          <span style="padding:3px 10px;background:#3a2f22;color:#e0b586;border-radius:12px;font-weight:600">MCPs</span>
+          <span style="padding:3px 10px;color:#8f887a;border:1px solid rgba(255,255,255,.12);border-radius:12px">Agentes</span>
+          <span style="padding:3px 10px;color:#8f887a;border:1px solid rgba(255,255,255,.12);border-radius:12px">Skills</span>
+          <span style="padding:3px 10px;color:#8f887a;border:1px solid rgba(255,255,255,.12);border-radius:12px">Plugins</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow:hidden;padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1a1815;border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:10px 12px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:6px;background:#2c3a4e;display:flex;align-items:center;justify-content:center;font-size:13px">🐘</span><div><div style="font-weight:600;font-size:12.5px">postgres-mcp</div><div style="font-size:10.5px;color:#8f887a">Consultas SQL desde el agente</div></div><span style="margin-left:auto;padding:3px 12px;background:#e0955f;color:#1e1c19;border-radius:6px;font-size:11px;font-weight:700">Instalar</span></div>
+          <div style="display:flex;gap:10px;margin-top:7px;font:10.5px 'JetBrains Mono',monospace;color:#6d675c"><span>★ 4.8</span><span>12k instalaciones</span><span style="color:#7cb98a">verificado</span></div>
+        </div>
+        <div style="background:#1a1815;border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:10px 12px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:6px;background:#3d3226;display:flex;align-items:center;justify-content:center;font-size:13px">🎭</span><div><div style="font-weight:600;font-size:12.5px">playwright-mcp</div><div style="font-size:10.5px;color:#8f887a">Automatiza el navegador</div></div><span style="margin-left:auto;padding:3px 12px;border:1px solid rgba(255,255,255,.2);color:#a8a294;border-radius:6px;font-size:11px;font-weight:600">Instalado ✓</span></div>
+          <div style="display:flex;gap:10px;margin-top:7px;font:10.5px 'JetBrains Mono',monospace;color:#6d675c"><span>★ 4.6</span><span>9,3k instalaciones</span></div>
+        </div>
+        <div style="background:#1a1815;border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:10px 12px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:6px;background:#27392e;display:flex;align-items:center;justify-content:center;font-size:13px">☁</span><div><div style="font-weight:600;font-size:12.5px">azure-devops-mcp</div><div style="font-size:10.5px;color:#8f887a">Sprints, work items, PRs</div></div><span style="margin-left:auto;padding:3px 12px;background:#e0955f;color:#1e1c19;border-radius:6px;font-size:11px;font-weight:700">Instalar</span></div>
+          <div style="display:flex;gap:10px;margin-top:7px;font:10.5px 'JetBrains Mono',monospace;color:#6d675c"><span>★ 4.7</span><span>6,1k instalaciones</span><span style="color:#7cb98a">verificado</span></div>
+        </div>
+        <div style="font-size:10.5px;color:#6d675c;text-align:center;padding-top:2px">al instalar eliges alcance: este proyecto o todo el PC</div>
+      </div>
+    </div>
+    <!-- chat -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <div style="flex:1;overflow:hidden;display:flex;justify-content:center;padding:18px 22px 0">
+        <div style="width:100%;max-width:600px;display:flex;flex-direction:column;gap:12px">
+          <div style="align-self:flex-end;max-width:78%;background:#33302a;border-radius:12px 12px 3px 12px;padding:9px 13px;line-height:1.55">Resume qué integraciones tenemos activas.</div>
+          <div style="max-width:92%;line-height:1.6;color:#cfcabd">Tienes 2 servidores MCP activos: <span style="font-family:'JetBrains Mono',monospace;background:#2a2722;padding:1px 5px;border-radius:4px;font-size:12px;color:#e0b586">playwright</span> y <span style="font-family:'JetBrains Mono',monospace;background:#2a2722;padding:1px 5px;border-radius:4px;font-size:12px;color:#e0b586">filesystem</span>. El sprint sugiere añadir Azure DevOps: puedes instalarlo desde la Tienda a la izquierda.</div>
+          <div style="border:1px solid rgba(255,255,255,.1);border-radius:8px;background:#242119;padding:7px 12px;display:flex;align-items:center;gap:8px;font-size:12px"><span style="color:#7cb98a">✓</span><span style="font-family:'JetBrains Mono',monospace;font-weight:600">Read</span><span style="color:#8f887a">.claude/settings.json</span><span style="margin-left:auto;color:#6d675c;font-size:10px">▾</span></div>
+        </div>
+      </div>
+      <!-- composer with merged controls -->
+      <div style="padding:10px 22px 12px;display:flex;justify-content:center">
+        <div style="width:100%;max-width:600px;border:1.5px solid rgba(255,255,255,.16);border-radius:12px;background:#242119;padding:0 0 8px">
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px">
+            <span style="display:flex;align-items:center;gap:5px;padding:2px 9px;background:#31281f;border:1px solid rgba(224,149,95,.4);border-radius:11px;color:#e0b586;font-weight:600">⛨ Auto-editar ▾</span>
+            <span style="display:flex;align-items:center;gap:5px;padding:2px 9px;border:1px solid rgba(255,255,255,.14);border-radius:11px;color:#a8a294">auto · <span style="font-family:'JetBrains Mono',monospace">sonnet-4.5</span> ▾</span>
+            <span style="display:flex;align-items:center;gap:5px;padding:2px 9px;border:1px solid rgba(255,255,255,.14);border-radius:11px;color:#a8a294">🎛 Parámetros</span>
+            <div style="flex:1"></div>
+            <span style="font-family:'JetBrains Mono',monospace;color:#8f887a">$1.24</span>
+            <span style="color:#e07a70;font-weight:700">■</span>
+          </div>
+          <div style="color:#8f887a;font-size:13px;padding:10px 14px 12px">Escribe un mensaje… «/» comandos · «❯» snippets</div>
+          <div style="display:flex;align-items:center;gap:8px;padding:0 12px">
+            <span style="padding:3px 8px;border:1px solid rgba(255,255,255,.14);border-radius:6px;font-size:11.5px;color:#a8a294">📎</span>
+            <span style="padding:3px 10px;border:1px solid rgba(255,255,255,.14);border-radius:6px;font-size:11.5px;color:#a8a294">❯ Snippets</span>
+            <div style="flex:1"></div>
+            <span style="padding:4px 16px;background:#e0955f;color:#1e1c19;border-radius:7px;font-size:12px;font-weight:700">Enviar ➤</span>
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,.08);background:#14120f;color:#a8a294">
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 14px;font-size:11px;border-bottom:1px solid rgba(255,255,255,.06)"><span style="font-family:'JetBrains Mono',monospace">›_ TERMINAL</span><div style="flex:1"></div><span>◫ dividir</span><span>▾</span></div>
+        <div style="display:flex">
+          <div style="flex:1;padding:7px 14px 9px;font:11.5px/1.6 'JetBrains Mono',monospace;border-right:1px solid rgba(255,255,255,.06)"><span style="color:#7cb98a">PS&gt;</span> git status<span style="animation:pulse 1s infinite">▍</span></div>
+          <div style="flex:1;padding:7px 14px 9px;font:11.5px/1.6 'JetBrains Mono',monospace;color:#6d675c"><span style="color:#7cb98a">PS&gt;</span> npm run dev — :5173</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;padding:4px 14px;background:#171512;border-top:1px solid rgba(255,255,255,.08);font:11px 'JetBrains Mono',monospace;color:#8f887a">
+    <span>📁 C:\dev\deck-frontend</span><span>sesión 3f9a…c21e</span>
+    <div style="flex:1"></div>
+    <span style="background:#3a2f22;color:#e0b586;padding:1px 8px;border-radius:8px">⬇ Instalar y reiniciar v2.5.0</span>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ==================== 1c WIDGETS DINÁMICOS (claro) ==================== -->
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Dinámica — «modo organizar» tipo teléfono: widget arrastrándose con zonas de anclaje iluminadas; panel de parámetros del LLM; autocompletado «/» abierto</div>
+<div class="dv-card" style="width:1240px">
+<div style="position:relative;display:flex;flex-direction:column;height:780px;background:#f6f3ec;color:#2b2823;font-size:13px">
+  <div style="display:flex;align-items:center;gap:2px;padding:6px 10px 0;background:#ebe6da;border-bottom:1px solid rgba(43,40,35,.14)">
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#f6f3ec;border:1px solid rgba(43,40,35,.14);border-bottom:none;border-radius:8px 8px 0 0;min-width:180px;margin-bottom:-1px">
+      <span style="font-size:11px;color:#8a8375">◨</span><span style="font-weight:600;font-size:12.5px">deck-frontend</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#4a7bd0;animation:pulse 1.4s infinite;margin-left:auto"></span><span style="color:#8a8375;font-size:15px;line-height:.8">×</span>
+    </div>
+    <div style="padding:5px 11px;color:#6d675c;font-size:16px;line-height:1">+</div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px;padding-bottom:6px">
+      <span style="display:flex;align-items:center;gap:6px;padding:4px 12px;background:#b3541e;color:#fff;border-radius:14px;font-size:11.5px;font-weight:600">✥ Organizando widgets · Listo</span>
+      <span style="padding:4px 10px;border:1px solid rgba(43,40,35,.18);border-radius:6px;font-size:12px;color:#4d483f">⋯</span>
+    </div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <!-- left drop zone -->
+    <div style="width:250px;border-right:2px dashed rgba(179,84,30,.55);background:rgba(179,84,30,.06);display:flex;flex-direction:column;gap:10px;padding:12px;min-height:0">
+      <div style="border:2px dashed rgba(179,84,30,.55);border-radius:10px;height:120px;display:flex;align-items:center;justify-content:center;font-size:11.5px;color:#b3541e;font-weight:600;background:rgba(179,84,30,.08)">soltar aquí</div>
+      <div style="background:#f0ece2;border:1px solid rgba(43,40,35,.14);border-radius:10px;animation:jiggle .35s infinite">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:600"><span style="color:#8a8375">⠿</span> Sprint · Equipo Web <span style="margin-left:auto;color:#8a8375">×</span></div>
+        <div style="padding:0 12px 10px;display:flex;flex-direction:column;gap:6px;font-size:11px">
+          <div style="height:6px;border-radius:3px;background:#ddd6c4;overflow:hidden"><div style="width:58%;height:100%;background:#4a9b6f"></div></div>
+          <div style="display:flex;justify-content:space-between;color:#6d675c"><span>Sprint 14 · 58%</span><span>12/21 tareas</span></div>
+          <div style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 8px"><span style="width:6px;height:6px;border-radius:50%;background:#4a7bd0"></span>Refactor SessionList <span style="margin-left:auto;color:#8a8375">RM</span></div>
+          <div style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:6px;padding:5px 8px"><span style="width:6px;height:6px;border-radius:50%;background:#d9a13b"></span>Auth timeout <span style="margin-left:auto;color:#8a8375">JC</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- chat -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;position:relative">
+      <div style="flex:1;overflow:hidden;display:flex;justify-content:center;padding:16px 20px 0;opacity:.55">
+        <div style="width:100%;max-width:560px;display:flex;flex-direction:column;gap:12px">
+          <div style="align-self:flex-end;max-width:78%;background:#e8ddc9;border-radius:12px 12px 3px 12px;padding:9px 13px;line-height:1.55">Prepara el release 2.5 con changelog.</div>
+          <div style="max-width:92%;line-height:1.6;color:#3d3931">Reviso los commits desde la última etiqueta y armo el changelog agrupado por tipo…</div>
+          <div style="border:1px solid rgba(43,40,35,.14);border-radius:8px;background:#fdfcf9;padding:7px 12px;display:flex;align-items:center;gap:8px;font-size:12px"><span style="color:#4a9b6f">✓</span><span style="font-family:'JetBrains Mono',monospace;font-weight:600">Bash</span><span style="color:#6d675c">git log v2.4.1..HEAD --oneline</span><span style="margin-left:auto;color:#8a8375;font-size:10px">▾</span></div>
+        </div>
+      </div>
+      <!-- dragged widget ghost -->
+      <div style="position:absolute;top:150px;left:50%;transform:translateX(-50%) rotate(3deg);width:250px;background:#fdfcf9;border:1px solid rgba(43,40,35,.2);border-radius:10px;box-shadow:0 22px 44px rgba(43,40,35,.35);z-index:6;cursor:grabbing">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:600"><span style="color:#b3541e">⠿</span> Git · deck-frontend</div>
+        <div style="padding:0 12px 10px;font-size:11px;color:#6d675c">main · 3 cambios · grafo de ramas</div>
+      </div>
+      <div style="position:absolute;top:120px;left:50%;transform:translateX(-50%);z-index:5;font-size:10.5px;color:#b3541e;font-weight:600;background:#fbf4e2;border:1px solid rgba(217,161,59,.5);padding:2px 10px;border-radius:10px">arrastra a un lado, suelta sobre otro widget para reordenar</div>
+      <!-- slash autocomplete -->
+      <div style="padding:10px 20px 12px;display:flex;justify-content:center">
+        <div style="width:100%;max-width:560px;position:relative">
+          <div style="position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.18);border-radius:9px;box-shadow:0 -8px 26px rgba(43,40,35,.16);padding:5px;font-size:12px">
+            <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:6px;background:#f0e5d6"><span style="font-family:'JetBrains Mono',monospace;font-weight:600;color:#b3541e">/release</span><span style="color:#6d675c">Prepara changelog y versión</span><span style="margin-left:auto;font-size:9.5px;background:#e8ddc9;padding:1px 6px;border-radius:8px">proyecto</span></div>
+            <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:6px"><span style="font-family:'JetBrains Mono',monospace;font-weight:600">/review</span><span style="color:#6d675c">Revisión de código del diff actual</span><span style="margin-left:auto;font-size:9.5px;background:#ebe6da;padding:1px 6px;border-radius:8px">usuario</span></div>
+            <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:6px"><span style="font-family:'JetBrains Mono',monospace;font-weight:600">/resume</span><span style="color:#6d675c">Resume la conversación</span><span style="margin-left:auto;font-size:9.5px;background:#ebe6da;padding:1px 6px;border-radius:8px">global</span></div>
+            <div style="padding:4px 10px;font-size:10px;color:#8a8375">↑↓ navegar · ↵ insertar · esc cerrar</div>
+          </div>
+          <div style="border:1.5px solid #b3541e;border-radius:12px;background:#fdfcf9;padding:9px 12px 7px;box-shadow:0 0 0 3px rgba(179,84,30,.12)">
+            <div style="font-size:13px;padding:2px 4px 9px"><span style="font-family:'JetBrains Mono',monospace;color:#b3541e">/re</span><span style="animation:pulse 1s infinite">▍</span></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="padding:3px 8px;border:1px solid rgba(43,40,35,.16);border-radius:6px;font-size:11.5px;color:#4d483f">📎</span>
+              <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.16);border-radius:6px;font-size:11.5px;color:#4d483f">❯ Snippets</span>
+              <div style="flex:1"></div>
+              <span style="padding:4px 16px;background:#b3541e;color:#fff;border-radius:7px;font-size:12px;font-weight:600">Enviar ➤</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- right: LLM params panel -->
+    <div style="width:290px;border-left:1px solid rgba(43,40,35,.12);background:#f0ece2;display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:12.5px;font-weight:700;border-bottom:1px solid rgba(43,40,35,.12)">🎛 Parámetros del LLM <span style="margin-left:auto;color:#8a8375;font-weight:400">×</span></div>
+      <div style="padding:12px 14px;display:flex;flex-direction:column;gap:13px;font-size:11.5px">
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-weight:600">Modelo</span></div>
+          <div style="display:flex;align-items:center;gap:6px;background:#fdfcf9;border:1px solid rgba(43,40,35,.16);border-radius:7px;padding:6px 10px">auto <span style="color:#8a8375">→</span> <span style="font-family:'JetBrains Mono',monospace;color:#b3541e">sonnet-4.5</span><span style="margin-left:auto;font-size:9px;color:#8a8375">▾</span></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-weight:600">Presupuesto de razonamiento</span><span style="font-family:'JetBrains Mono',monospace;color:#6d675c">8k</span></div>
+          <div style="height:5px;border-radius:3px;background:#ddd6c4;position:relative"><div style="width:35%;height:100%;background:#b3541e;border-radius:3px"></div><span style="position:absolute;left:35%;top:50%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:#fff;border:2px solid #b3541e;box-sizing:border-box"></span></div>
+          <div style="display:flex;justify-content:space-between;color:#8a8375;font-size:10px;margin-top:3px"><span>off</span><span>máx</span></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-weight:600">Máx. tokens de salida</span><span style="font-family:'JetBrains Mono',monospace;color:#6d675c">16k</span></div>
+          <div style="height:5px;border-radius:3px;background:#ddd6c4;position:relative"><div style="width:60%;height:100%;background:#b3541e;border-radius:3px"></div><span style="position:absolute;left:60%;top:50%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:#fff;border:2px solid #b3541e;box-sizing:border-box"></span></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:600">Compactación automática</span>
+          <span style="width:30px;height:17px;border-radius:9px;background:#b3541e;position:relative"><span style="position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:600">Salida detallada (verbose)</span>
+          <span style="width:30px;height:17px;border-radius:9px;background:#cfc7b3;position:relative"><span style="position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span>
+        </div>
+        <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.1);border-radius:7px;padding:8px 10px;font-size:10.5px;color:#6d675c;line-height:1.5">Los cambios aplican a esta pestaña. Guarda como predeterminado del proyecto desde «⋯».</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;padding:4px 14px;background:#ebe6da;border-top:1px solid rgba(43,40,35,.14);font:11px 'JetBrains Mono',monospace;color:#6d675c">
+    <span>📁 C:\dev\deck-frontend</span><span>sesión 3f9a…c21e</span><div style="flex:1"></div><span>v2.4.1</span>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ==================== 1d CONFIGURACIÓN ==================== -->
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Panel de configuración — artefactos con origen, interruptores, y diálogo de creación con validación por IA</div>
+<div class="dv-card" style="width:860px">
+<div style="display:flex;height:560px;background:#f6f3ec;color:#2b2823;font-size:12.5px">
+  <div style="width:360px;border-right:1px solid rgba(43,40,35,.12);background:#f0ece2;display:flex;flex-direction:column">
+    <div style="padding:12px 16px 8px;font-weight:700;font-size:13.5px">Configuración</div>
+    <div style="display:flex;gap:5px;padding:0 16px 10px;font-size:11px">
+      <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font-weight:600">Agentes</span>
+      <span style="padding:3px 10px;color:#6d675c;border:1px solid rgba(43,40,35,.14);border-radius:12px">Comandos</span>
+      <span style="padding:3px 10px;color:#6d675c;border:1px solid rgba(43,40,35,.14);border-radius:12px">Skills</span>
+      <span style="padding:3px 10px;color:#6d675c;border:1px solid rgba(43,40,35,.14);border-radius:12px">MCP</span>
+    </div>
+    <div style="flex:1;padding:0 12px;display:flex;flex-direction:column;gap:7px">
+      <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:8px;padding:9px 11px">
+        <div style="display:flex;align-items:center;gap:7px"><span style="font-weight:600">code-reviewer</span><span style="font-size:9.5px;background:#e8ddc9;padding:1px 6px;border-radius:8px">proyecto</span><span style="margin-left:auto;width:28px;height:16px;border-radius:8px;background:#b3541e;position:relative"><span style="position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff"></span></span></div>
+        <div style="color:#6d675c;font-size:11px;margin-top:3px">Revisa diffs antes de cada commit · hover = vista previa</div>
+      </div>
+      <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:8px;padding:9px 11px">
+        <div style="display:flex;align-items:center;gap:7px"><span style="font-weight:600">test-writer</span><span style="font-size:9.5px;background:#ebe6da;padding:1px 6px;border-radius:8px">usuario</span><span style="margin-left:auto;width:28px;height:16px;border-radius:8px;background:#b3541e;position:relative"><span style="position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff"></span></span></div>
+        <div style="color:#6d675c;font-size:11px;margin-top:3px">Genera tests de regresión con Vitest</div>
+      </div>
+      <div style="background:#fdfcf9;border:1px solid rgba(43,40,35,.12);border-radius:8px;padding:9px 11px;opacity:.6">
+        <div style="display:flex;align-items:center;gap:7px"><span style="font-weight:600">docs-agent</span><span style="font-size:9.5px;background:#ebe6da;padding:1px 6px;border-radius:8px">usuario</span><span style="margin-left:auto;width:28px;height:16px;border-radius:8px;background:#cfc7b3;position:relative"><span style="position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff"></span></span></div>
+        <div style="color:#6d675c;font-size:11px;margin-top:3px">Desactivado</div>
+      </div>
+    </div>
+    <div style="padding:12px"><span style="display:block;text-align:center;padding:7px;border:1.5px dashed rgba(179,84,30,.5);border-radius:8px;color:#b3541e;font-weight:600;font-size:12px">+ Nuevo agente</span></div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;background:#fdfcf9">
+    <div style="padding:12px 18px 8px;border-bottom:1px solid rgba(43,40,35,.1)"><span style="font-weight:700;font-size:13.5px">Nuevo agente</span> <span style="color:#8a8375;font-size:11px">· validado por IA al guardar</span></div>
+    <div style="flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:11px">
+      <div><div style="font-weight:600;margin-bottom:4px;font-size:11.5px">Nombre</div><div style="border:1px solid rgba(43,40,35,.16);border-radius:7px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px">deploy-checker</div></div>
+      <div><div style="font-weight:600;margin-bottom:4px;font-size:11.5px">Herramientas permitidas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font-size:11px;font-weight:600">Read ✓</span>
+          <span style="padding:3px 10px;background:#e8ddc9;color:#b3541e;border-radius:12px;font-size:11px;font-weight:600">Bash ✓</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.16);border-radius:12px;font-size:11px;color:#6d675c">Edit</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.16);border-radius:12px;font-size:11px;color:#6d675c">Write</span>
+          <span style="padding:3px 10px;border:1px solid rgba(43,40,35,.16);border-radius:12px;font-size:11px;color:#6d675c">WebFetch</span>
+        </div>
+      </div>
+      <div><div style="font-weight:600;margin-bottom:4px;font-size:11.5px">Modelo</div><div style="display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(43,40,35,.16);border-radius:7px;padding:5px 10px;font-size:12px">haiku-4 <span style="font-size:9px;color:#8a8375">▾</span></div></div>
+      <div style="border:1px solid rgba(217,161,59,.5);background:#fbf4e2;border-radius:8px;padding:10px 12px">
+        <div style="font-weight:700;font-size:11.5px;color:#8a6d3b;margin-bottom:5px">⚠ Validación IA · 2 avisos</div>
+        <div style="font-size:11px;color:#5c5546;line-height:1.55">· El prompt no define cuándo terminar → puede iterar de más.<br>· «Bash» sin lista de comandos permitidos es amplio para un checker.</div>
+        <span style="display:inline-block;margin-top:8px;padding:4px 12px;background:#b3541e;color:#fff;border-radius:6px;font-size:11px;font-weight:600">Aplicar versión mejorada</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid rgba(43,40,35,.1)">
+      <span style="padding:5px 14px;border:1px solid rgba(43,40,35,.2);border-radius:7px;font-size:12px">Cancelar</span>
+      <span style="padding:5px 14px;background:#2b2823;color:#f6f3ec;border-radius:7px;font-size:12px;font-weight:600">Guardar agente</span>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ==================== 1e TERMINAL SPLITS ==================== -->
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Modo terminal — TUI a pantalla completa con splits 2×2 y scrollback persistente</div>
+<div class="dv-card" style="width:860px;background:#14120f;border-color:rgba(255,255,255,.12)">
+<div style="display:flex;flex-direction:column;height:560px;background:#14120f;color:#cfcabd;font-size:12px">
+  <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#171512;border-bottom:1px solid rgba(255,255,255,.08);font-size:12px">
+    <span style="font-family:'JetBrains Mono',monospace;color:#8f887a">›_ infra · terminal</span>
+    <div style="flex:1"></div>
+    <span style="display:flex;gap:3px;align-items:center;border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:3px 6px">
+      <span style="width:11px;height:11px;border:1px solid #6d675c;border-radius:2px"></span>
+      <span style="width:11px;height:11px;border:1px solid #6d675c;border-radius:2px;background:linear-gradient(90deg,transparent 48%,#6d675c 48%,#6d675c 52%,transparent 52%)"></span>
+      <span style="width:11px;height:11px;border:1px solid #e0955f;border-radius:2px;background:linear-gradient(90deg,transparent 48%,#e0955f 48%,#e0955f 52%,transparent 52%),linear-gradient(0deg,transparent 48%,#e0955f 48%,#e0955f 52%,transparent 52%)"></span>
+    </span>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:rgba(255,255,255,.08);font-family:'JetBrains Mono',monospace">
+    <div style="background:#14120f;padding:10px 14px;line-height:1.65;border-top:2px solid #e0955f">
+      <div style="color:#e0955f">✳ Claude Code v2.1 — deck-frontend</div>
+      <div style="color:#8f887a">❯ analiza los errores del build</div>
+      <div>Leyendo salida de webpack… 3 errores en <span style="color:#e0b586">src/widgets/</span></div>
+      <div style="color:#7cb98a">✓ Edit GitWidget.tsx</div>
+      <div><span style="animation:pulse 1s infinite">▍</span></div>
+    </div>
+    <div style="background:#14120f;padding:10px 14px;line-height:1.65;color:#8f887a">
+      <div style="color:#7cb98a">PS C:\dev\deck-frontend&gt;</div>
+      <div>npm run build</div>
+      <div>webpack 5.99 compiled with 3 errors</div>
+    </div>
+    <div style="background:#14120f;padding:10px 14px;line-height:1.65;color:#8f887a">
+      <div style="color:#7cb98a">PS C:\dev\api&gt;</div>
+      <div>docker compose up -d</div>
+      <div style="color:#7cb98a">✓ 4/4 containers running</div>
+    </div>
+    <div style="background:#14120f;padding:10px 14px;line-height:1.65;color:#8f887a">
+      <div style="color:#7cb98a">PS C:\dev&gt;</div>
+      <div>gh pr status</div>
+      <div>#142 fix/session-scroll · <span style="color:#dcb055">checks pending</span></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;padding:4px 12px;background:#171512;border-top:1px solid rgba(255,255,255,.08);font:11px 'JetBrains Mono',monospace;color:#8f887a">
+    <span>scrollback persistente · sobrevive al reinicio</span><div style="flex:1"></div><span>Ctrl+Tab funciona con foco aquí</span>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Prueba: «combina el raíl de <a class="dv-oid" href="#1b">1b</a> con el tema claro de <a class="dv-oid" href="#1a">1a</a>» · «enséñame <a class="dv-oid" href="#1c">1c</a> en oscuro» · «haz la Tienda pantalla completa» · «prototipo interactivo del arrastre de widgets»</p>
+</section>
+</x-dc>
+</body>
+</html>
