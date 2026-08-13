@@ -13,6 +13,7 @@ import type {
   ChatSearchResult,
   GlobalAgentInfo,
   HookItem,
+  LlmParams,
   ModelOption,
   PaneLayout,
   PermissionModeId,
@@ -23,6 +24,7 @@ import type {
   SessionListItem,
   SlashCommandInfo,
   Snippet,
+  StoreResult,
   TabMode,
   TabState,
   TabStatusEvent,
@@ -120,6 +122,30 @@ const api = {
   chatHealth: (tabId: string): Promise<ChatHealth | null> =>
     ipcRenderer.invoke('chat:health', tabId),
   onChatHealth: (cb: (p: ChatHealth) => void) => on('chat:health', cb),
+  chatSetLlmParams: (tabId: string, params: LlmParams): Promise<void> =>
+    ipcRenderer.invoke('chat:setLlmParams', { tabId, params }),
+
+  // tienda (MCPs, agentes, skills, plugins)
+  storeAddMcp: (args: {
+    scope: 'user' | 'project'
+    cwd: string
+    name: string
+    command: string
+    argsList: string[]
+    env: Record<string, string>
+  }): Promise<StoreResult> => ipcRenderer.invoke('store:addMcp', args),
+  storeImportAgents: (scope: 'user' | 'project', cwd: string): Promise<StoreResult> =>
+    ipcRenderer.invoke('store:importAgents', { scope, cwd }),
+  storeImportSkill: (scope: 'user' | 'project', cwd: string): Promise<StoreResult> =>
+    ipcRenderer.invoke('store:importSkill', { scope, cwd }),
+  storeImportUrl: (args: {
+    kind: 'agent' | 'skill'
+    scope: 'user' | 'project'
+    cwd: string
+    url: string
+  }): Promise<StoreResult> => ipcRenderer.invoke('store:importUrl', args),
+  storePlugin: (args: string[], cwd: string): Promise<StoreResult> =>
+    ipcRenderer.invoke('store:plugin', { args, cwd }),
   chatSetModel: (tabId: string, model?: string): Promise<void> =>
     ipcRenderer.invoke('chat:setModel', { tabId, model }),
   onChatModels: (cb: (p: { tabId: string; models: ModelOption[] }) => void) =>

@@ -46,6 +46,8 @@ export interface TabState {
   model?: string
   /** Distribución de los paneles de terminal; ausente = un solo panel */
   paneLayout?: PaneLayout
+  /** Parámetros del LLM de esta pestaña (effort, thinking, límites…) */
+  llmParams?: LlmParams
   createdAt: number
 }
 
@@ -114,6 +116,33 @@ export interface WidgetState {
   order: number
   height: number
   config: WidgetConfig
+}
+
+/**
+ * Parámetros del LLM configurables por pestaña. Claude Code NO expone la
+ * temperatura de muestreo: el control real del comportamiento es el esfuerzo
+ * de razonamiento (effort) y el presupuesto de thinking. Se aplican al
+ * (re)arrancar la sesión — el cambio reinicia con resume y el chat continúa.
+ */
+export interface LlmParams {
+  /** Esfuerzo de razonamiento (default del CLI: high) */
+  effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+  /** Thinking: undefined = adaptativo (default), 0 = desactivado, >0 = presupuesto fijo en tokens */
+  thinkingBudget?: number
+  /** Máximo de turnos por consulta (vacío = sin límite) */
+  maxTurns?: number
+  /** Presupuesto máximo en USD por consulta (vacío = sin límite) */
+  maxBudgetUsd?: number
+  /** Instrucciones extra que se anexan al system prompt de Claude Code */
+  systemPromptAppend?: string
+  /** Carpetas adicionales (absolutas) a las que Claude puede acceder */
+  additionalDirs?: string[]
+}
+
+/** Resultado genérico de las acciones de la tienda */
+export interface StoreResult {
+  ok: boolean
+  message: string
 }
 
 /** Estado de salud de una sesión de chat: contexto ocupado, tokens y costo */

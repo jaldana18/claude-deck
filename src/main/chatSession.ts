@@ -15,6 +15,7 @@ import type {
   ChatHealth,
   ChatMessage,
   ChatResultMeta,
+  LlmParams,
   ModelOption,
   PermissionModeId,
   SlashCommandInfo,
@@ -170,6 +171,9 @@ class ChatSession {
 
   start(): void {
     const cliPath = resolveClaudeCli()
+    // Parámetros del LLM por pestaña. Claude Code no expone temperatura de
+    // muestreo: el control disponible es effort/thinking y los límites.
+    const lp = this.tab.llmParams ?? {}
     const options: Options = {
       cwd: this.tab.cwd,
       abortController: this.abort,
@@ -177,6 +181,27 @@ class ChatSession {
       ...(cliPath ? { pathToClaudeCodeExecutable: cliPath } : {}),
       permissionMode: this.tab.permissionMode ?? 'default',
       ...(this.tab.model ? { model: this.tab.model } : {}),
+      ...(lp.effort ? { effort: lp.effort } : {}),
+      ...(lp.thinkingBudget !== undefined
+        ? {
+            thinking:
+              lp.thinkingBudget === 0
+                ? { type: 'disabled' as const }
+                : { type: 'enabled' as const, budgetTokens: lp.thinkingBudget }
+          }
+        : {}),
+      ...(lp.maxTurns ? { maxTurns: lp.maxTurns } : {}),
+      ...(lp.maxBudgetUsd ? { maxBudgetUsd: lp.maxBudgetUsd } : {}),
+      ...(lp.systemPromptAppend
+        ? {
+            systemPrompt: {
+              type: 'preset' as const,
+              preset: 'claude_code' as const,
+              append: lp.systemPromptAppend
+            }
+          }
+        : {}),
+      ...(lp.additionalDirs?.length ? { additionalDirectories: lp.additionalDirs } : {}),
       // Requerido por el SDK para que 'bypassPermissions' (Auto total) surta
       // efecto — sin esto el modo no se aplica y todo sigue preguntando. La
       // confirmación de seguridad al usuario la hace la UI antes de activarlo.
@@ -556,6 +581,16 @@ export class ChatSessionManager {
 
   async setModel(tabId: string, model: string | undefined): Promise<void> {
     await this.sessions.get(tabId)?.setModel(model)
+  }
+
+  /** Persiste los parámetros del LLM y reinicia la sesión con resume para
+   *  aplicarlos (la conversación continúa donde iba). */
+  setLlmParams(tabId: string, params: LlmParams): void {
+    const tab = this.store.tabs.find((t) => t.id === tabId)
+    if (!tab) return
+    tab.llmParams = params
+    this.store.updateTab(tabId, { llmParams: params })
+    if (this.sessions.has(tabId)) this.start(tab)
   }
 
   async interrupt(tabId: string): Promise<void> {

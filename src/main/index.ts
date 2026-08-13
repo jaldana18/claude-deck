@@ -5,7 +5,9 @@ import { readFileSync, statSync } from 'node:fs'
 import type {
   ArtifactDraft,
   ChatAttachment,
+  ConfigScope,
   HookItem,
+  LlmParams,
   PaneLayout,
   PermissionModeId,
   ProjectPrefs,
@@ -36,6 +38,13 @@ import {
 import { ChatSessionManager } from './chatSession'
 import { loadChatHistory } from './transcript'
 import { Updater, type UpdateInfo } from './updater'
+import {
+  addMcpServer,
+  importAgents,
+  importFromUrl,
+  importSkill,
+  runPluginCommand
+} from './marketplace'
 
 let win: BrowserWindow | null = null
 const getWindow = (): BrowserWindow | null => win
@@ -268,6 +277,39 @@ ipcMain.on(
 ipcMain.handle('chat:commands', (_e, tabId: string) => chatSessions.commandsFor(tabId))
 ipcMain.handle('chat:models', (_e, tabId: string) => chatSessions.modelsFor(tabId))
 ipcMain.handle('chat:health', (_e, tabId: string) => chatSessions.healthFor(tabId))
+ipcMain.handle('chat:setLlmParams', (_e, a: { tabId: string; params: LlmParams }) =>
+  chatSessions.setLlmParams(a.tabId, a.params)
+)
+
+// ---------- tienda (MCPs, agentes, skills, plugins) ----------
+ipcMain.handle(
+  'store:addMcp',
+  (
+    _e,
+    a: {
+      scope: ConfigScope
+      cwd: string
+      name: string
+      command: string
+      argsList: string[]
+      env: Record<string, string>
+    }
+  ) => addMcpServer(a)
+)
+ipcMain.handle('store:importAgents', (_e, a: { scope: ConfigScope; cwd: string }) =>
+  importAgents(a.scope, a.cwd)
+)
+ipcMain.handle('store:importSkill', (_e, a: { scope: ConfigScope; cwd: string }) =>
+  importSkill(a.scope, a.cwd)
+)
+ipcMain.handle(
+  'store:importUrl',
+  (_e, a: { kind: 'agent' | 'skill'; scope: ConfigScope; cwd: string; url: string }) =>
+    importFromUrl(a)
+)
+ipcMain.handle('store:plugin', (_e, a: { args: string[]; cwd: string }) =>
+  runPluginCommand(a.args, a.cwd)
+)
 ipcMain.handle('chat:setModel', (_e, args: { tabId: string; model?: string }) =>
   chatSessions.setModel(args.tabId, args.model)
 )

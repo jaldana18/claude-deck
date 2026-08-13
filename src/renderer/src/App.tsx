@@ -9,6 +9,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { SearchModal } from './components/SearchModal'
 import { NewTabDialog } from './components/NewTabDialog'
 import { SessionsPanel } from './components/SessionsPanel'
+import { StoreModal } from './components/StoreModal'
 import type { WidgetKind, WidgetState } from '../../shared/types'
 
 export default function App(): React.JSX.Element {
@@ -21,6 +22,14 @@ export default function App(): React.JSX.Element {
   const [showSearch, setShowSearch] = useState(false)
   const [showNewTab, setShowNewTab] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
+  const [showStore, setShowStore] = useState(false)
+
+  // El botón ⌘ del composer del chat abre la paleta con este evento
+  useEffect(() => {
+    const onOpen = (): void => setShowPalette(true)
+    window.addEventListener('deck:open-palette', onOpen)
+    return () => window.removeEventListener('deck:open-palette', onOpen)
+  }, [])
   /** Widgets por pestaña: cada chat tiene su propio layout */
   const [tabWidgets, setTabWidgets] = useState<Record<string, WidgetState[]>>({})
 
@@ -335,6 +344,7 @@ export default function App(): React.JSX.Element {
         onToggleGit={() => addWidget('git')}
         onToggleBoard={() => addWidget('board')}
         onToggleHealth={() => addWidget('health')}
+        onToggleStore={() => setShowStore(true)}
       />
       <div className="body">
         {showSessions && activeTab && (
@@ -460,6 +470,7 @@ export default function App(): React.JSX.Element {
           }}
         />
       )}
+      {showStore && <StoreModal tab={activeTab ?? null} onClose={() => setShowStore(false)} />}
       {showSearch && (
         <SearchModal
           onClose={() => setShowSearch(false)}

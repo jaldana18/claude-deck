@@ -115,6 +115,29 @@ Flujo para publicar una versión:
 3. Copia el Setup de `release/` a la carpeta compartida (si aplica). No hace falta
    desinstalar nada: el mismo appId instala encima.
 
+## Tienda (botón 🛍 en la barra superior)
+
+Apartado para extender Claude Code sin salir de la app (todo se escribe donde
+Claude Code ya lo lee, así que aplica también en la consola):
+
+- **Servidores MCP**: catálogo curado (filesystem, github, playwright, context7,
+  memory, azure-devops…) que rellena el formulario con un clic, o formulario
+  manual (comando, argumentos, variables). Alcance usuario o proyecto.
+- **Agentes**: importar archivos `.md` locales o descargarlos desde una URL
+  (los enlaces de GitHub se convierten solos a raw).
+- **Skills**: importar una carpeta con `SKILL.md` o descargar desde URL.
+- **Plugins**: agregar marketplaces e instalar plugins usando el CLI de
+  `claude` (`claude plugin marketplace add` / `claude plugin install`).
+
+## Parámetros del LLM (botón ⚙ junto al selector de modelo)
+
+Por pestaña: **esfuerzo de razonamiento** (low → max), **thinking** (adaptativo,
+presupuesto fijo de tokens o desactivado), **máximo de turnos**, **presupuesto en
+US$** por consulta, **instrucciones extra** anexadas al system prompt y
+**carpetas adicionales** con acceso. Guardar reinicia la sesión con `resume`
+(la conversación continúa). Nota: Claude Code no expone la temperatura de
+muestreo; el esfuerzo/thinking son el control disponible.
+
 ## Widgets laterales
 
 En pestañas de chat puedes acoplar **widgets** a los laterales (botones de la barra
@@ -157,7 +180,7 @@ pestaña tiene su propio juego de widgets:
 | `Ctrl+Shift+T` | Nueva pestaña (elige carpeta) |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Pestaña siguiente / anterior |
 | `Ctrl+1..8`, `Ctrl+9` | Ir a pestaña N / última |
-| `Ctrl+Shift+P` | Paleta de comandos / snippets |
+| `Ctrl+Shift+P` | Paleta de comandos / snippets (también con el botón ⌘ junto al input del chat) |
 | `Ctrl+Shift+F` | Buscar en todos los chats |
 | `Ctrl+Shift+H` | Historial de sesiones del proyecto |
 | `Ctrl+Shift+G` | Mostrar/ocultar panel de configuración |

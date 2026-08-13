@@ -3,6 +3,7 @@ import type {
   AskQuestion,
   ChatAttachment,
   ChatMessage,
+  LlmParams,
   ModelOption,
   PermissionModeId,
   PermissionRequestEvent,
@@ -15,11 +16,13 @@ import type {
 import { WidgetDock } from './WidgetDock'
 import { Markdown } from './Markdown'
 import {
+  IconCommand,
   IconEye,
   IconPaperclip,
   IconSend,
   IconStop,
   IconTasks,
+  IconTune,
   IconX
 } from './Icons'
 
@@ -39,6 +42,148 @@ const MODE_LABEL: Record<PermissionModeId, string> = {
 
 interface Attachment extends ChatAttachment {
   dataUrl: string
+}
+
+/**
+ * Parámetros del LLM de la pestaña. Claude Code no expone la temperatura de
+ * muestreo: el control real es el esfuerzo de razonamiento y el thinking.
+ * Guardar reinicia la sesión con resume (la conversación continúa).
+ */
+function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.Element {
+  const lp = p.tab.llmParams ?? {}
+  const [effort, setEffort] = useState(lp.effort ?? '')
+  const [thinkMode, setThinkMode] = useState(
+    lp.thinkingBudget === undefined ? 'auto' : lp.thinkingBudget === 0 ? 'off' : 'budget'
+  )
+  const [budget, setBudget] = useState(
+    lp.thinkingBudget && lp.thinkingBudget > 0 ? String(lp.thinkingBudget) : '10000'
+  )
+  const [maxTurns, setMaxTurns] = useState(lp.maxTurns ? String(lp.maxTurns) : '')
+  const [maxUsd, setMaxUsd] = useState(lp.maxBudgetUsd ? String(lp.maxBudgetUsd) : '')
+  const [append, setAppend] = useState(lp.systemPromptAppend ?? '')
+  const [dirs, setDirs] = useState<string[]>(lp.additionalDirs ?? [])
+  const [saving, setSaving] = useState(false)
+
+  const save = async (): Promise<void> => {
+    const params: LlmParams = {
+      ...(effort ? { effort: effort as LlmParams['effort'] } : {}),
+      ...(thinkMode === 'off'
+        ? { thinkingBudget: 0 }
+        : thinkMode === 'budget'
+          ? { thinkingBudget: Math.max(1024, parseInt(budget, 10) || 10_000) }
+          : {}),
+      ...(parseInt(maxTurns, 10) > 0 ? { maxTurns: parseInt(maxTurns, 10) } : {}),
+      ...(parseFloat(maxUsd) > 0 ? { maxBudgetUsd: parseFloat(maxUsd) } : {}),
+      ...(append.trim() ? { systemPromptAppend: append.trim() } : {}),
+      ...(dirs.length ? { additionalDirs: dirs } : {})
+    }
+    setSaving(true)
+    p.tab.llmParams = params
+    await window.deck.chatSetLlmParams(p.tab.id, params)
+    setSaving(false)
+    p.onClose()
+  }
+
+  return (
+    <div className="params-pop" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="params-row">
+        <label>Esfuerzo de razonamiento</label>
+        <select value={effort} onChange={(e) => setEffort(e.target.value as typeof effort)}>
+          <option value="">Default (high)</option>
+          <option value="low">low — rápido y barato</option>
+          <option value="medium">medium</option>
+          <option value="high">high</option>
+          <option value="xhigh">xhigh — razona más</option>
+          <option value="max">max — máximo esfuerzo</option>
+        </select>
+      </div>
+      <div className="params-row">
+        <label>Thinking (razonamiento extendido)</label>
+        <select value={thinkMode} onChange={(e) => setThinkMode(e.target.value)}>
+          <option value="auto">Adaptativo (Claude decide)</option>
+          <option value="budget">Presupuesto fijo de tokens</option>
+          <option value="off">Desactivado</option>
+        </select>
+        {thinkMode === 'budget' && (
+          <input
+            type="number"
+            min={1024}
+            step={1024}
+            value={budget}
+            onChange={(e) => setBudget(e.target.value)}
+            title="Tokens máximos de thinking por respuesta (mínimo 1024)"
+          />
+        )}
+      </div>
+      <div className="params-row two">
+        <div>
+          <label>Máx. turnos</label>
+          <input
+            type="number"
+            min={1}
+            placeholder="∞"
+            value={maxTurns}
+            onChange={(e) => setMaxTurns(e.target.value)}
+            title="La consulta se detiene tras N turnos (vacío = sin límite)"
+          />
+        </div>
+        <div>
+          <label>Presupuesto US$</label>
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            placeholder="∞"
+            value={maxUsd}
+            onChange={(e) => setMaxUsd(e.target.value)}
+            title="La consulta se detiene al superar este costo (vacío = sin límite)"
+          />
+        </div>
+      </div>
+      <div className="params-row">
+        <label>Instrucciones extra (se anexan al system prompt)</label>
+        <textarea
+          rows={3}
+          placeholder="Ej.: Responde siempre en español. Prefiere soluciones simples."
+          value={append}
+          onChange={(e) => setAppend(e.target.value)}
+        />
+      </div>
+      <div className="params-row">
+        <label>Carpetas adicionales con acceso</label>
+        {dirs.map((d) => (
+          <div key={d} className="params-dir">
+            <span title={d}>📁 {d}</span>
+            <button className="iconbtn" onClick={() => setDirs((ds) => ds.filter((x) => x !== d))}>
+              <IconX size={10} />
+            </button>
+          </div>
+        ))}
+        <button
+          className="iconbtn"
+          onClick={() => {
+            void window.deck.pickFolder().then((f) => {
+              if (f && !dirs.includes(f)) setDirs((ds) => [...ds, f])
+            })
+          }}
+        >
+          + Agregar carpeta
+        </button>
+      </div>
+      <p className="hint">
+        Claude Code no expone la temperatura de muestreo: el esfuerzo y el thinking son el
+        control disponible. Guardar reinicia la sesión (la conversación continúa con resume).
+      </p>
+      <div className="params-actions">
+        <button className="iconbtn" onClick={p.onClose}>
+          Cancelar
+        </button>
+        <button className="iconbtn primary" disabled={saving} onClick={() => void save()}>
+          {saving ? 'Aplicando…' : 'Guardar y aplicar'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /**
@@ -815,6 +960,8 @@ export function ChatView(p: Props): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runningAgents])
 
+  const [paramsOpen, setParamsOpen] = useState(false)
+
   return (
     <div
       className="chat-view"
@@ -862,6 +1009,16 @@ export function ChatView(p: Props): React.JSX.Element {
             </option>
           ))}
         </select>
+        <span className="params-anchor">
+          <button
+            className={`iconbtn ${p.tab.llmParams && Object.keys(p.tab.llmParams).length > 0 ? 'primary' : ''}`}
+            onClick={() => setParamsOpen((o) => !o)}
+            title="Parámetros del LLM: esfuerzo, thinking, límites, system prompt, carpetas"
+          >
+            <IconTune size={13} />
+          </button>
+          {paramsOpen && <LlmParamsPopover tab={p.tab} onClose={() => setParamsOpen(false)} />}
+        </span>
         <span
           className={`chip ${p.tab.useGlobalConfig === false ? '' : 'project'}`}
           title="¿Esta sesión carga agentes/skills/CLAUDE.md globales de ~/.claude?"
@@ -1085,6 +1242,13 @@ export function ChatView(p: Props): React.JSX.Element {
           title="Adjuntar imágenes (o pega/arrastra). Una captura 1080p ≈ 1.5-2k tokens"
         >
           <IconPaperclip size={16} />
+        </button>
+        <button
+          className="iconbtn big"
+          onClick={() => window.dispatchEvent(new CustomEvent('deck:open-palette'))}
+          title="Paleta de comandos y snippets (Ctrl+Shift+P)"
+        >
+          <IconCommand size={16} />
         </button>
         <textarea
           ref={inputRef}

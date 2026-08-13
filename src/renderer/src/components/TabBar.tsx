@@ -12,6 +12,7 @@ import {
   IconPulse,
   IconSearch,
   IconSliders,
+  IconStore,
   IconSun,
   IconTerminal,
   IconX
@@ -33,6 +34,7 @@ interface Props {
   onToggleGit: () => void
   onToggleBoard: () => void
   onToggleHealth: () => void
+  onToggleStore: () => void
 }
 
 export function TabBar(p: Props): React.JSX.Element {
@@ -95,6 +97,9 @@ export function TabBar(p: Props): React.JSX.Element {
         </button>
         <button className="iconbtn" onClick={p.onToggleHealth} title="Agregar widget de salud: contexto usado, tokens y costo de la sesión">
           <IconPulse size={14} />
+        </button>
+        <button className="iconbtn" onClick={p.onToggleStore} title="Tienda: agregar MCPs, importar agentes y skills, instalar plugins">
+          <IconStore size={14} />
         </button>
         <button className="iconbtn" onClick={p.onSearch} title="Buscar en chats (Ctrl+Shift+F)">
           <IconSearch size={14} />

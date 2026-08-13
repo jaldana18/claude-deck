@@ -103,6 +103,24 @@ export const IconX = (p: IconProps): React.JSX.Element => (
   </Svg>
 )
 
+export const IconStore = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M4 7h16l-1 4a3 3 0 0 1-3 2.5A3 3 0 0 1 13 11a3 3 0 0 1-3 2.5A3 3 0 0 1 7 11L4 7Z" />
+    <path d="M4 7l1.5-3.5h13L20 7" />
+    <path d="M6 13v7h12v-7" />
+    <path d="M10 20v-4h4v4" />
+  </Svg>
+)
+
+export const IconTune = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h10M18 18h2" />
+    <circle cx="16" cy="6" r="2" />
+    <circle cx="8" cy="12" r="2" />
+    <circle cx="16" cy="18" r="2" />
+  </Svg>
+)
+
 export const IconPulse = (p: IconProps): React.JSX.Element => (
   <Svg {...p}>
     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
