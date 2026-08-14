@@ -5,6 +5,9 @@ import type {
   BoardData,
   ChatAttachment,
   ChatHealth,
+  CiBuild,
+  CiPullRequest,
+  CiRepoInfo,
   CliInfo,
   GitInfo,
   WidgetState,
@@ -57,6 +60,10 @@ const api = {
     cliCommand?: string
   }): Promise<TabState> => ipcRenderer.invoke('tabs:create', args),
   cliDetect: (): Promise<CliInfo[]> => ipcRenderer.invoke('cli:detect'),
+  ciBuilds: (cwd: string): Promise<{ ok: boolean; repo: CiRepoInfo; builds: CiBuild[]; error?: string }> =>
+    ipcRenderer.invoke('ci:builds', cwd),
+  ciPrs: (cwd: string): Promise<{ ok: boolean; repo: CiRepoInfo; prs: CiPullRequest[]; error?: string }> =>
+    ipcRenderer.invoke('ci:prs', cwd),
   cliGetDefault: (): Promise<{ cli?: string; command?: string }> =>
     ipcRenderer.invoke('cli:getDefault'),
   cliSetDefault: (cli: string, command?: string): Promise<void> =>

@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import type { BoardData, BoardItem } from '../shared/types'
+import { extractJsonBlock } from '../shared/parse'
 
 interface McpServerConfig {
   command: string
@@ -128,19 +129,13 @@ function parseToolResult(res: unknown): unknown {
     return JSON.parse(text)
   } catch {
     // El server suele anteponer un preámbulo ("Project: X, Team: Y\n[...]"):
-    // extraer el primer bloque JSON del texto
-    const starts = ['[', '{']
-      .map((ch) => text.indexOf(ch))
-      .filter((i) => i >= 0)
-    if (starts.length > 0) {
-      const start = Math.min(...starts)
-      const end = Math.max(text.lastIndexOf(']'), text.lastIndexOf('}'))
-      if (end > start) {
-        try {
-          return JSON.parse(text.slice(start, end + 1))
-        } catch {
-          /* sigue como texto */
-        }
+    // extraer el primer bloque JSON del texto (ver shared/parse + tests)
+    const block = extractJsonBlock(text)
+    if (block) {
+      try {
+        return JSON.parse(block)
+      } catch {
+        /* sigue como texto */
       }
     }
     return text
@@ -190,6 +185,16 @@ function asRows(data: unknown): Record<string, unknown>[] {
 }
 
 /** Proyectos de la organización (para el selector del widget) */
+/** Llamada genérica a una tool del MCP azure-devops (para pipelines/PRs) */
+export async function callAzureTool(
+  cwd: string,
+  name: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const c = await getClient(cwd)
+  return parseToolResult(await c.callTool({ name, arguments: args }))
+}
+
 export async function listProjects(cwd: string): Promise<{ id?: string; name: string }[]> {
   const c = await getClient(cwd)
   const res = parseToolResult(await c.callTool({ name: 'core_list_projects', arguments: {} }))

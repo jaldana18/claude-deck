@@ -19,7 +19,7 @@ function git(cwd: string, args: string[]): Promise<string> {
  * cada carril "espera" un hash; el commit toma el carril que lo esperaba (o
  * uno libre), deja su primer padre en él y abre carriles para los demás.
  */
-function layoutLanes(
+export function layoutLanes(
   commits: Omit<GitCommit, 'lane' | 'mergeLanes' | 'activeAfter' | 'closes'>[]
 ): GitCommit[] {
   const lanes: (string | null)[] = []

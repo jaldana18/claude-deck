@@ -3,12 +3,15 @@ import type { PaneLayout, TabState, TabStatus, WidgetKind, WidgetSide } from '..
 import { LayoutPicker } from './PaneGrid'
 import {
   IconBoard,
+  IconBook,
   IconChat,
   IconCommand,
   IconGitBranch,
   IconHistory,
   IconMoon,
+  IconPlay,
   IconPlus,
+  IconPr,
   IconPulse,
   IconSearch,
   IconSliders,
@@ -42,7 +45,10 @@ const WIDGET_GALLERY: { kind: WidgetKind; icon: React.JSX.Element; name: string;
   { kind: 'board', icon: <IconBoard size={15} />, name: 'Sprint', desc: 'Azure DevOps' },
   { kind: 'health', icon: <IconPulse size={15} />, name: 'Salud', desc: 'contexto y costo' },
   { kind: 'agents', icon: <IconTasks size={15} />, name: 'Actividad', desc: 'subagentes en vivo' },
-  { kind: 'tasks', icon: <IconTasks size={15} />, name: 'Tareas', desc: 'plan de Claude' }
+  { kind: 'tasks', icon: <IconTasks size={15} />, name: 'Tareas', desc: 'plan de Claude' },
+  { kind: 'ci', icon: <IconPlay size={15} />, name: 'Pipelines', desc: 'builds del repo' },
+  { kind: 'prs', icon: <IconPr size={15} />, name: 'Pull requests', desc: 'PRs abiertos' },
+  { kind: 'notes', icon: <IconBook size={15} />, name: 'Notas', desc: 'bloc por pestaña' }
 ]
 
 export function TabBar(p: Props): React.JSX.Element {

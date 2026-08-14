@@ -114,8 +114,42 @@ export interface GitInfo {
 
 // ---------- Widgets acoplables a los laterales del chat ----------
 
-export type WidgetKind = 'git' | 'board' | 'agents' | 'health' | 'tasks'
+export type WidgetKind = 'git' | 'board' | 'agents' | 'health' | 'tasks' | 'ci' | 'prs' | 'notes'
 export type WidgetSide = 'left' | 'right'
+
+// ---------- CI / Pull requests (multi-proveedor) ----------
+
+export type CiProvider = 'github' | 'azure' | 'bitbucket' | 'none'
+
+export interface CiRepoInfo {
+  provider: CiProvider
+  owner?: string
+  repo?: string
+  /** Azure DevOps: organización y proyecto */
+  org?: string
+  project?: string
+}
+
+export interface CiBuild {
+  id: string
+  name: string
+  branch: string
+  state: 'success' | 'failed' | 'running' | 'canceled' | 'partial' | 'unknown'
+  finishedAt?: string
+  url?: string
+}
+
+export interface CiPullRequest {
+  id: string
+  title: string
+  author: string
+  branch: string
+  draft: boolean
+  /** aprobado · cambios pedidos · … (según proveedor) */
+  reviewState?: string
+  checks: 'success' | 'failed' | 'running' | 'unknown'
+  url?: string
+}
 
 export interface WidgetConfig {
   /** git: ruta del repo a vigilar (puede diferir del cwd del chat) */
@@ -127,6 +161,10 @@ export interface WidgetConfig {
   iterationName?: string
   /** board: filtrar por responsable ('' o ausente = todos) */
   assignee?: string
+  /** notes: contenido del bloc (texto plano o markdown) */
+  notes?: string
+  /** notes: ver renderizado como markdown en vez de editar */
+  notesPreview?: boolean
 }
 
 export interface WidgetState {
@@ -135,6 +173,8 @@ export interface WidgetState {
   side: WidgetSide
   order: number
   height: number
+  /** ancho propio en px (0/ausente = el del dock) */
+  width?: number
   config: WidgetConfig
 }
 

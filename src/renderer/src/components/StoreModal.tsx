@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { StoreResult, TabState, WidgetKind, WidgetSide } from '../../../shared/types'
+import { parseEnv, splitArgs } from '../../../shared/parse'
 import { PluginDialog } from './CreateDialogs'
-import { IconBoard, IconGitBranch, IconPulse, IconStore, IconTasks, IconX } from './Icons'
+import {
+  IconBoard,
+  IconBook,
+  IconGitBranch,
+  IconPlay,
+  IconPr,
+  IconPulse,
+  IconStore,
+  IconTasks,
+  IconX
+} from './Icons'
 
 type StoreTab = 'widgets' | 'mcp' | 'agents' | 'skills' | 'plugins'
 type Scope = 'user' | 'project'
@@ -12,7 +23,10 @@ const WIDGETS_CATALOG: { kind: WidgetKind; icon: React.JSX.Element; name: string
   { kind: 'board', icon: <IconBoard size={16} />, name: 'Sprint', desc: 'board de Azure DevOps vía MCP' },
   { kind: 'health', icon: <IconPulse size={16} />, name: 'Salud', desc: 'contexto usado, costo y turnos' },
   { kind: 'agents', icon: <IconTasks size={16} />, name: 'Actividad', desc: 'subagentes en ejecución' },
-  { kind: 'tasks', icon: <IconTasks size={16} />, name: 'Tareas', desc: 'plan de Claude con progreso' }
+  { kind: 'tasks', icon: <IconTasks size={16} />, name: 'Tareas', desc: 'plan de Claude con progreso' },
+  { kind: 'ci', icon: <IconPlay size={16} />, name: 'Pipelines', desc: 'builds de GitHub, Azure o Bitbucket' },
+  { kind: 'prs', icon: <IconPr size={16} />, name: 'Pull requests', desc: 'PRs abiertos del repo' },
+  { kind: 'notes', icon: <IconBook size={16} />, name: 'Notas', desc: 'bloc en texto plano o markdown' }
 ]
 
 interface CatalogEntry {
@@ -78,24 +92,6 @@ const MCP_CATALOG: CatalogEntry[] = [
     args: '-y @modelcontextprotocol/server-postgres <connection-string>'
   }
 ]
-
-/** Divide una línea de argumentos respetando comillas simples/dobles */
-function splitArgs(s: string): string[] {
-  const out: string[] = []
-  const re = /"([^"]*)"|'([^']*)'|(\S+)/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(s))) out.push(m[1] ?? m[2] ?? m[3])
-  return out
-}
-
-function parseEnv(s: string): Record<string, string> {
-  const env: Record<string, string> = {}
-  for (const line of s.split('\n')) {
-    const i = line.indexOf('=')
-    if (i > 0) env[line.slice(0, i).trim()] = line.slice(i + 1).trim()
-  }
-  return env
-}
 
 /**
  * Tienda: agregar servidores MCP (catálogo o manual), importar agentes y

@@ -5,6 +5,7 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import type { ArtifactDraft, ValidationResult } from '../shared/types'
 import { scanProject } from './configScanner'
 import { backup, readJsonOr, writeJson } from './jsonEdit'
+import { slugify } from '../shared/parse'
 
 /**
  * Capa intermedia de validación con IA: antes de crear un agente/skill/hook se
@@ -199,16 +200,6 @@ Responde ÚNICAMENTE con el texto del contenido en español, sin explicaciones, 
   return text.trim().replace(/^```[a-z]*\n?|```$/g, '').trim()
 }
 
-function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'sin-nombre'
-  )
-}
 
 /** Escribe el artefacto ya aprobado (o forzado por el usuario) en disco. */
 export function createArtifact(draft: ArtifactDraft): { path: string } {

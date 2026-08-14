@@ -103,6 +103,23 @@ export const IconX = (p: IconProps): React.JSX.Element => (
   </Svg>
 )
 
+export const IconPlay = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M10 8.5 16 12l-6 3.5V8.5Z" />
+  </Svg>
+)
+
+export const IconPr = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <circle cx="6" cy="6" r="2.5" />
+    <circle cx="6" cy="18" r="2.5" />
+    <circle cx="18" cy="18" r="2.5" />
+    <path d="M6 8.5v7M18 15.5V10a3 3 0 0 0-3-3h-3" />
+    <path d="M14 4.5 12 7l2 2.5" />
+  </Svg>
+)
+
 export const IconStore = (p: IconProps): React.JSX.Element => (
   <Svg {...p}>
     <path d="M4 7h16l-1 4a3 3 0 0 1-3 2.5A3 3 0 0 1 13 11a3 3 0 0 1-3 2.5A3 3 0 0 1 7 11L4 7Z" />

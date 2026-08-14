@@ -6,6 +6,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { BrowserWindow } from 'electron'
 import { UPDATE_REPO } from '../shared/constants'
+import { compareVersions as compare, parseVersion } from '../shared/version'
 import type { Store } from './store'
 
 export interface UpdateInfo {
@@ -190,13 +191,3 @@ export class Updater {
   }
 }
 
-function parseVersion(v: string): number[] {
-  return v.split('.').map((n) => parseInt(n, 10) || 0)
-}
-
-function compare(a: number[], b: number[]): number {
-  for (let i = 0; i < 3; i++) {
-    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) - (b[i] ?? 0)
-  }
-  return 0
-}

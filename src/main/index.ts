@@ -29,6 +29,7 @@ import { createArtifact, generateDraft, validateArtifact } from './validator'
 import { searchChats } from './chatSearch'
 import { listSessions } from '@anthropic-ai/claude-agent-sdk'
 import { getGitInfo } from './gitPanel'
+import { getBuilds, getPullRequests } from './ci'
 import {
   closeClient as closeBoardClient,
   getSprintBoard,
@@ -260,6 +261,11 @@ ipcMain.handle(
 )
 
 ipcMain.handle('store:pluginManifest', (_e, dir: string) => readLocalPluginManifest(dir))
+
+// ---------- IPC: CI y pull requests (GitHub / Azure / Bitbucket) ----------
+
+ipcMain.handle('ci:builds', (_e, cwd: string) => getBuilds(cwd))
+ipcMain.handle('ci:prs', (_e, cwd: string) => getPullRequests(cwd))
 
 // ---------- IPC: CLIs de agente (claude/codex/gemini/custom) ----------
 

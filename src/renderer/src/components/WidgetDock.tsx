@@ -3,6 +3,9 @@ import type {
   AzureListItem,
   BoardData,
   ChatHealth,
+  CiBuild,
+  CiPullRequest,
+  CiRepoInfo,
   GitInfo,
   TabState,
   TodoItem,
@@ -10,7 +13,18 @@ import type {
   WidgetSide,
   WidgetState
 } from '../../../shared/types'
-import { IconBoard, IconGitBranch, IconPulse, IconRefresh, IconTasks, IconX } from './Icons'
+import { Markdown } from './Markdown'
+import {
+  IconBoard,
+  IconBook,
+  IconGitBranch,
+  IconPlay,
+  IconPr,
+  IconPulse,
+  IconRefresh,
+  IconTasks,
+  IconX
+} from './Icons'
 
 export interface AgentRun {
   id: string
@@ -34,7 +48,10 @@ const WIDGET_TITLES: Record<WidgetKind, string> = {
   board: 'Sprint',
   agents: 'Actividad',
   health: 'Salud',
-  tasks: 'Tareas'
+  tasks: 'Tareas',
+  ci: 'Pipelines',
+  prs: 'Pull requests',
+  notes: 'Notas'
 }
 
 const LANE_COLORS = ['#d97757', '#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#f778ba', '#39c5cf']
@@ -105,7 +122,12 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
     <div
       className={`widget-dock ${mine.length === 0 ? 'empty' : ''}`}
       data-dock-side={p.side}
-      style={dockWidth && mine.length > 0 ? { width: dockWidth } : undefined}
+      /* el dock se adapta al widget más ancho (o al ancho fijado con su asa) */
+      style={
+        mine.length > 0
+          ? { width: Math.max(dockWidth ?? 0, ...mine.map((w) => w.width ?? 0)) || undefined }
+          : undefined
+      }
     >
       {/* asa en el borde interior: arrastra para ensanchar la columna */}
       {mine.length > 0 && (
@@ -127,6 +149,9 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
           onMove={moveWidget}
           onResize={(h) => {
             p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, height: h } : x)))
+          }}
+          onWidth={(width) => {
+            p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, width } : x)))
           }}
           onConfig={(config) => {
             p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, config } : x)))
@@ -150,6 +175,7 @@ interface WidgetProps {
   onOpenSubagent: (id: string) => void
   onMove: (id: string, side: WidgetSide, beforeId?: string) => void
   onResize: (height: number) => void
+  onWidth: (width: number) => void
   onConfig: (config: WidgetState['config']) => void
   onClose: () => void
 }
@@ -312,6 +338,12 @@ function Widget(p: WidgetProps): React.JSX.Element {
       <IconBoard size={12} />
     ) : p.widget.kind === 'health' ? (
       <IconPulse size={12} />
+    ) : p.widget.kind === 'ci' ? (
+      <IconPlay size={12} />
+    ) : p.widget.kind === 'prs' ? (
+      <IconPr size={12} />
+    ) : p.widget.kind === 'notes' ? (
+      <IconBook size={12} />
     ) : (
       <IconTasks size={12} />
     )
@@ -330,7 +362,10 @@ function Widget(p: WidgetProps): React.JSX.Element {
     <div
       ref={rootRef}
       className={`widget ${liveHeight > 0 ? '' : 'auto'}`}
-      style={liveHeight > 0 ? { height: liveHeight } : undefined}
+      style={{
+        ...(liveHeight > 0 ? { height: liveHeight } : {}),
+        ...(p.widget.width ? { width: p.widget.width } : {})
+      }}
       data-widget-id={p.widget.id}
     >
       <div
@@ -355,6 +390,9 @@ function Widget(p: WidgetProps): React.JSX.Element {
         )}
         {p.widget.kind === 'health' && <HealthWidget tab={p.tab} />}
         {p.widget.kind === 'tasks' && <TasksWidget todos={p.todos} />}
+        {p.widget.kind === 'ci' && <CiWidget tab={p.tab} />}
+        {p.widget.kind === 'prs' && <PrsWidget tab={p.tab} />}
+        {p.widget.kind === 'notes' && <NotesWidget widget={p.widget} onConfig={p.onConfig} />}
       </div>
       <div
         className="widget-resize"
@@ -368,6 +406,31 @@ function Widget(p: WidgetProps): React.JSX.Element {
           }
         }}
         title="Arrastra para cambiar la altura"
+      />
+      {/* asa lateral: ancho propio de ESTE widget (el dock se adapta al mayor) */}
+      <div
+        className="widget-resize-x"
+        style={p.widget.side === 'left' ? { right: 0 } : { left: 0 }}
+        title="Arrastra para cambiar el ancho de este widget"
+        onPointerDown={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          const startX = e.clientX
+          const startW = rootRef.current?.offsetWidth ?? 300
+          const dir = p.widget.side === 'left' ? 1 : -1
+          const onMove = (ev: PointerEvent): void => {
+            const w = Math.min(640, Math.max(220, startW + dir * (ev.clientX - startX)))
+            if (rootRef.current) rootRef.current.style.width = `${w}px`
+          }
+          const onUp = (ev: PointerEvent): void => {
+            window.removeEventListener('pointermove', onMove)
+            window.removeEventListener('pointerup', onUp)
+            const w = Math.min(640, Math.max(220, startW + dir * (ev.clientX - startX)))
+            propsRef.current.onWidth(w)
+          }
+          window.addEventListener('pointermove', onMove)
+          window.addEventListener('pointerup', onUp)
+        }}
       />
     </div>
   )
@@ -746,6 +809,16 @@ function HealthWidget(p: { tab: TabState }): React.JSX.Element {
   const pct = health.contextWindow > 0 ? health.contextTokens / health.contextWindow : 0
   const level = pct >= 0.8 ? 'danger' : pct >= 0.6 ? 'warn' : 'ok'
 
+  // Uso de la sesión = lo consumido frente a los límites que fijó el usuario
+  // (presupuesto US$ y máximo de turnos); manda el más avanzado de los dos.
+  const budgetUsd = p.tab.llmParams?.maxBudgetUsd ?? 0
+  const maxTurns = p.tab.llmParams?.maxTurns ?? 0
+  const usagePct = Math.max(
+    budgetUsd > 0 ? health.costUsd / budgetUsd : 0,
+    maxTurns > 0 ? health.numTurns / maxTurns : 0
+  )
+  const usageLevel = usagePct >= 0.8 ? 'danger' : usagePct >= 0.6 ? 'warn' : 'ok'
+
   return (
     <div className="healthw">
       <div className="healthw-row">
@@ -769,6 +842,33 @@ function HealthWidget(p: { tab: TabState }): React.JSX.Element {
           El contexto pasó del 60%. Buen momento para un <code>/compact</code> si el hilo es largo.
         </div>
       )}
+      {/* Uso de la sesión frente a los límites configurados en Parámetros */}
+      {(budgetUsd > 0 || maxTurns > 0) && (
+        <>
+          <div className="healthw-row" style={{ marginTop: 2 }}>
+            <span className="healthw-label">Uso de la sesión</span>
+            <span className={`healthw-value ${usageLevel}`}>{Math.round(usagePct * 100)}%</span>
+          </div>
+          <div className="healthw-bar">
+            <div
+              className={`healthw-fill ${usageLevel}`}
+              style={{ width: `${Math.min(100, usagePct * 100)}%` }}
+            />
+          </div>
+          <div className="healthw-usage">
+            {budgetUsd > 0 && (
+              <span>
+                US$ {health.costUsd.toFixed(2)} / {budgetUsd.toFixed(2)}
+              </span>
+            )}
+            {maxTurns > 0 && (
+              <span>
+                {health.numTurns} / {maxTurns} turnos
+              </span>
+            )}
+          </div>
+        </>
+      )}
       <div className="healthw-grid">
         <div className="healthw-stat">
           <span className="healthw-label">Salida acumulada</span>
@@ -791,6 +891,210 @@ function HealthWidget(p: { tab: TabState }): React.JSX.Element {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ---------- Widgets: Pipelines · Pull requests · Notas ----------
+
+const PROVIDER_NAME: Record<string, string> = {
+  github: 'GitHub Actions',
+  azure: 'Azure Pipelines',
+  bitbucket: 'Bitbucket',
+  none: 'sin proveedor'
+}
+
+const STATE_ICON: Record<CiBuild['state'], string> = {
+  success: '✓',
+  failed: '✕',
+  running: '◐',
+  canceled: '⊘',
+  partial: '!',
+  unknown: '·'
+}
+
+/** Fecha relativa corta: «hace 5 min», «hace 2 h», «hace 3 d» */
+function relTime(iso?: string): string {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  if (!isFinite(ms) || ms < 0) return ''
+  const min = Math.round(ms / 60000)
+  if (min < 60) return `hace ${min} min`
+  const h = Math.round(min / 60)
+  if (h < 48) return `hace ${h} h`
+  return `hace ${Math.round(h / 24)} d`
+}
+
+/** Builds recientes del repo (GitHub Actions, Azure Pipelines o Bitbucket) */
+function CiWidget(p: { tab: TabState }): React.JSX.Element {
+  const [data, setData] = useState<{ ok: boolean; repo: CiRepoInfo; builds: CiBuild[]; error?: string } | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setData(await window.deck.ciBuilds(p.tab.cwd))
+    setLoading(false)
+  }, [p.tab.cwd])
+
+  useEffect(() => {
+    void load()
+    const t = setInterval(() => void load(), 90_000)
+    return () => clearInterval(t)
+  }, [load])
+
+  return (
+    <div className="ciw">
+      <div className="widget-toolbar">
+        <span className="chip">{PROVIDER_NAME[data?.repo.provider ?? 'none']}</span>
+        <span style={{ flex: 1 }} />
+        <button className="widget-btn" onClick={() => void load()} title="Refrescar">
+          <IconRefresh size={11} />
+        </button>
+      </div>
+      {loading && !data && (
+        <p className="hint" style={{ padding: 8 }}>
+          <span className="spinner" /> Consultando…
+        </p>
+      )}
+      {data && !data.ok && <div className="validation err" style={{ margin: 8 }}>{data.error}</div>}
+      {data?.ok && data.builds.length === 0 && (
+        <p className="hint" style={{ padding: 8 }}>No hay ejecuciones recientes.</p>
+      )}
+      {data?.ok &&
+        data.builds.map((b) => (
+          <div
+            key={b.id}
+            className={`ci-row ${b.state}`}
+            title={`${b.name} · ${b.branch} · ${b.state}`}
+            onClick={() => b.url && window.deck.openTarget(b.url, p.tab.cwd)}
+          >
+            <span className={`ci-state ${b.state}`}>{STATE_ICON[b.state]}</span>
+            <span className="ci-name">{b.name}</span>
+            <span className="ci-branch mono">{b.branch}</span>
+            <span className="ci-time">{relTime(b.finishedAt)}</span>
+          </div>
+        ))}
+    </div>
+  )
+}
+
+/** Pull requests abiertos del repo */
+function PrsWidget(p: { tab: TabState }): React.JSX.Element {
+  const [data, setData] = useState<{ ok: boolean; repo: CiRepoInfo; prs: CiPullRequest[]; error?: string } | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setData(await window.deck.ciPrs(p.tab.cwd))
+    setLoading(false)
+  }, [p.tab.cwd])
+
+  useEffect(() => {
+    void load()
+    const t = setInterval(() => void load(), 120_000)
+    return () => clearInterval(t)
+  }, [load])
+
+  return (
+    <div className="ciw">
+      <div className="widget-toolbar">
+        <span className="chip">{PROVIDER_NAME[data?.repo.provider ?? 'none']}</span>
+        {data?.ok && data.prs.length > 0 && <span className="chip project">{data.prs.length}</span>}
+        <span style={{ flex: 1 }} />
+        <button className="widget-btn" onClick={() => void load()} title="Refrescar">
+          <IconRefresh size={11} />
+        </button>
+      </div>
+      {loading && !data && (
+        <p className="hint" style={{ padding: 8 }}>
+          <span className="spinner" /> Consultando…
+        </p>
+      )}
+      {data && !data.ok && <div className="validation err" style={{ margin: 8 }}>{data.error}</div>}
+      {data?.ok && data.prs.length === 0 && (
+        <p className="hint" style={{ padding: 8 }}>No hay pull requests abiertos.</p>
+      )}
+      {data?.ok &&
+        data.prs.map((pr) => (
+          <div
+            key={pr.id}
+            className="pr-row"
+            title={`#${pr.id} · ${pr.author} · ${pr.branch}`}
+            onClick={() => pr.url && window.deck.openTarget(pr.url, p.tab.cwd)}
+          >
+            <div className="pr-line">
+              <span className="pr-id mono">#{pr.id}</span>
+              <span className="pr-title">{pr.title}</span>
+              {pr.draft && <span className="cd-badge">borrador</span>}
+            </div>
+            <div className="pr-meta">
+              <span className="mono">{pr.branch}</span>
+              {pr.reviewState && <span className="pr-review">{pr.reviewState}</span>}
+              {pr.checks !== 'unknown' && (
+                <span className={`ci-state ${pr.checks}`}>{STATE_ICON[pr.checks]} checks</span>
+              )}
+            </div>
+          </div>
+        ))}
+    </div>
+  )
+}
+
+/** Bloc de notas por widget: texto plano o markdown con vista previa */
+function NotesWidget(p: {
+  widget: WidgetState
+  onConfig: (c: WidgetState['config']) => void
+}): React.JSX.Element {
+  const [text, setText] = useState(p.widget.config.notes ?? '')
+  const preview = Boolean(p.widget.config.notesPreview)
+  const saveTimer = useRef<NodeJS.Timeout | null>(null)
+  const cfgRef = useRef(p.widget.config)
+  cfgRef.current = p.widget.config
+
+  // guardado diferido: no persistir en cada tecla
+  const onChange = (v: string): void => {
+    setText(v)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => p.onConfig({ ...cfgRef.current, notes: v }), 600)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [])
+
+  return (
+    <div className="notesw">
+      <div className="widget-toolbar">
+        <button
+          className="widget-btn"
+          onClick={() => p.onConfig({ ...cfgRef.current, notes: text, notesPreview: !preview })}
+          title={preview ? 'Editar' : 'Ver como markdown'}
+        >
+          {preview ? '✎ editar' : '👁 markdown'}
+        </button>
+        <span style={{ flex: 1 }} />
+        <button
+          className="widget-btn"
+          title="Copiar todo"
+          onClick={() => void navigator.clipboard.writeText(text)}
+        >
+          ⧉
+        </button>
+      </div>
+      {preview ? (
+        <div className="notesw-preview">
+          {text.trim() ? <Markdown text={text} /> : <p className="hint">Sin notas todavía.</p>}
+        </div>
+      ) : (
+        <textarea
+          className="notesw-input"
+          value={text}
+          placeholder="Notas de esta sesión… (texto plano o markdown)"
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
     </div>
   )
 }
