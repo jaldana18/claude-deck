@@ -3558,3 +3558,25 @@ kbd {
 .widget.cd-pair-right::after {
   right: 3px;
 }
+
+/* El cuerpo del widget es un contenedor flex: sin esto, los hijos con
+   `flex: 1` (el editor de notas) no crecían al ampliar el widget. */
+.widget-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.widget-body > * {
+  min-height: 0;
+}
+.notesw {
+  flex: 1;
+  min-height: 0;
+}
+.notesw-input {
+  flex: 1;
+  min-height: 110px;
+}
+.notesw-preview {
+  flex: 1;
+}
