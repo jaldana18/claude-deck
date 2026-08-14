@@ -87,13 +87,34 @@ export class PtyManager {
     })
   }
 
+  /** Salida pendiente de enviar al renderer, agrupada por panel */
+  private pending = new Map<string, string>()
+  private flushTimer: NodeJS.Timeout | null = null
+
   private emit(paneId: string, data: string): void {
     if (this.attached.has(paneId)) {
-      this.send('pty:data', { paneId, data })
+      // Agrupar ~25ms: ConPTY emite cientos de chunks por segundo (la TUI de
+      // claude repintando, un npm install…) y un IPC por chunk saturaba el
+      // renderer. Un frame de latencia es imperceptible en un terminal.
+      this.pending.set(paneId, (this.pending.get(paneId) ?? '') + data)
+      if (!this.flushTimer) {
+        this.flushTimer = setTimeout(() => this.flushPending(), 25)
+      }
     } else {
       const buf = (this.buffers.get(paneId) ?? '') + data
       this.buffers.set(paneId, buf.length > BUFFER_CAP ? buf.slice(-BUFFER_CAP) : buf)
     }
+  }
+
+  private flushPending(): void {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer)
+      this.flushTimer = null
+    }
+    for (const [paneId, data] of this.pending) {
+      if (data) this.send('pty:data', { paneId, data })
+    }
+    this.pending.clear()
   }
 
   private send(channel: string, payload: unknown): void {
@@ -102,6 +123,15 @@ export class PtyManager {
       if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
     } catch {
       /* ventana cerrándose */
+    }
+  }
+
+  /** Vaciar lo pendiente antes de cerrar/matar para no perder la última salida */
+  private flushPane(paneId: string): void {
+    const data = this.pending.get(paneId)
+    if (data) {
+      this.send('pty:data', { paneId, data })
+      this.pending.delete(paneId)
     }
   }
 
@@ -135,8 +165,10 @@ export class PtyManager {
 
   kill(paneId: string): void {
     const pty = this.ptys.get(paneId)
+    this.flushPane(paneId)
     this.attached.delete(paneId)
     this.buffers.delete(paneId)
+    this.pending.delete(paneId)
     if (!pty) return
     this.ptys.delete(paneId)
     try {

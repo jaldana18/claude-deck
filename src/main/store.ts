@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFile, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ProjectPrefs, Snippet, TabState, WidgetState } from '../shared/types'
 
@@ -77,15 +77,18 @@ export class Store {
 
   private scheduleSave(): void {
     if (this.saveTimer) return
+    // 1,5 s: el estado se toca en cada turno (lastHealth) y en cada cambio de
+    // widget; con 300 ms se escribía el archivo entero varias veces por segundo
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null
       this.flush()
-    }, 300)
+    }, 1500)
   }
 
   flush(): void {
     try {
-      writeFileSync(this.file, JSON.stringify(this.state, null, 2), 'utf8')
+      // sin indentación: el archivo se lee por código, no a mano
+      writeFileSync(this.file, JSON.stringify(this.state), 'utf8')
     } catch (err) {
       console.error('No se pudo guardar deck-state.json:', err)
     }
@@ -147,7 +150,8 @@ export class Store {
 
   saveScrollback(tabId: string, data: string): void {
     try {
-      writeFileSync(this.scrollbackFile(tabId), data, 'utf8')
+      // async: son strings de MBs y bloqueaban el hilo principal cada 5 s
+      writeFile(this.scrollbackFile(tabId), data, 'utf8', () => {})
     } catch (err) {
       console.error('No se pudo guardar scrollback:', err)
     }

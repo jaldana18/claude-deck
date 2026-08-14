@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type {
   AzureListItem,
   BoardData,
@@ -37,6 +37,8 @@ interface DockProps {
   side: WidgetSide
   widgets: WidgetState[]
   tab: TabState
+  /** pestaña visible: los widgets ocultos no consultan git/MCP/red */
+  visible: boolean
   agents: AgentRun[]
   todos: TodoItem[]
   onOpenSubagent: (id: string) => void
@@ -62,7 +64,7 @@ const DONE_STATES = new Set(['Done', 'Closed', 'Resolved', 'Removed'])
  * (por la cabecera), se reordenan soltando sobre otro widget, y su altura se
  * ajusta con el asa inferior. El layout persiste en deck-state.json.
  */
-export function WidgetDock(p: DockProps): React.JSX.Element | null {
+export const WidgetDock = memo(function WidgetDock(p: DockProps): React.JSX.Element | null {
   const mine = p.widgets.filter((w) => w.side === p.side).sort((a, b) => a.order - b.order)
 
   // Ancho del dock ajustable por el usuario (persiste por lado en localStorage)
@@ -98,7 +100,20 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
   const widgetsRef = useRef(p.widgets)
   widgetsRef.current = p.widgets
 
-  const moveWidget = (id: string, side: WidgetSide, beforeId?: string): void => {
+  // Callbacks ESTABLES: si se recrean en cada render, la memo de Widget no
+  // sirve de nada y todos los widgets se repintan con cada delta del chat.
+  const onChangeRef = useRef(p.onChange)
+  onChangeRef.current = p.onChange
+
+  const patchWidget = useCallback((id: string, patch: Partial<WidgetState>): void => {
+    onChangeRef.current(widgetsRef.current.map((x) => (x.id === id ? { ...x, ...patch } : x)))
+  }, [])
+
+  const removeWidget = useCallback((id: string): void => {
+    onChangeRef.current(widgetsRef.current.filter((x) => x.id !== id))
+  }, [])
+
+  const moveWidget = useCallback((id: string, side: WidgetSide, beforeId?: string): void => {
     const next = widgetsRef.current.map((w) => ({ ...w }))
     const widget = next.find((w) => w.id === id)
     if (!widget) return
@@ -107,7 +122,7 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
     const insertAt = beforeId ? siblings.findIndex((w) => w.id === beforeId) : siblings.length
     siblings.splice(insertAt < 0 ? siblings.length : insertAt, 0, widget)
     siblings.forEach((w, i) => (w.order = i))
-    p.onChange(next)
+    onChangeRef.current(next)
     // aterrizaje 180ms scale(1.02→1) sobre el widget movido (kit §3)
     requestAnimationFrame(() => {
       const el = document.querySelector(`[data-widget-id="${id}"]`)
@@ -116,7 +131,7 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
         setTimeout(() => el.classList.remove('cd-land'), 220)
       }
     })
-  }
+  }, [])
 
   return (
     <div
@@ -146,27 +161,10 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
           agents={p.agents}
           todos={p.todos}
           onOpenSubagent={p.onOpenSubagent}
+          visible={p.visible}
           onMove={moveWidget}
-          onResize={(h) => {
-            p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, height: h } : x)))
-          }}
-          onWidth={(width) => {
-            p.onChange(
-              widgetsRef.current.map((x) => (x.id === w.id ? { ...x, width, half: false } : x))
-            )
-          }}
-          onHalf={(half) => {
-            // al pasar a media columna se suelta el ancho fijo en píxeles
-            p.onChange(
-              widgetsRef.current.map((x) =>
-                x.id === w.id ? { ...x, half, width: half ? undefined : x.width } : x
-              )
-            )
-          }}
-          onConfig={(config) => {
-            p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, config } : x)))
-          }}
-          onClose={() => p.onChange(widgetsRef.current.filter((x) => x.id !== w.id))}
+          onPatch={patchWidget}
+          onRemove={removeWidget}
         />
       ))}
       {/* punteado SOLO visible durante un arrastre (body.cd-drag-active, kit §3) */}
@@ -175,23 +173,22 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
       </div>
     </div>
   )
-}
+})
 
 interface WidgetProps {
   widget: WidgetState
   tab: TabState
+  visible: boolean
   agents: AgentRun[]
   todos: TodoItem[]
   onOpenSubagent: (id: string) => void
   onMove: (id: string, side: WidgetSide, beforeId?: string) => void
-  onResize: (height: number) => void
-  onWidth: (width: number) => void
-  onHalf: (half: boolean) => void
-  onConfig: (config: WidgetState['config']) => void
-  onClose: () => void
+  /** callbacks estables (id + parche) para no romper la memo de Widget */
+  onPatch: (id: string, patch: Partial<WidgetState>) => void
+  onRemove: (id: string) => void
 }
 
-function Widget(p: WidgetProps): React.JSX.Element {
+const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
   const resizing = useRef(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   // height 0 = automática (contenido); >0 = fijada por el usuario con el asa
@@ -202,27 +199,26 @@ function Widget(p: WidgetProps): React.JSX.Element {
 
   useEffect(() => setLiveHeight(p.widget.height), [p.widget.height])
 
-  useEffect(() => {
+  /** Listeners globales SOLO mientras se arrastra el asa (antes vivían
+   *  permanentemente: 3 widgets × N pestañas escuchando cada mousemove). */
+  const startHeightDrag = useCallback((): void => {
+    resizing.current = true
+    document.body.style.cursor = 'ns-resize'
     const onMove = (e: MouseEvent): void => {
-      if (!resizing.current) return
       setLiveHeight((h) => Math.min(window.innerHeight * 0.7, Math.max(140, h + e.movementY)))
     }
     const onUp = (): void => {
-      if (resizing.current) {
-        resizing.current = false
-        document.body.style.cursor = ''
-        setLiveHeight((h) => {
-          propsRef.current.onResize(h)
-          return h
-        })
-      }
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      resizing.current = false
+      document.body.style.cursor = ''
+      setLiveHeight((h) => {
+        propsRef.current.onPatch(propsRef.current.widget.id, { height: h })
+        return h
+      })
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
   }, [])
 
   /**
@@ -342,6 +338,10 @@ function Widget(p: WidgetProps): React.JSX.Element {
     window.addEventListener('keydown', onKey, true)
   }
 
+  const patchConfig = useCallback((config: WidgetState['config']) => {
+    propsRef.current.onPatch(propsRef.current.widget.id, { config })
+  }, [])
+
   const icon =
     p.widget.kind === 'git' ? (
       <IconGitBranch size={12} />
@@ -391,7 +391,7 @@ function Widget(p: WidgetProps): React.JSX.Element {
         </span>
         <button
           className="widget-btn"
-          onClick={() => p.onHalf(!p.widget.half)}
+          onClick={() => p.onPatch(p.widget.id, { half: !p.widget.half, ...(p.widget.half ? {} : { width: undefined }) })}
           title={
             p.widget.half
               ? 'Ocupar todo el ancho de la columna'
@@ -400,32 +400,33 @@ function Widget(p: WidgetProps): React.JSX.Element {
         >
           {p.widget.half ? '▭' : '◫'}
         </button>
-        <button className="widget-btn" onClick={p.onClose} title="Quitar widget">
+        <button className="widget-btn" onClick={() => p.onRemove(p.widget.id)} title="Quitar widget">
           <IconX size={11} />
         </button>
       </div>
       <div className="widget-body">
-        {p.widget.kind === 'git' && <GitWidget widget={p.widget} tab={p.tab} onConfig={p.onConfig} />}
-        {p.widget.kind === 'board' && <BoardWidget widget={p.widget} tab={p.tab} onConfig={p.onConfig} />}
+        {p.widget.kind === 'git' && (
+          <GitWidget widget={p.widget} tab={p.tab} visible={p.visible} onConfig={patchConfig} />
+        )}
+        {p.widget.kind === 'board' && (
+          <BoardWidget widget={p.widget} tab={p.tab} visible={p.visible} onConfig={patchConfig} />
+        )}
         {p.widget.kind === 'agents' && (
           <AgentsWidget agents={p.agents} todos={p.todos} onOpenSubagent={p.onOpenSubagent} />
         )}
         {p.widget.kind === 'health' && <HealthWidget tab={p.tab} />}
         {p.widget.kind === 'tasks' && <TasksWidget todos={p.todos} />}
-        {p.widget.kind === 'ci' && <CiWidget tab={p.tab} />}
-        {p.widget.kind === 'prs' && <PrsWidget tab={p.tab} />}
-        {p.widget.kind === 'notes' && <NotesWidget widget={p.widget} onConfig={p.onConfig} />}
+        {p.widget.kind === 'ci' && <CiWidget tab={p.tab} visible={p.visible} />}
+        {p.widget.kind === 'prs' && <PrsWidget tab={p.tab} visible={p.visible} />}
+        {p.widget.kind === 'notes' && <NotesWidget widget={p.widget} onConfig={patchConfig} />}
       </div>
       <div
         className="widget-resize"
         onMouseDown={(e) => {
           e.preventDefault()
-          resizing.current = true
-          document.body.style.cursor = 'ns-resize'
           // si la altura era automática, partir de la altura real actual
-          if (liveHeight <= 0 && rootRef.current) {
-            setLiveHeight(rootRef.current.offsetHeight)
-          }
+          if (liveHeight <= 0 && rootRef.current) setLiveHeight(rootRef.current.offsetHeight)
+          startHeightDrag()
         }}
         title="Arrastra para cambiar la altura"
       />
@@ -448,7 +449,7 @@ function Widget(p: WidgetProps): React.JSX.Element {
             window.removeEventListener('pointermove', onMove)
             window.removeEventListener('pointerup', onUp)
             const w = Math.min(640, Math.max(220, startW + dir * (ev.clientX - startX)))
-            propsRef.current.onWidth(w)
+            propsRef.current.onPatch(propsRef.current.widget.id, { width: w, half: false })
           }
           window.addEventListener('pointermove', onMove)
           window.addEventListener('pointerup', onUp)
@@ -456,13 +457,14 @@ function Widget(p: WidgetProps): React.JSX.Element {
       />
     </div>
   )
-}
+})
 
 // ---------- Widget: Git ----------
 
-function GitWidget(p: {
+const GitWidget = memo(function GitWidget(p: {
   widget: WidgetState
   tab: TabState
+  visible: boolean
   onConfig: (c: WidgetState['config']) => void
 }): React.JSX.Element {
   const repoPath = p.widget.config.repoPath || p.tab.cwd
@@ -472,11 +474,14 @@ function GitWidget(p: {
     setInfo(await window.deck.gitInfo(repoPath))
   }, [repoPath])
 
+  // Los widgets de pestañas ocultas NO consultan: sin esto, 5 pestañas con
+  // widget git lanzaban 25 procesos git cada 20 s en segundo plano.
   useEffect(() => {
+    if (!p.visible) return
     void refresh()
     const t = setInterval(() => void refresh(), 20_000)
     return () => clearInterval(t)
-  }, [refresh])
+  }, [refresh, p.visible])
 
   const pickRepo = async (): Promise<void> => {
     const folder = await window.deck.pickFolder()
@@ -515,7 +520,7 @@ function GitWidget(p: {
       )}
     </div>
   )
-}
+})
 
 /**
  * Fila del grafo estilo tradicional (gitk/GitKraken): los carriles que vienen
@@ -598,9 +603,10 @@ function GitRow(p: { commit: import('../../../shared/types').GitCommit; prev?: i
 
 // ---------- Widget: Board del sprint ----------
 
-function BoardWidget(p: {
+const BoardWidget = memo(function BoardWidget(p: {
   widget: WidgetState
   tab: TabState
+  visible: boolean
   onConfig: (c: WidgetState['config']) => void
 }): React.JSX.Element {
   const cfg = p.widget.config
@@ -651,11 +657,11 @@ function BoardWidget(p: {
   }, [cfg.project, cfg.team, cfg.iterationId, p.tab.cwd])
 
   useEffect(() => {
-    if (configuring) return
+    if (configuring || !p.visible) return
     void load()
     const t = setInterval(() => void load(), 2 * 60 * 1000)
     return () => clearInterval(t)
-  }, [configuring, load])
+  }, [configuring, load, p.visible])
 
   // Filtro por responsable: se llena con los responsables reales del sprint
   const assignees = [...new Set((data?.items ?? []).map((i) => i.assignedTo))].sort()
@@ -779,7 +785,7 @@ function BoardWidget(p: {
       )}
     </div>
   )
-}
+})
 
 function groupByState(items: BoardData['items']): { state: string; items: BoardData['items'] }[] {
   const order = ['New', 'Proposed', 'Approved', 'Committed', 'To Do', 'Active', 'In Progress', 'Doing', 'Resolved', 'In Review', 'Done', 'Closed']
@@ -948,7 +954,7 @@ function relTime(iso?: string): string {
 }
 
 /** Builds recientes del repo (GitHub Actions, Azure Pipelines o Bitbucket) */
-function CiWidget(p: { tab: TabState }): React.JSX.Element {
+const CiWidget = memo(function CiWidget(p: { tab: TabState; visible: boolean }): React.JSX.Element {
   const [data, setData] = useState<{ ok: boolean; repo: CiRepoInfo; builds: CiBuild[]; error?: string } | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -959,10 +965,11 @@ function CiWidget(p: { tab: TabState }): React.JSX.Element {
   }, [p.tab.cwd])
 
   useEffect(() => {
+    if (!p.visible) return
     void load()
     const t = setInterval(() => void load(), 90_000)
     return () => clearInterval(t)
-  }, [load])
+  }, [load, p.visible])
 
   return (
     <div className="ciw">
@@ -998,10 +1005,10 @@ function CiWidget(p: { tab: TabState }): React.JSX.Element {
         ))}
     </div>
   )
-}
+})
 
 /** Pull requests abiertos del repo */
-function PrsWidget(p: { tab: TabState }): React.JSX.Element {
+const PrsWidget = memo(function PrsWidget(p: { tab: TabState; visible: boolean }): React.JSX.Element {
   const [data, setData] = useState<{ ok: boolean; repo: CiRepoInfo; prs: CiPullRequest[]; error?: string } | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -1012,10 +1019,11 @@ function PrsWidget(p: { tab: TabState }): React.JSX.Element {
   }, [p.tab.cwd])
 
   useEffect(() => {
+    if (!p.visible) return
     void load()
     const t = setInterval(() => void load(), 120_000)
     return () => clearInterval(t)
-  }, [load])
+  }, [load, p.visible])
 
   return (
     <div className="ciw">
@@ -1060,7 +1068,7 @@ function PrsWidget(p: { tab: TabState }): React.JSX.Element {
         ))}
     </div>
   )
-}
+})
 
 /** Bloc de notas por widget: texto plano o markdown con vista previa */
 function NotesWidget(p: {

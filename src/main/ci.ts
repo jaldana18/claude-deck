@@ -72,13 +72,23 @@ export function parseRemote(url: string): CiRepoInfo {
   return { provider: 'none' }
 }
 
+/** Caché del remote por carpeta: no cambia durante la sesión y antes se
+ *  spawneaba un `git` por cada consulta de builds y de PRs, por pestaña. */
+const repoCache = new Map<string, CiRepoInfo>()
+
 /** Lee el remote origin del repo (vacío si no es repo o no tiene remote) */
 export async function detectRepo(cwd: string): Promise<CiRepoInfo> {
+  const cached = repoCache.get(cwd)
+  if (cached) return cached
   try {
     const { stdout } = await run('git', ['remote', 'get-url', 'origin'], { cwd, windowsHide: true })
-    return parseRemote(stdout)
+    const info = parseRemote(stdout)
+    repoCache.set(cwd, info)
+    return info
   } catch {
-    return { provider: 'none' }
+    const info: CiRepoInfo = { provider: 'none' }
+    repoCache.set(cwd, info)
+    return info
   }
 }
 

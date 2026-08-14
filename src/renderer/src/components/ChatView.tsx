@@ -13,6 +13,7 @@ import type {
   TodoItem,
   WidgetState
 } from '../../../shared/types'
+import { subscribeChat } from '../chatBus'
 import { WidgetDock } from './WidgetDock'
 import { Markdown, MarkdownCwd } from './Markdown'
 import {
@@ -358,7 +359,14 @@ function QuestionCard(p: {
 function subagentTaskLabel(messages: ChatMessage[], toolUseId: string): string {
   for (const m of messages) {
     const tu = m.toolUses.find((t) => t.id === toolUseId)
-    if (!tu) continue
+    if (tu) return describeAgentToolUse(tu)
+  }
+  return 'tarea'
+}
+
+/** Etiqueta de un tool use de agente (sin recorrer el historial) */
+function describeAgentToolUse(tu: ChatMessage['toolUses'][number]): string {
+  {
     let description = ''
     let type = ''
     try {
@@ -375,10 +383,18 @@ function subagentTaskLabel(messages: ChatMessage[], toolUseId: string): string {
     const label = [type, description].filter(Boolean).join(': ')
     return (label || tu.name).slice(0, 90)
   }
-  return 'tarea'
 }
 
 const MAX_IMAGES = 10
+/** Tope del historial EN MEMORIA de una pestaña. Sin esto, una sesión larga
+ *  acumula mensajes con tool inputs/results e imágenes base64 hasta que la
+ *  única cura es reiniciar la app. Lo anterior sigue en el transcript. */
+const MAX_MESSAGES = 500
+function capMessages(ms: ChatMessage[]): ChatMessage[] {
+  return ms.length > MAX_MESSAGES ? ms.slice(-MAX_MESSAGES) : ms
+}
+/** Máximo de subagentes cuyo chat se conserva en memoria */
+const MAX_SUBAGENTS = 20
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 /** Mensajes renderizados inicialmente; los anteriores se cargan bajo demanda */
@@ -615,29 +631,40 @@ export function ChatView(p: Props): React.JSX.Element {
     void window.deck.chatModels(tabId).then(setModels)
   }, [tabId, loadHistory])
 
-  // Suscripciones al stream de la sesión
+  // Suscripciones al stream de la sesión. Un ÚNICO listener IPC por canal
+  // (chatBus) reparte a la pestaña destinataria: con N pestañas abiertas el
+  // coste ya no se multiplica por N.
   useEffect(() => {
-    const offs = [
-      window.deck.onChatStreamStart(({ tabId: id, messageId }) => {
+    return subscribeChat(tabId, {
+      streamStart: (({ tabId: id, messageId }) => {
         if (id === tabId) setStreamText({ id: messageId, text: '' })
       }),
-      window.deck.onChatDelta(({ tabId: id, messageId, text }) => {
+      delta: (({ tabId: id, messageId, text }) => {
         if (id !== tabId) return
         setStreamText((s) =>
           s && s.id === messageId ? { ...s, text: s.text + text } : { id: messageId, text }
         )
       }),
-      window.deck.onChatMessage(({ tabId: id, message }) => {
+      message: (({ tabId: id, message }) => {
         if (id !== tabId) return
         setStreamText(null)
-        setMessages((ms) => (ms.some((m) => m.id === message.id) ? ms : [...ms, message]))
+        setMessages((ms) =>
+          ms.some((m) => m.id === message.id) ? ms : capMessages([...ms, message])
+        )
       }),
-      window.deck.onChatToolResult(({ tabId: id, toolUseId, result, isError }) => {
+      toolResult: (({ tabId: id, toolUseId, result, isError }) => {
         if (id !== tabId) return
         // clonar SOLO el mensaje afectado: el resto conserva identidad y las
         // burbujas memoizadas no se re-renderizan
         setMessages((ms) => {
-          const idx = ms.findIndex((m) => m.toolUses.some((tu) => tu.id === toolUseId))
+          // búsqueda inversa: el tool use pertenece casi siempre al último mensaje
+          let idx = -1
+          for (let i = ms.length - 1; i >= 0; i--) {
+            if (ms[i].toolUses.some((tu) => tu.id === toolUseId)) {
+              idx = i
+              break
+            }
+          }
           if (idx < 0) return ms
           const next = [...ms]
           next[idx] = {
@@ -649,43 +676,43 @@ export function ChatView(p: Props): React.JSX.Element {
           return next
         })
       }),
-      window.deck.onChatResult((meta) => {
+      result: ((meta) => {
         if (meta.tabId !== tabId) return
         setBusy(false)
         setStreamText(null)
         setCost(meta.costUsd)
         if (meta.isError && meta.errorText) setError(meta.errorText)
       }),
-      window.deck.onChatError(({ tabId: id, message }) => {
+      error: (({ tabId: id, message }) => {
         if (id !== tabId) return
         setBusy(false)
         setError(message)
       }),
-      window.deck.onChatPermissionRequest((req) => {
+      permissionRequest: ((req) => {
         if (req.tabId === tabId) setPermissions((ps) => [...ps, req])
       }),
-      window.deck.onChatPermissionCancel(({ tabId: id, requestId }) => {
+      permissionCancel: (({ tabId: id, requestId }) => {
         if (id === tabId) setPermissions((ps) => ps.filter((x) => x.requestId !== requestId))
       }),
-      window.deck.onChatCommands(({ tabId: id, commands }) => {
+      commands: (({ tabId: id, commands }) => {
         if (id === tabId) setCommands(commands)
       }),
-      window.deck.onChatModels(({ tabId: id, models }) => {
+      models: (({ tabId: id, models }) => {
         if (id === tabId) setModels(models)
       }),
-      window.deck.onChatInitModel(({ tabId: id, model }) => {
+      initModel: (({ tabId: id, model }) => {
         if (id === tabId) setAutoModel(model)
       }),
-      window.deck.onChatQuestion((req) => {
+      question: ((req) => {
         if (req.tabId === tabId) setQuestions((qs) => [...qs, req])
       }),
-      window.deck.onChatQuestionCancel(({ tabId: id, requestId }) => {
+      questionCancel: (({ tabId: id, requestId }) => {
         if (id === tabId) setQuestions((qs) => qs.filter((x) => x.requestId !== requestId))
       }),
-      window.deck.onChatTodos(({ tabId: id, todos }) => {
+      todos: (({ tabId: id, todos }) => {
         if (id === tabId) setTodos(todos)
       }),
-      window.deck.onChatAutoCompact(({ tabId: id, phase, pct }) => {
+      autoCompact: (({ tabId: id, phase, pct }) => {
         if (id !== tabId) return
         setBusy(true)
         setMessages((ms) => [
@@ -701,7 +728,7 @@ export function ChatView(p: Props): React.JSX.Element {
           }
         ])
       }),
-      window.deck.onChatAutoContinue(({ tabId: id, count }) => {
+      autoContinue: (({ tabId: id, count }) => {
         if (id !== tabId) return
         setBusy(true)
         setMessages((ms) => [
@@ -714,13 +741,18 @@ export function ChatView(p: Props): React.JSX.Element {
           }
         ])
       }),
-      window.deck.onChatSubagentBatch(({ tabId: id, batches }) => {
+      subagentBatch: (({ tabId: id, batches }) => {
         if (id !== tabId) return
         // lote de 150ms: UNA actualización por ráfaga, con cap por agente
         setSubagents((s) => {
           const next = { ...s }
           for (const b of batches) {
             next[b.parentId] = [...(next[b.parentId] ?? []), ...b.messages].slice(-150)
+          }
+          // conservar solo los últimos N agentes: sus transcripts son pesados
+          const keys = Object.keys(next)
+          if (keys.length > MAX_SUBAGENTS) {
+            for (const k of keys.slice(0, keys.length - MAX_SUBAGENTS)) delete next[k]
           }
           return next
         })
@@ -731,10 +763,10 @@ export function ChatView(p: Props): React.JSX.Element {
           return next
         })
       }),
-      window.deck.onChatAgentDone(({ tabId: id, toolUseId }) => {
+      agentDone: (({ tabId: id, toolUseId }) => {
         if (id === tabId) setDoneAgents((d) => ({ ...d, [toolUseId]: true }))
       }),
-      window.deck.onChatSwitched(({ tabId: id }) => {
+      switched: (({ tabId: id }) => {
         if (id !== tabId) return
         // Sesión restaurada desde el historial: estado limpio + repintar
         setStreamText(null)
@@ -747,10 +779,10 @@ export function ChatView(p: Props): React.JSX.Element {
         setSubagents({})
         setDoneAgents({})
         setAgentActivity({})
+        setWindowSize(WINDOW_STEP)
         void loadHistory()
       })
-    ]
-    return () => offs.forEach((off) => off())
+    })
   }, [tabId, loadHistory])
 
   // Autoscroll anclado al fondo
@@ -765,27 +797,27 @@ export function ChatView(p: Props): React.JSX.Element {
   const columnRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const col = columnRef.current
-    if (!col) return
+    if (!col || !p.visible) return
     const obs = new ResizeObserver(() => {
       const el = listRef.current
       if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
     })
     obs.observe(col)
     return () => obs.disconnect()
-  }, [])
+  }, [p.visible])
 
   // Cinturón y tirantes: mientras la sesión está TRABAJANDO, re-anclar al
   // fondo cada 150ms pase lo que pase (cubre cualquier evento perdido por
   // content-visibility, layouts diferidos o buffers del renderer). Solo la
   // rueda hacia arriba lo pausa (stickToBottom=false).
   useEffect(() => {
-    if (!busy) return
+    if (!busy || !p.visible) return
     const t = setInterval(() => {
       const el = listRef.current
       if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
     }, 150)
     return () => clearInterval(t)
-  }, [busy])
+  }, [busy, p.visible])
 
   const interrupt = useCallback(() => {
     void window.deck.chatInterrupt(tabId)
@@ -1045,7 +1077,7 @@ export function ChatView(p: Props): React.JSX.Element {
 
   // Re-evaluar la actividad de los agentes cada 15 s (para retirar inactivos)
   useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 15_000)
+    const t = setInterval(() => setTick((n) => n + 1), 15_000)  // gated abajo
     return () => clearInterval(t)
   }, [])
 
@@ -1053,29 +1085,34 @@ export function ChatView(p: Props): React.JSX.Element {
   // "En ejecución" = sin resultado aún, O con actividad reciente (los agentes
   // en background devuelven el tool_result al lanzarse, no al terminar), y
   // nunca si ya llegó su task-notification de finalización.
-  const agentRuns = useMemo(
+  // Los tool uses de agentes se indexan UNA vez por cambio de `messages`; antes
+  // la etiqueta se resolvía recorriendo todo el historial por cada agente
+  // (O(agentes × mensajes)) y se recalculaba ~7 veces por segundo.
+  const agentToolUses = useMemo(
     () =>
       messages.flatMap((m) =>
         m.toolUses
-          .filter(
-            (tu) => tu.name === 'Agent' || tu.name === 'Task' || Boolean(subagents[tu.id]?.length)
-          )
-          .filter((tu) => tu.name !== 'TodoWrite')
-          .map((tu) => {
-            const recentActivity = Date.now() - (agentActivity[tu.id] ?? 0) < 60_000
-            const running =
-              !doneAgents[tu.id] && (tu.result === undefined || recentActivity)
-            return {
-              id: tu.id,
-              label: subagentTaskLabel(messages, tu.id),
-              running,
-              isError: Boolean(tu.isError),
-              msgCount: subagents[tu.id]?.length ?? 0
-            }
-          })
+          .filter((tu) => tu.name === 'Agent' || tu.name === 'Task')
+          .map((tu) => ({ tu, label: describeAgentToolUse(tu) }))
       ),
+    [messages]
+  )
+
+  const agentRuns = useMemo(
+    () =>
+      agentToolUses.map(({ tu, label }) => {
+        const recentActivity = Date.now() - (agentActivity[tu.id] ?? 0) < 60_000
+        const running = !doneAgents[tu.id] && (tu.result === undefined || recentActivity)
+        return {
+          id: tu.id,
+          label,
+          running,
+          isError: Boolean(tu.isError),
+          msgCount: subagents[tu.id]?.length ?? 0
+        }
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messages, subagents, doneAgents, agentActivity]
+    [agentToolUses, subagents, doneAgents, agentActivity]
   )
 
   const subagentCounts = useMemo(() => {
@@ -1094,7 +1131,7 @@ export function ChatView(p: Props): React.JSX.Element {
   const openImage = useCallback((src: string) => setImageView(src), [])
   // En el widget solo viven los agentes EN EJECUCIÓN; los terminados salen
   // (su chat sigue accesible desde la tarjeta del mensaje).
-  const activeAgents = agentRuns.filter((a) => a.running)
+  const activeAgents = useMemo(() => agentRuns.filter((a) => a.running), [agentRuns])
   const runningAgents = activeAgents.length
 
   // Si arrancan agentes y no existe el widget de actividad, agregarlo solo
@@ -1252,6 +1289,7 @@ export function ChatView(p: Props): React.JSX.Element {
           side="left"
           widgets={p.widgets}
           tab={p.tab}
+          visible={p.visible}
           agents={activeAgents}
           todos={todos}
           onOpenSubagent={openSubagent}
@@ -1466,6 +1504,7 @@ export function ChatView(p: Props): React.JSX.Element {
           side="right"
           widgets={p.widgets}
           tab={p.tab}
+          visible={p.visible}
           agents={activeAgents}
           todos={todos}
           onOpenSubagent={openSubagent}

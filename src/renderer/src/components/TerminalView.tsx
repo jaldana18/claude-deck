@@ -155,7 +155,11 @@ export function TerminalView(p: Props): React.JSX.Element {
         /* ignore */
       }
     }
-    const saveTimer = setInterval(persist, 5000)
+    // solo paneles visibles: serializar 8000 líneas por panel oculto cada
+    // 5 s era trabajo puro de GC + IPC + disco sin que nadie lo viera
+    const saveTimer = setInterval(() => {
+      if (visibleRef.current) persist()
+    }, 5000)
 
     const ro = new ResizeObserver(() => {
       if (!visibleRef.current) return

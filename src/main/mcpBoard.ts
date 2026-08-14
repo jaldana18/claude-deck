@@ -78,8 +78,20 @@ function readAzureMcpConfig(cwd: string): McpServerConfig | null {
 let client: Client | null = null
 let clientKey = ''
 
-async function getClient(cwd: string): Promise<Client> {
+/** Caché de la config MCP por carpeta (TTL 60 s): antes se leían y parseaban
+ *  .mcp.json y ~/.claude.json —que puede pesar decenas de MB— en cada llamada
+ *  al board, a builds y a PRs, por cada pestaña. */
+const cfgCache = new Map<string, { at: number; cfg: ReturnType<typeof readAzureMcpConfig> }>()
+function cachedAzureConfig(cwd: string): ReturnType<typeof readAzureMcpConfig> {
+  const hit = cfgCache.get(cwd)
+  if (hit && Date.now() - hit.at < 60_000) return hit.cfg
   const cfg = readAzureMcpConfig(cwd)
+  cfgCache.set(cwd, { at: Date.now(), cfg })
+  return cfg
+}
+
+async function getClient(cwd: string): Promise<Client> {
+  const cfg = cachedAzureConfig(cwd)
   if (!cfg) {
     throw new Error(
       'No se encontró el MCP de azure-devops en ~/.claude.json ni en el .mcp.json del proyecto.'

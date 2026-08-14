@@ -239,7 +239,23 @@ export function listGlobalAgents(): { name: string; description: string }[] {
     .map((a) => ({ name: a.name, description: a.description }))
 }
 
+/** Caché del escaneo (TTL 4 s): el panel de configuración refresca cada 6 s y
+ *  cada escaneo son cientos de syscalls síncronas leyendo todos los .md. */
+const scanCache = new Map<string, { at: number; cfg: ProjectConfig }>()
+
+export function invalidateScanCache(): void {
+  scanCache.clear()
+}
+
 export function scanProject(cwd: string): ProjectConfig {
+  const hit = scanCache.get(cwd)
+  if (hit && Date.now() - hit.at < 4000) return hit.cfg
+  const cfg = scanProjectUncached(cwd)
+  scanCache.set(cwd, { at: Date.now(), cfg })
+  return cfg
+}
+
+function scanProjectUncached(cwd: string): ProjectConfig {
   const userDir = userClaudeDir()
   const projDir = join(cwd, '.claude')
 

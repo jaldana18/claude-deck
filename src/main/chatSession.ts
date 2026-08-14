@@ -616,6 +616,12 @@ class ChatSession {
 
   stop(): void {
     this.closed = true
+    // timers de batching: sin esto quedaban callbacks apuntando a una pestaña
+    // ya cerrada (hasta 150 ms) y podían intentar enviar a una ventana muerta
+    if (this.deltaTimer) clearTimeout(this.deltaTimer)
+    if (this.subagentTimer) clearTimeout(this.subagentTimer)
+    this.deltaTimer = null
+    this.subagentTimer = null
     for (const [id, p] of this.pendingPermissions) {
       p.resolve({ behavior: 'deny', message: 'Pestaña cerrada' })
       this.pendingPermissions.delete(id)

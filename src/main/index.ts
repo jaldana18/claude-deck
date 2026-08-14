@@ -23,7 +23,7 @@ import { Store } from './store'
 import { PtyManager } from './ptys'
 import { SessionTracker } from './sessionTracker'
 import { HookServer, installDeckHooks } from './hookServer'
-import { listGlobalAgents, scanProject } from './configScanner'
+import { invalidateScanCache, listGlobalAgents, scanProject } from './configScanner'
 import { toggleHook, toggleItem } from './configToggle'
 import { createArtifact, generateDraft, validateArtifact } from './validator'
 import { searchChats } from './chatSearch'
@@ -341,6 +341,7 @@ ipcMain.handle('dialog:pickFiles', async () => {
 
 ipcMain.handle('artifact:create', (_e, draft: ArtifactDraft) => {
   const res = createArtifact(draft)
+  invalidateScanCache()
   return { ...res, config: scanProject(draft.cwd) }
 })
 
