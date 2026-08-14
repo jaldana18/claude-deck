@@ -3532,3 +3532,29 @@ kbd {
 .widget.half .widget-suffix {
   display: none;
 }
+
+/* Emparejar widgets arrastrando: soltar sobre el tercio izquierdo o derecho
+   de otro widget los acopla lado a lado (el centro solo reordena). */
+.widget.cd-pair-left,
+.widget.cd-pair-right {
+  position: relative;
+}
+.widget.cd-pair-left::after,
+.widget.cd-pair-right::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 46%;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+  animation: fadeIn 0.1s;
+}
+.widget.cd-pair-left::after {
+  left: 3px;
+}
+.widget.cd-pair-right::after {
+  right: 3px;
+}

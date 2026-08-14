@@ -113,13 +113,32 @@ export const WidgetDock = memo(function WidgetDock(p: DockProps): React.JSX.Elem
     onChangeRef.current(widgetsRef.current.filter((x) => x.id !== id))
   }, [])
 
-  const moveWidget = useCallback((id: string, side: WidgetSide, beforeId?: string): void => {
+  const moveWidget = useCallback(
+    (
+      id: string,
+      side: WidgetSide,
+      beforeId?: string,
+      pair?: { targetId: string; at: 'left' | 'right' }
+    ): void => {
     const next = widgetsRef.current.map((w) => ({ ...w }))
     const widget = next.find((w) => w.id === id)
     if (!widget) return
     widget.side = side
+    // Emparejar: ambos a media columna y contiguos (el orden decide quién va
+    // a la izquierda). Sin pair, el widget recupera su fila completa.
+    const target = pair ? next.find((w) => w.id === pair.targetId) : undefined
+    if (pair && target) {
+      widget.half = true
+      widget.width = undefined
+      target.half = true
+      target.width = undefined
+    } else {
+      widget.half = false
+    }
     const siblings = next.filter((w) => w.side === side && w.id !== id).sort((a, b) => a.order - b.order)
-    const insertAt = beforeId ? siblings.findIndex((w) => w.id === beforeId) : siblings.length
+    const anchorId = pair ? pair.targetId : beforeId
+    let insertAt = anchorId ? siblings.findIndex((w) => w.id === anchorId) : siblings.length
+    if (pair?.at === 'right' && insertAt >= 0) insertAt += 1
     siblings.splice(insertAt < 0 ? siblings.length : insertAt, 0, widget)
     siblings.forEach((w, i) => (w.order = i))
     onChangeRef.current(next)
@@ -131,7 +150,9 @@ export const WidgetDock = memo(function WidgetDock(p: DockProps): React.JSX.Elem
         setTimeout(() => el.classList.remove('cd-land'), 220)
       }
     })
-  }, [])
+    },
+    []
+  )
 
   return (
     <div
@@ -191,7 +212,12 @@ interface WidgetProps {
   agents: AgentRun[]
   todos: TodoItem[]
   onOpenSubagent: (id: string) => void
-  onMove: (id: string, side: WidgetSide, beforeId?: string) => void
+  onMove: (
+    id: string,
+    side: WidgetSide,
+    beforeId?: string,
+    pair?: { targetId: string; at: 'left' | 'right' }
+  ) => void
   /** callbacks estables (id + parche) para no romper la memo de Widget */
   onPatch: (id: string, patch: Partial<WidgetState>) => void
   onRemove: (id: string) => void
@@ -246,10 +272,13 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
     let ghost: HTMLDivElement | null = null
     let jiggling: Element | null = null
     let started = false
+    /** zona sobre el widget objetivo: los lados EMPAREJAN, el centro reordena */
+    let pairSide: 'left' | 'right' | null = null
 
     const clearJiggle = (): void => {
-      jiggling?.classList.remove('cd-jiggle')
+      jiggling?.classList.remove('cd-jiggle', 'cd-pair-left', 'cd-pair-right')
       jiggling = null
+      pairSide = null
     }
 
     const start = (): void => {
@@ -304,15 +333,25 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
         start()
       }
       place(ev.clientX, ev.clientY)
-      // jiggle del widget bajo el cursor (objetivo de reorden)
       const under = document
         .elementsFromPoint(ev.clientX, ev.clientY)
         .find((el) => el !== root && el.hasAttribute?.('data-widget-id'))
-      if (under !== jiggling) {
+      // Soltar en el TERCIO izquierdo o derecho de otro widget los acopla
+      // lado a lado (como el snap de pestañas); el centro solo reordena.
+      let side: 'left' | 'right' | null = null
+      if (under) {
+        const r = under.getBoundingClientRect()
+        const rel = (ev.clientX - r.left) / r.width
+        side = rel < 0.34 ? 'left' : rel > 0.66 ? 'right' : null
+      }
+      if (under !== jiggling || side !== pairSide) {
         clearJiggle()
         if (under) {
           jiggling = under
-          under.classList.add('cd-jiggle')
+          pairSide = side
+          under.classList.add(
+            side === 'left' ? 'cd-pair-left' : side === 'right' ? 'cd-pair-right' : 'cd-jiggle'
+          )
         }
       }
     }
@@ -329,14 +368,21 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
       const targetDock = stack.find((el) => el.hasAttribute?.('data-dock-side')) as
         | HTMLElement
         | undefined
+      const dropPair = pairSide
       cleanup()
       ghost?.remove()
       const id = propsRef.current.widget.id
       if (targetWidget) {
         const side = (targetWidget.closest('[data-dock-side]') as HTMLElement | null)?.dataset
           .dockSide as WidgetSide | undefined
-        propsRef.current.onMove(id, side ?? propsRef.current.widget.side, targetWidget.dataset.widgetId)
+        propsRef.current.onMove(
+          id,
+          side ?? propsRef.current.widget.side,
+          targetWidget.dataset.widgetId,
+          dropPair ? { targetId: targetWidget.dataset.widgetId!, at: dropPair } : undefined
+        )
       } else if (targetDock) {
+        // soltar en el hueco del dock = fila propia a lo ancho
         propsRef.current.onMove(id, targetDock.dataset.dockSide as WidgetSide)
       }
       // soltar fuera de toda zona: no-op (equivale a cancelar)
@@ -398,17 +444,6 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
           {icon} {WIDGET_TITLES[p.widget.kind]}
           {suffix && <span className="widget-suffix">· {suffix}</span>}
         </span>
-        <button
-          className="widget-btn"
-          onClick={() => p.onPatch(p.widget.id, { half: !p.widget.half, ...(p.widget.half ? {} : { width: undefined }) })}
-          title={
-            p.widget.half
-              ? 'Ocupar todo el ancho de la columna'
-              : 'Media columna: se acopla lado a lado con otro widget'
-          }
-        >
-          {p.widget.half ? '▭' : '◫'}
-        </button>
         <button className="widget-btn" onClick={() => p.onRemove(p.widget.id)} title="Quitar widget">
           <IconX size={11} />
         </button>
