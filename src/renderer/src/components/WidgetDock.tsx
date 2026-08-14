@@ -151,7 +151,17 @@ export function WidgetDock(p: DockProps): React.JSX.Element | null {
             p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, height: h } : x)))
           }}
           onWidth={(width) => {
-            p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, width } : x)))
+            p.onChange(
+              widgetsRef.current.map((x) => (x.id === w.id ? { ...x, width, half: false } : x))
+            )
+          }}
+          onHalf={(half) => {
+            // al pasar a media columna se suelta el ancho fijo en píxeles
+            p.onChange(
+              widgetsRef.current.map((x) =>
+                x.id === w.id ? { ...x, half, width: half ? undefined : x.width } : x
+              )
+            )
           }}
           onConfig={(config) => {
             p.onChange(widgetsRef.current.map((x) => (x.id === w.id ? { ...x, config } : x)))
@@ -176,6 +186,7 @@ interface WidgetProps {
   onMove: (id: string, side: WidgetSide, beforeId?: string) => void
   onResize: (height: number) => void
   onWidth: (width: number) => void
+  onHalf: (half: boolean) => void
   onConfig: (config: WidgetState['config']) => void
   onClose: () => void
 }
@@ -361,10 +372,10 @@ function Widget(p: WidgetProps): React.JSX.Element {
   return (
     <div
       ref={rootRef}
-      className={`widget ${liveHeight > 0 ? '' : 'auto'}`}
+      className={`widget ${liveHeight > 0 ? '' : 'auto'} ${p.widget.half ? 'half' : ''}`}
       style={{
         ...(liveHeight > 0 ? { height: liveHeight } : {}),
-        ...(p.widget.width ? { width: p.widget.width } : {})
+        ...(p.widget.width && !p.widget.half ? { width: p.widget.width } : {})
       }}
       data-widget-id={p.widget.id}
     >
@@ -378,6 +389,17 @@ function Widget(p: WidgetProps): React.JSX.Element {
           {icon} {WIDGET_TITLES[p.widget.kind]}
           {suffix && <span className="widget-suffix">· {suffix}</span>}
         </span>
+        <button
+          className="widget-btn"
+          onClick={() => p.onHalf(!p.widget.half)}
+          title={
+            p.widget.half
+              ? 'Ocupar todo el ancho de la columna'
+              : 'Media columna: se acopla lado a lado con otro widget'
+          }
+        >
+          {p.widget.half ? '▭' : '◫'}
+        </button>
         <button className="widget-btn" onClick={p.onClose} title="Quitar widget">
           <IconX size={11} />
         </button>

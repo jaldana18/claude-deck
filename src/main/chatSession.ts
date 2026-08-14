@@ -22,6 +22,7 @@ import type {
   TabState,
   TodoItem
 } from '../shared/types'
+import { TaskMirror } from '../shared/tasks'
 import type { Store } from './store'
 
 /**
@@ -92,6 +93,8 @@ class ChatSession {
    *  mensaje assistant del hilo principal (input + caché = ventana en uso) */
   /** continuaciones automáticas seguidas (se resetea con cada mensaje real) */
   autoContinues = 0
+  /** plan de tareas espejado (TodoWrite o TaskCreate/TaskUpdate) */
+  private tasks = new TaskMirror()
   /** hay un /compact automático en vuelo (su result dispara la reanudación) */
   private compacting = false
   private ctxTokens = 0
@@ -145,6 +148,11 @@ class ChatSession {
 
   private sendHealth(): void {
     this.send('chat:health', this.health())
+  }
+
+  /** Publica el plan de tareas al renderer (widgets Tareas y Actividad) */
+  private emitTasks(): void {
+    this.send('chat:todos', { tabId: this.tab.id, todos: this.tasks.list() })
   }
 
   private flushSubagents(): void {
@@ -336,15 +344,25 @@ class ChatSession {
           }
           const chat = toChatMessage(msg.uuid, msg.message)
           if (chat) {
-            // Espejo del plan de tareas: interceptar TodoWrite del hilo principal
+            // Espejo del plan de tareas. Claude Code planifica de dos formas
+            // según versión: TodoWrite (lista completa en cada llamada) o el
+            // sistema de tareas TaskCreate/TaskUpdate (incremental). Se
+            // soportan ambas para que el widget nunca quede vacío.
             const content = (msg.message as { content?: unknown }).content
             if (Array.isArray(content)) {
               for (const block of content) {
-                if (block?.type === 'tool_use' && block.name === 'TodoWrite') {
+                if (block?.type !== 'tool_use') continue
+                if (block.name === 'TodoWrite') {
                   const todos = (block.input as { todos?: TodoItem[] })?.todos
                   if (Array.isArray(todos)) {
-                    this.send('chat:todos', { tabId: this.tab.id, todos })
+                    this.tasks.applyTodoWrite(todos)
+                    this.emitTasks()
                   }
+                } else if (block.name === 'TaskCreate') {
+                  // el id real llega en el tool_result («Task #12 created…»)
+                  this.tasks.noteCreate(String(block.id), block.input as { subject?: string })
+                } else if (block.name === 'TaskUpdate') {
+                  if (this.tasks.applyUpdate(block.input as { taskId?: string })) this.emitTasks()
                 }
               }
             }
@@ -368,10 +386,15 @@ class ChatSession {
                 }
               }
               if (block?.type === 'tool_result') {
+                const resultText = extractBlockText(block.content)
+                // Resultado de un TaskCreate: trae el id real («Task #12 created»)
+                if (this.tasks.resolveCreate(String(block.tool_use_id), resultText)) {
+                  this.emitTasks()
+                }
                 this.send('chat:tool-result', {
                   tabId: this.tab.id,
                   toolUseId: block.tool_use_id,
-                  result: extractBlockText(block.content).slice(0, 4000),
+                  result: resultText.slice(0, 4000),
                   isError: Boolean(block.is_error)
                 })
               }

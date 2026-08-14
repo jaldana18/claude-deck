@@ -175,6 +175,8 @@ export interface WidgetState {
   height: number
   /** ancho propio en px (0/ausente = el del dock) */
   width?: number
+  /** media columna: dos widgets «half» se acoplan lado a lado en el dock */
+  half?: boolean
   config: WidgetConfig
 }
 

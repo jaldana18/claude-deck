@@ -3506,3 +3506,20 @@ kbd {
   font-size: 10.5px;
   color: var(--text-dim);
 }
+
+/* widgets lado a lado: el dock envuelve y «half» ocupa media columna */
+.widget-dock {
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+.widget {
+  width: 100%;
+}
+.widget.half {
+  width: calc(50% - 4px);
+  min-width: 0;
+}
+/* con dos widgets a lo ancho, la cabecera aprieta: ocultar el sufijo largo */
+.widget.half .widget-suffix {
+  display: none;
+}
