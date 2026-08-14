@@ -90,6 +90,10 @@ class ChatSession {
   models: ModelOption[] = []
   /** salud de la sesión: el contexto ocupado lo reporta el usage de cada
    *  mensaje assistant del hilo principal (input + caché = ventana en uso) */
+  /** continuaciones automáticas seguidas (se resetea con cada mensaje real) */
+  autoContinues = 0
+  /** hay un /compact automático en vuelo (su result dispara la reanudación) */
+  private compacting = false
   private ctxTokens = 0
   private ctxWindow = 200_000
   private outTokens = 0
@@ -402,6 +406,47 @@ class ChatSession {
           this.sendHealth()
           // persistir la salud: el widget la recupera tras reiniciar la app
           this.store.updateTab(this.tab.id, { lastHealth: this.health() })
+          // Auto-compact parametrizable: al cerrar el turno, si el contexto
+          // superó el umbral, se envía /compact; el result del compact dispara
+          // la instrucción de retomar el proceso si lo había.
+          const compactPct = this.tab.llmParams?.autoCompactPct
+          const usedPct = this.ctxWindow > 0 ? (this.ctxTokens / this.ctxWindow) * 100 : 0
+          if (this.compacting) {
+            this.compacting = false
+            setTimeout(() => {
+              if (this.closed) return
+              this.send('chat:auto-compact', { tabId: this.tab.id, phase: 'done', pct: 0 })
+              this.sendUserText(
+                'El contexto acaba de ser compactado automáticamente. Si había un proceso o tarea en curso, continúa exactamente donde quedó sin repetir trabajo ya hecho; si no había nada pendiente, responde únicamente «Listo».'
+              )
+            }, 800)
+          } else if (compactPct && usedPct >= compactPct && !this.closed) {
+            this.compacting = true
+            const pct = Math.round(usedPct)
+            setTimeout(() => {
+              if (this.closed) return
+              this.send('chat:auto-compact', { tabId: this.tab.id, phase: 'start', pct })
+              this.sendUserText('/compact')
+            }, 800)
+          } else if (
+            // Auto-continuación: si se detuvo por límite de TURNOS y el usuario
+            // la activó, re-inyectar la instrucción (tope 5 para evitar bucles).
+            // Nunca aplica al límite de presupuesto USD: ese tope es de seguridad.
+            msg.subtype === 'error_max_turns' &&
+            this.tab.llmParams?.autoContinue &&
+            this.autoContinues < 5 &&
+            !this.closed
+          ) {
+            this.autoContinues++
+            const n = this.autoContinues
+            setTimeout(() => {
+              if (this.closed) return
+              this.send('chat:auto-continue', { tabId: this.tab.id, count: n })
+              this.sendUserText(
+                'Continúa con el proceso exactamente donde quedaste. No repitas trabajo ya hecho; retoma la siguiente acción pendiente.'
+              )
+            }, 800)
+          }
           this.status('done', 'Claude terminó')
         }
       }
@@ -577,7 +622,11 @@ export class ChatSessionManager {
   }
 
   send(tabId: string, text: string, attachments?: ChatAttachment[]): void {
-    this.sessions.get(tabId)?.sendUserText(text, attachments)
+    const session = this.sessions.get(tabId)
+    if (!session) return
+    // mensaje real del usuario: resetea el contador de auto-continuaciones
+    session.autoContinues = 0
+    session.sendUserText(text, attachments)
   }
 
   commandsFor(tabId: string): SlashCommandInfo[] {

@@ -3327,3 +3327,11 @@ kbd {
 .task-detail .chip {
   text-transform: none;
 }
+
+/* columna central del chat (lista + composer): los docks van de alto completo */
+.chat-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}

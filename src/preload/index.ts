@@ -131,6 +131,10 @@ const api = {
   chatHealth: (tabId: string): Promise<ChatHealth | null> =>
     ipcRenderer.invoke('chat:health', tabId),
   onChatHealth: (cb: (p: ChatHealth) => void) => on('chat:health', cb),
+  onChatAutoContinue: (cb: (p: { tabId: string; count: number }) => void) =>
+    on('chat:auto-continue', cb),
+  onChatAutoCompact: (cb: (p: { tabId: string; phase: 'start' | 'done'; pct: number }) => void) =>
+    on('chat:auto-compact', cb),
   chatSetLlmParams: (tabId: string, params: LlmParams): Promise<void> =>
     ipcRenderer.invoke('chat:setLlmParams', { tabId, params }),
 

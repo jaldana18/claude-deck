@@ -108,6 +108,13 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
   const [maxUsd, setMaxUsd] = useState(lp.maxBudgetUsd ? String(lp.maxBudgetUsd) : '')
   const [append, setAppend] = useState(lp.systemPromptAppend ?? '')
   const [dirs, setDirs] = useState<string[]>(lp.additionalDirs ?? [])
+  const [autoCont, setAutoCont] = useState(Boolean(lp.autoContinue))
+  // paradas del slider de auto-compact: off · 60 · 70 · 80 · 90 %
+  const COMPACT_STOPS = [0, 60, 70, 80, 90]
+  const [compactIdx, setCompactIdx] = useState(() => {
+    const i = COMPACT_STOPS.indexOf(lp.autoCompactPct ?? 0)
+    return i >= 0 ? i : 0
+  })
   const [saving, setSaving] = useState(false)
 
   const save = async (): Promise<void> => {
@@ -118,7 +125,9 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
       ...(parseInt(maxTurns, 10) > 0 ? { maxTurns: parseInt(maxTurns, 10) } : {}),
       ...(parseFloat(maxUsd) > 0 ? { maxBudgetUsd: parseFloat(maxUsd) } : {}),
       ...(append.trim() ? { systemPromptAppend: append.trim() } : {}),
-      ...(dirs.length ? { additionalDirs: dirs } : {})
+      ...(dirs.length ? { additionalDirs: dirs } : {}),
+      ...(autoCont ? { autoContinue: true } : {}),
+      ...(COMPACT_STOPS[compactIdx] > 0 ? { autoCompactPct: COMPACT_STOPS[compactIdx] } : {})
     }
     setSaving(true)
     p.tab.llmParams = params
@@ -153,6 +162,14 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
         max={THINK_STOPS.length - 1}
         value={thinkIdx}
         onChange={setThinkIdx}
+      />
+      <ParamSlider
+        label="Auto-compact al % de contexto"
+        valueLabel={COMPACT_STOPS[compactIdx] === 0 ? 'off' : `${COMPACT_STOPS[compactIdx]}%`}
+        min={0}
+        max={COMPACT_STOPS.length - 1}
+        value={compactIdx}
+        onChange={setCompactIdx}
       />
       <div className="params-row two">
         <div>
@@ -211,6 +228,22 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
         >
           + Agregar carpeta
         </button>
+      </div>
+      <div className="params-row">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            className="cd-toggle"
+            role="switch"
+            aria-checked={autoCont}
+            onClick={() => setAutoCont((v) => !v)}
+          />
+          <span style={{ fontSize: 11.5, fontWeight: 600 }}>
+            Continuar solo al llegar al límite de turnos
+          </span>
+        </div>
+        <span className="cd-help">
+          re-envía «continúa» automáticamente (máx. 5 seguidas; no aplica al presupuesto US$)
+        </span>
       </div>
       <div className="params-note">
         Los cambios aplican a esta pestaña. Claude Code no expone la temperatura de muestreo;
@@ -651,6 +684,35 @@ export function ChatView(p: Props): React.JSX.Element {
       }),
       window.deck.onChatTodos(({ tabId: id, todos }) => {
         if (id === tabId) setTodos(todos)
+      }),
+      window.deck.onChatAutoCompact(({ tabId: id, phase, pct }) => {
+        if (id !== tabId) return
+        setBusy(true)
+        setMessages((ms) => [
+          ...ms,
+          {
+            id: `auto-compact-${phase}-${Date.now()}`,
+            role: 'user',
+            text:
+              phase === 'start'
+                ? `⟳ Auto-compact: el contexto llegó al ${pct}% — compactando la conversación…`
+                : '⟳ Compact terminado: retomando el proceso si había uno en curso.',
+            toolUses: []
+          }
+        ])
+      }),
+      window.deck.onChatAutoContinue(({ tabId: id, count }) => {
+        if (id !== tabId) return
+        setBusy(true)
+        setMessages((ms) => [
+          ...ms,
+          {
+            id: `auto-cont-${Date.now()}`,
+            role: 'user',
+            text: `⟳ Continuación automática (${count}/5): retomando donde quedó.`,
+            toolUses: []
+          }
+        ])
       }),
       window.deck.onChatSubagentBatch(({ tabId: id, batches }) => {
         if (id !== tabId) return
@@ -1195,6 +1257,9 @@ export function ChatView(p: Props): React.JSX.Element {
           onOpenSubagent={openSubagent}
           onChange={p.onWidgetsChange}
         />
+        {/* columna central: lista + adjuntos + composer — así los docks
+            laterales ocupan el alto completo hasta el borde del terminal */}
+        <div className="chat-center">
         <div
           className="chat-list"
           ref={listRef}
@@ -1295,17 +1360,6 @@ export function ChatView(p: Props): React.JSX.Element {
           </div>
         </div>
 
-        <WidgetDock
-          side="right"
-          widgets={p.widgets}
-          tab={p.tab}
-          agents={activeAgents}
-          todos={todos}
-          onOpenSubagent={openSubagent}
-          onChange={p.onWidgetsChange}
-        />
-      </div>
-
       {attachments.length > 0 && (
         <div className="attach-row">
           {attachments.map((a, i) => (
@@ -1405,6 +1459,18 @@ export function ChatView(p: Props): React.JSX.Element {
             )}
           </div>
         </div>
+      </div>
+        </div>
+
+        <WidgetDock
+          side="right"
+          widgets={p.widgets}
+          tab={p.tab}
+          agents={activeAgents}
+          todos={todos}
+          onOpenSubagent={openSubagent}
+          onChange={p.onWidgetsChange}
+        />
       </div>
 
       {imageView && (

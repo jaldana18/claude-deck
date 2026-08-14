@@ -157,6 +157,10 @@ export interface LlmParams {
   systemPromptAppend?: string
   /** Carpetas adicionales (absolutas) a las que Claude puede acceder */
   additionalDirs?: string[]
+  /** Al detenerse por límite de turnos, auto-enviar «continúa» (máx. 5 seguidas) */
+  autoContinue?: boolean
+  /** % de contexto a partir del cual auto-compactar al cierre del turno (0/ausente = off) */
+  autoCompactPct?: number
 }
 
 /** Resultado genérico de las acciones de la tienda */
