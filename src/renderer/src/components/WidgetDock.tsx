@@ -137,10 +137,19 @@ export const WidgetDock = memo(function WidgetDock(p: DockProps): React.JSX.Elem
     <div
       className={`widget-dock ${mine.length === 0 ? 'empty' : ''}`}
       data-dock-side={p.side}
-      /* el dock se adapta al widget más ancho (o al ancho fijado con su asa) */
+      /* El dock se adapta al widget más ancho (o al ancho fijado con su asa).
+         Con widgets en media columna se asegura un mínimo: a 280px dos
+         widgets emparejados quedarían de 130px y sin leerse. */
       style={
         mine.length > 0
-          ? { width: Math.max(dockWidth ?? 0, ...mine.map((w) => w.width ?? 0)) || undefined }
+          ? {
+              width:
+                Math.max(
+                  dockWidth ?? 0,
+                  ...mine.map((w) => w.width ?? 0),
+                  mine.some((w) => w.half) ? 400 : 0
+                ) || undefined
+            }
           : undefined
       }
     >

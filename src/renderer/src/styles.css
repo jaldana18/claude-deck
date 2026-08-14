@@ -3507,12 +3507,21 @@ kbd {
   color: var(--text-dim);
 }
 
-/* widgets lado a lado: el dock envuelve y «half» ocupa media columna */
+/* Widgets lado a lado. El dock era `flex-direction: column`, donde `wrap`
+   crea COLUMNAS nuevas en vez de acoplar en la misma fila: por eso los
+   widgets en media columna seguían apilándose. En `row` + `wrap`, cada
+   widget ocupa la fila completa salvo los «half», que se emparejan. */
 .widget-dock {
+  flex-direction: row;
   flex-wrap: wrap;
   align-content: flex-start;
+  align-items: flex-start;
 }
 .widget {
+  width: 100%;
+}
+/* la zona de drop siempre a lo ancho, debajo de los widgets */
+.widget-dock .cd-dropzone {
   width: 100%;
 }
 .widget.half {
