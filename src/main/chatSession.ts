@@ -23,6 +23,13 @@ import type {
   TodoItem
 } from '../shared/types'
 import { TaskMirror } from '../shared/tasks'
+import {
+  DEFAULT_CONTEXT_WINDOW,
+  MAX_AUTO_COMPACTS,
+  contextWindowFor,
+  resolveCompactThreshold,
+  shouldAutoCompact
+} from '../shared/context'
 import type { Store } from './store'
 
 /**
@@ -93,12 +100,16 @@ class ChatSession {
    *  mensaje assistant del hilo principal (input + caché = ventana en uso) */
   /** continuaciones automáticas seguidas (se resetea con cada mensaje real) */
   autoContinues = 0
+  /** compactaciones automáticas seguidas (se resetea con cada mensaje real) */
+  autoCompacts = 0
   /** plan de tareas espejado (TodoWrite o TaskCreate/TaskUpdate) */
   private tasks = new TaskMirror()
   /** hay un /compact automático en vuelo (su result dispara la reanudación) */
   private compacting = false
+  /** ya se avisó de que se agotaron las compactaciones automáticas */
+  private compactCapNotified = false
   private ctxTokens = 0
-  private ctxWindow = 200_000
+  private ctxWindow = DEFAULT_CONTEXT_WINDOW
   private outTokens = 0
   private costUsd = 0
   private numTurns = 0
@@ -405,8 +416,7 @@ class ChatSession {
           const initModel = (msg as { model?: string }).model
           if (initModel) {
             this.sessionModel = initModel
-            // Los modelos con contexto de 1M llevan el sufijo [1m] en su id
-            this.ctxWindow = /\[1m\]/i.test(initModel) ? 1_000_000 : 200_000
+            this.ctxWindow = contextWindowFor(initModel)
             this.send('chat:init-model', { tabId: this.tab.id, model: initModel })
           }
           void this.loadCommands()
@@ -432,8 +442,39 @@ class ChatSession {
           // Auto-compact parametrizable: al cerrar el turno, si el contexto
           // superó el umbral, se envía /compact; el result del compact dispara
           // la instrucción de retomar el proceso si lo había.
-          const compactPct = this.tab.llmParams?.autoCompactPct
+          const lp = this.tab.llmParams ?? {}
+          const decision = {
+            window: this.ctxWindow,
+            globalTokens: this.store.globalSettings.autoCompactTokens,
+            tabTokens: lp.autoCompactTokens,
+            tabPct: lp.autoCompactPct,
+            ctxTokens: this.ctxTokens,
+            autoCompacts: this.autoCompacts,
+            compacting: this.compacting,
+            closed: this.closed
+          }
           const usedPct = this.ctxWindow > 0 ? (this.ctxTokens / this.ctxWindow) * 100 : 0
+          // Aviso de tope agotado: va FUERA de la cadena de decisiones para no
+          // bloquear la auto-continuación, que es un automatismo independiente.
+          const threshold = resolveCompactThreshold(decision)
+          if (
+            !this.compacting &&
+            !this.closed &&
+            !this.compactCapNotified &&
+            this.autoCompacts >= MAX_AUTO_COMPACTS &&
+            threshold > 0 &&
+            this.ctxTokens >= threshold
+          ) {
+            this.compactCapNotified = true
+            this.send('chat:auto-compact', {
+              tabId: this.tab.id,
+              phase: 'capped',
+              pct: Math.round(usedPct),
+              tokens: this.ctxTokens,
+              count: this.autoCompacts,
+              max: MAX_AUTO_COMPACTS
+            })
+          }
           if (this.compacting) {
             this.compacting = false
             setTimeout(() => {
@@ -443,12 +484,21 @@ class ChatSession {
                 'El contexto acaba de ser compactado automáticamente. Si había un proceso o tarea en curso, continúa exactamente donde quedó sin repetir trabajo ya hecho; si no había nada pendiente, responde únicamente «Listo».'
               )
             }, 800)
-          } else if (compactPct && usedPct >= compactPct && !this.closed) {
+          } else if (shouldAutoCompact(decision)) {
             this.compacting = true
+            this.autoCompacts++
             const pct = Math.round(usedPct)
+            const n = this.autoCompacts
             setTimeout(() => {
               if (this.closed) return
-              this.send('chat:auto-compact', { tabId: this.tab.id, phase: 'start', pct })
+              this.send('chat:auto-compact', {
+                tabId: this.tab.id,
+                phase: 'start',
+                pct,
+                tokens: this.ctxTokens,
+                count: n,
+                max: MAX_AUTO_COMPACTS
+              })
               this.sendUserText('/compact')
             }, 800)
           } else if (
@@ -555,6 +605,11 @@ class ChatSession {
     this.status('working')
   }
 
+  resetAutoCompacts(): void {
+    this.autoCompacts = 0
+    this.compactCapNotified = false
+  }
+
   async interrupt(): Promise<void> {
     try {
       await this.q?.interrupt()
@@ -653,8 +708,10 @@ export class ChatSessionManager {
   send(tabId: string, text: string, attachments?: ChatAttachment[]): void {
     const session = this.sessions.get(tabId)
     if (!session) return
-    // mensaje real del usuario: resetea el contador de auto-continuaciones
+    // mensaje real del usuario: resetea los contadores de automatismos, que
+    // solo acotan cadenas SIN intervención humana
     session.autoContinues = 0
+    session.resetAutoCompacts()
     session.sendUserText(text, attachments)
   }
 

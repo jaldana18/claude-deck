@@ -11,6 +11,7 @@ import type {
   LlmParams,
   PaneLayout,
   PermissionModeId,
+  GlobalSettings,
   ProjectPrefs,
   Snippet,
   TabMode,
@@ -587,6 +588,11 @@ ipcMain.handle('config:preview', (_e, path: string) => {
   } catch (err) {
     return `(no se pudo leer: ${err})`
   }
+})
+
+ipcMain.handle('settings:get', () => store.globalSettings)
+ipcMain.handle('settings:set', (_e, settings: GlobalSettings) => {
+  store.setGlobalSettings(settings)
 })
 
 ipcMain.handle('prefs:get', (_e, cwd: string) => store.getProjectPrefs(cwd))

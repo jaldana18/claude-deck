@@ -20,6 +20,7 @@ import {
   IconSearch,
   IconSliders,
   IconStore,
+  IconTune,
   IconSun,
   IconTasks,
   IconTerminal,
@@ -42,6 +43,7 @@ interface Props {
   onToggleSessions: () => void
   onAddWidget: (kind: WidgetKind, side?: WidgetSide) => void
   onToggleStore: () => void
+  onToggleSettings: () => void
 }
 
 /** Galería de widgets del botón «+ Widget» (rediseño 2a) */
@@ -342,6 +344,15 @@ export function TabBar(p: Props): React.JSX.Element {
                   }}
                 >
                   <IconStore size={13} /> Tienda
+                </div>
+                <div
+                  className="menu-item"
+                  onClick={() => {
+                    p.onToggleSettings()
+                    closeMenus()
+                  }}
+                >
+                  <IconTune size={13} /> Ajustes de la app
                 </div>
                 <div className="menu-sep" />
                 <div

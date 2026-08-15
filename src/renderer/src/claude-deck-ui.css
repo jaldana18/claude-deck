@@ -41,6 +41,7 @@ code,pre,kbd,.mono{font-family:var(--font-mono)}
 .cd-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-pill);
   font:500 11px var(--font-ui);border:1px solid var(--border);color:var(--fg-2);cursor:pointer;background:transparent}
 .cd-chip[aria-pressed="true"],.cd-chip--on{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
+.cd-chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .cd-badge{font:600 9.5px var(--font-ui);padding:1px 6px;border-radius:8px;background:var(--bg-bar);color:var(--fg-2)}
 .cd-badge--proyecto{background:var(--accent-soft);color:var(--accent)}
 

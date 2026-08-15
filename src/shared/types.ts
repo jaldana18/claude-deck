@@ -205,6 +205,16 @@ export interface LlmParams {
   autoContinue?: boolean
   /** % de contexto a partir del cual auto-compactar al cierre del turno (0/ausente = off) */
   autoCompactPct?: number
+  /** Umbral absoluto en tokens para auto-compactar; gana sobre el % y sobre el
+   *  global. Es el modo preferido: no depende de acertar la ventana del modelo. */
+  autoCompactTokens?: number
+}
+
+/** Ajustes globales de la app (no por pestaña ni por proyecto) */
+export interface GlobalSettings {
+  /** Umbral por defecto en tokens para el auto-compact de todas las pestañas
+   *  de chat (0/ausente = desactivado). Cada pestaña puede sobreescribirlo. */
+  autoCompactTokens?: number
 }
 
 /** Resultado genérico de las acciones de la tienda */

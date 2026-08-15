@@ -61,6 +61,21 @@ const THINK_STOPS: { label: string; budget: number | undefined }[] = [
   { label: '32k', budget: 32_768 }
 ]
 
+/**
+ * Paradas del auto-compact POR PESTAÑA, en tokens absolutos. El primer tramo
+ * hereda el ajuste global (Ajustes de la app) y el segundo lo apaga solo aquí.
+ * Se usan tokens y no % porque el % dependía de acertar la ventana del modelo,
+ * que es justo lo que estaba mal: los modelos actuales son de 1M sin sufijo.
+ */
+const COMPACT_STOPS: { label: string; tokens: number | undefined }[] = [
+  { label: 'global', tokens: undefined },
+  { label: 'off', tokens: 0 },
+  { label: '100k', tokens: 100_000 },
+  { label: '150k', tokens: 150_000 },
+  { label: '200k', tokens: 200_000 },
+  { label: '300k', tokens: 300_000 }
+]
+
 /** Slider estilo mockup 1c: barra con porción acento y perilla blanca */
 function ParamSlider(p: {
   label: string
@@ -110,11 +125,22 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
   const [append, setAppend] = useState(lp.systemPromptAppend ?? '')
   const [dirs, setDirs] = useState<string[]>(lp.additionalDirs ?? [])
   const [autoCont, setAutoCont] = useState(Boolean(lp.autoContinue))
-  // paradas del slider de auto-compact: off · 60 · 70 · 80 · 90 %
-  const COMPACT_STOPS = [0, 60, 70, 80, 90]
   const [compactIdx, setCompactIdx] = useState(() => {
-    const i = COMPACT_STOPS.indexOf(lp.autoCompactPct ?? 0)
-    return i >= 0 ? i : 0
+    if (lp.autoCompactTokens === undefined) {
+      // sin override: si viene del modo antiguo en %, se traduce al tramo más
+      // cercano en tokens; si no, hereda el ajuste global
+      if (!lp.autoCompactPct) return 0
+      const approx = (200_000 * lp.autoCompactPct) / 100
+      let best = 0
+      for (let i = 2; i < COMPACT_STOPS.length; i++) {
+        const cur = COMPACT_STOPS[i].tokens ?? 0
+        const prev = COMPACT_STOPS[best]?.tokens ?? 0
+        if (best < 2 || Math.abs(cur - approx) < Math.abs(prev - approx)) best = i
+      }
+      return best
+    }
+    const i = COMPACT_STOPS.findIndex((s) => s.tokens === lp.autoCompactTokens)
+    return i >= 0 ? i : 1
   })
   const [saving, setSaving] = useState(false)
 
@@ -128,7 +154,10 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
       ...(append.trim() ? { systemPromptAppend: append.trim() } : {}),
       ...(dirs.length ? { additionalDirs: dirs } : {}),
       ...(autoCont ? { autoContinue: true } : {}),
-      ...(COMPACT_STOPS[compactIdx] > 0 ? { autoCompactPct: COMPACT_STOPS[compactIdx] } : {})
+      // undefined = heredar el ajuste global; 0 = apagado solo en esta pestaña
+      ...(COMPACT_STOPS[compactIdx].tokens !== undefined
+        ? { autoCompactTokens: COMPACT_STOPS[compactIdx].tokens }
+        : {})
     }
     setSaving(true)
     p.tab.llmParams = params
@@ -165,8 +194,8 @@ function LlmParamsPopover(p: { tab: TabState; onClose: () => void }): React.JSX.
         onChange={setThinkIdx}
       />
       <ParamSlider
-        label="Auto-compact al % de contexto"
-        valueLabel={COMPACT_STOPS[compactIdx] === 0 ? 'off' : `${COMPACT_STOPS[compactIdx]}%`}
+        label="Auto-compact a los N tokens"
+        valueLabel={COMPACT_STOPS[compactIdx].label}
         min={0}
         max={COMPACT_STOPS.length - 1}
         value={compactIdx}
@@ -712,9 +741,12 @@ export function ChatView(p: Props): React.JSX.Element {
       todos: (({ tabId: id, todos }) => {
         if (id === tabId) setTodos(todos)
       }),
-      autoCompact: (({ tabId: id, phase, pct }) => {
+      autoCompact: (({ tabId: id, phase, pct, tokens, count, max }) => {
         if (id !== tabId) return
-        setBusy(true)
+        // 'capped' no reanuda nada: es justo el aviso de que la app dejó de
+        // encadenar compactaciones automáticas y espera a que escribas.
+        if (phase !== 'capped') setBusy(true)
+        const kTok = tokens ? `${Math.round(tokens / 1000)}k tokens` : `${pct}%`
         setMessages((ms) => [
           ...ms,
           {
@@ -722,8 +754,10 @@ export function ChatView(p: Props): React.JSX.Element {
             role: 'user',
             text:
               phase === 'start'
-                ? `⟳ Auto-compact: el contexto llegó al ${pct}% — compactando la conversación…`
-                : '⟳ Compact terminado: retomando el proceso si había uno en curso.',
+                ? `⟳ Auto-compact (${count}/${max}): el contexto llegó a ${kTok} — compactando la conversación…`
+                : phase === 'done'
+                  ? '⟳ Compact terminado: retomando el proceso si había uno en curso.'
+                  : `⚠ Auto-compact detenido: ya se hicieron ${max} compactaciones seguidas sin que escribieras y el contexto sigue en ${kTok}. Escribe algo para reanudarlo, o usa /clear para empezar limpio.`,
             toolUses: []
           }
         ])

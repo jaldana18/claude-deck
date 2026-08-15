@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFile, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ProjectPrefs, Snippet, TabState, WidgetState } from '../shared/types'
+import type { GlobalSettings, ProjectPrefs, Snippet, TabState, WidgetState } from '../shared/types'
 
 interface DeckState {
   tabs: TabState[]
@@ -18,6 +18,8 @@ interface DeckState {
   /** CLI de agente por defecto (claude/codex/gemini/custom); ausente = primer arranque */
   defaultCli?: string
   defaultCliCommand?: string
+  /** Ajustes globales de la app (auto-compact por defecto, etc.) */
+  globalSettings?: GlobalSettings
 }
 
 const DEFAULT_WIDGETS: WidgetState[] = [
@@ -193,6 +195,18 @@ export class Store {
 
   setUpdateDir(dir: string | undefined): void {
     this.state.updateDir = dir
+    this.scheduleSave()
+  }
+
+  /** Ajustes globales; por defecto el auto-compact viene en 150k tokens, que es
+   *  el punto donde el coste de releer el contexto en cada turno empieza a
+   *  dominar la factura (a 650k un solo turno cuesta ~5x lo que cuesta a 150k). */
+  get globalSettings(): GlobalSettings {
+    return { autoCompactTokens: 150_000, ...this.state.globalSettings }
+  }
+
+  setGlobalSettings(settings: GlobalSettings): void {
+    this.state.globalSettings = { ...this.state.globalSettings, ...settings }
     this.scheduleSave()
   }
 

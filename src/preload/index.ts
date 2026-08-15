@@ -24,6 +24,7 @@ import type {
   PermissionModeId,
   PermissionRequestEvent,
   ProjectConfig,
+  GlobalSettings,
   ProjectPrefs,
   QuestionRequestEvent,
   SessionListItem,
@@ -140,8 +141,17 @@ const api = {
   onChatHealth: (cb: (p: ChatHealth) => void) => on('chat:health', cb),
   onChatAutoContinue: (cb: (p: { tabId: string; count: number }) => void) =>
     on('chat:auto-continue', cb),
-  onChatAutoCompact: (cb: (p: { tabId: string; phase: 'start' | 'done'; pct: number }) => void) =>
-    on('chat:auto-compact', cb),
+  onChatAutoCompact: (
+    cb: (p: {
+      tabId: string
+      /** capped = se agotó el tope de compactaciones automáticas seguidas */
+      phase: 'start' | 'done' | 'capped'
+      pct: number
+      tokens?: number
+      count?: number
+      max?: number
+    }) => void
+  ) => on('chat:auto-compact', cb),
   chatSetLlmParams: (tabId: string, params: LlmParams): Promise<void> =>
     ipcRenderer.invoke('chat:setLlmParams', { tabId, params }),
 
@@ -277,6 +287,9 @@ const api = {
   onUpdateAvailable: (cb: (info: { version: string; installerPath?: string; url?: string }) => void) =>
     on('update:available', cb),
   onUpdateProgress: (cb: (p: { percent: number }) => void) => on('update:progress', cb),
+  getGlobalSettings: (): Promise<GlobalSettings> => ipcRenderer.invoke('settings:get'),
+  setGlobalSettings: (settings: GlobalSettings): Promise<void> =>
+    ipcRenderer.invoke('settings:set', settings),
   getProjectPrefs: (cwd: string): Promise<ProjectPrefs> => ipcRenderer.invoke('prefs:get', cwd),
   setProjectPrefs: (cwd: string, prefs: ProjectPrefs): Promise<void> =>
     ipcRenderer.invoke('prefs:set', { cwd, prefs })

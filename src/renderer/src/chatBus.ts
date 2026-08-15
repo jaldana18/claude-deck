@@ -36,7 +36,15 @@ export interface ChatPayloads {
   question: QuestionRequestEvent
   questionCancel: { tabId: string; requestId: string }
   todos: { tabId: string; todos: TodoItem[] }
-  autoCompact: { tabId: string; phase: 'start' | 'done'; pct: number }
+  autoCompact: {
+    tabId: string
+    /** capped = se agotó el tope de compactaciones automáticas encadenadas */
+    phase: 'start' | 'done' | 'capped'
+    pct: number
+    tokens?: number
+    count?: number
+    max?: number
+  }
   autoContinue: { tabId: string; count: number }
   subagentBatch: { tabId: string; batches: { parentId: string; messages: ChatMessage[] }[] }
   agentDone: { tabId: string; toolUseId: string; status?: string }
