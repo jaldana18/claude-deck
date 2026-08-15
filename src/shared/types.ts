@@ -238,6 +238,9 @@ export interface ChatHealth {
   numTurns: number
   /** modelo real de la sesión (el que reporta el init) */
   model?: string
+  /** hay una compactación en curso: los tokens de arriba son los de ANTES de
+   *  compactar y no se refrescan hasta que llega el primer uso posterior */
+  compacting?: boolean
 }
 
 export interface AzureListItem {

@@ -108,6 +108,14 @@ class ChatSession {
   private compacting = false
   /** ya se avisó de que se agotaron las compactaciones automáticas */
   private compactCapNotified = false
+  /** indicador de UI: sigue en true tras el /compact hasta que llega un usage
+   *  con el contexto ya reducido, que es cuando los tokens mostrados son los
+   *  nuevos. Sirve igual para el /compact manual que para el automático. */
+  private compactUi = false
+  /** tokens que había justo antes de compactar (referencia para saber si bajó) */
+  private compactFromTokens = 0
+  /** red de seguridad: si la compactación falla, el indicador no se queda fijo */
+  private compactUiTimer: NodeJS.Timeout | null = null
   private ctxTokens = 0
   private ctxWindow = DEFAULT_CONTEXT_WINDOW
   private outTokens = 0
@@ -153,7 +161,8 @@ class ChatSession {
       outputTokens: this.outTokens,
       costUsd: this.costUsd,
       numTurns: this.numTurns,
-      model: this.sessionModel
+      model: this.sessionModel,
+      ...(this.compactUi ? { compacting: true } : {})
     }
   }
 
@@ -351,6 +360,12 @@ class ChatSession {
               (usage.cache_read_input_tokens ?? 0) +
               (usage.cache_creation_input_tokens ?? 0)
             this.outTokens += usage.output_tokens ?? 0
+            // El turno de compactado todavía reporta el contexto viejo y
+            // enorme; solo cuando llega un usage con el contexto ya reducido
+            // sabemos que lo que mostramos son los tokens nuevos.
+            if (this.compactUi && this.ctxTokens < this.compactFromTokens * 0.9) {
+              this.endCompactUi()
+            }
             this.sendHealth()
           }
           const chat = toChatMessage(msg.uuid, msg.message)
@@ -466,6 +481,7 @@ class ChatSession {
             this.ctxTokens >= threshold
           ) {
             this.compactCapNotified = true
+            this.endCompactUi()
             this.send('chat:auto-compact', {
               tabId: this.tab.id,
               phase: 'capped',
@@ -486,6 +502,7 @@ class ChatSession {
             }, 800)
           } else if (shouldAutoCompact(decision)) {
             this.compacting = true
+            this.beginCompactUi()
             this.autoCompacts++
             const pct = Math.round(usedPct)
             const n = this.autoCompacts
@@ -525,6 +542,9 @@ class ChatSession {
       }
     } catch (err) {
       if (!this.closed) {
+        // que un fallo no deje el indicador de compactación encendido para siempre
+        this.compacting = false
+        this.endCompactUi()
         this.send('chat:error', { tabId: this.tab.id, message: friendlyError(err) })
         this.status('exited')
       }
@@ -610,6 +630,37 @@ class ChatSession {
     this.compactCapNotified = false
   }
 
+  /** Enciende el indicador de compactación (barra en el chat + widget Salud) */
+  private beginCompactUi(): void {
+    this.compactUi = true
+    this.compactFromTokens = this.ctxTokens
+    if (this.compactUiTimer) clearTimeout(this.compactUiTimer)
+    // si algo sale mal y nunca llega un contexto reducido, no dejar la barra viva
+    this.compactUiTimer = setTimeout(() => this.endCompactUi(), 180_000)
+    this.sendHealth()
+  }
+
+  private endCompactUi(): void {
+    if (this.compactUiTimer) {
+      clearTimeout(this.compactUiTimer)
+      this.compactUiTimer = null
+    }
+    if (!this.compactUi) return
+    this.compactUi = false
+    this.sendHealth()
+  }
+
+  /** El usuario escribió /compact a mano: mismo indicador que en el automático */
+  markCompacting(): void {
+    this.beginCompactUi()
+    this.send('chat:auto-compact', {
+      tabId: this.tab.id,
+      phase: 'start',
+      pct: Math.round(this.ctxWindow > 0 ? (this.ctxTokens / this.ctxWindow) * 100 : 0),
+      tokens: this.ctxTokens
+    })
+  }
+
   async interrupt(): Promise<void> {
     try {
       await this.q?.interrupt()
@@ -675,6 +726,7 @@ class ChatSession {
     // ya cerrada (hasta 150 ms) y podían intentar enviar a una ventana muerta
     if (this.deltaTimer) clearTimeout(this.deltaTimer)
     if (this.subagentTimer) clearTimeout(this.subagentTimer)
+    if (this.compactUiTimer) clearTimeout(this.compactUiTimer)
     this.deltaTimer = null
     this.subagentTimer = null
     for (const [id, p] of this.pendingPermissions) {
@@ -712,6 +764,8 @@ export class ChatSessionManager {
     // solo acotan cadenas SIN intervención humana
     session.autoContinues = 0
     session.resetAutoCompacts()
+    // /compact escrito a mano: mismo indicador de progreso que el automático
+    if (text.trim().toLowerCase() === '/compact') session.markCompacting()
     session.sendUserText(text, attachments)
   }
 

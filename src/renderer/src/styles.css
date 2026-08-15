@@ -2297,6 +2297,53 @@ kbd {
   background: var(--red);
   animation: pulse 1.2s infinite;
 }
+/* Barra indeterminada: la compactación no reporta progreso real, así que se
+   anima un tramo que recorre la barra en vez de fingir un porcentaje. */
+.healthw-fill.indeterminate {
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent) 22%,
+    var(--accent) 78%,
+    transparent
+  );
+  animation: cd-indeterminate 1.15s var(--ease) infinite;
+}
+@keyframes cd-indeterminate {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .healthw-fill.indeterminate {
+    animation-duration: 2.4s;
+  }
+}
+/* Banda de compactación sobre el composer */
+.compact-bar {
+  margin: 0 0 6px;
+  padding: 7px 10px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 8px;
+}
+.compact-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: 500 11.5px var(--font-ui);
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.compact-bar-secs {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.75;
+}
 .healthw-alert {
   font-size: 11.5px;
   line-height: 1.45;

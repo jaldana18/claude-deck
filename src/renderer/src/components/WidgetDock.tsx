@@ -910,6 +910,26 @@ function HealthWidget(p: { tab: TabState }): React.JSX.Element {
   const pct = health.contextWindow > 0 ? health.contextTokens / health.contextWindow : 0
   const level = pct >= 0.8 ? 'danger' : pct >= 0.6 ? 'warn' : 'ok'
 
+  // Mientras se compacta, los tokens de arriba son los de ANTES: mostrar una
+  // barra indeterminada en vez de una cifra que sabemos que ya no es válida.
+  if (health.compacting) {
+    return (
+      <div className="healthw">
+        <div className="healthw-row">
+          <span className="healthw-label">Contexto</span>
+          <span className="healthw-value">compactando…</span>
+        </div>
+        <div className="healthw-bar">
+          <div className="healthw-fill indeterminate" />
+        </div>
+        <div className="healthw-alert warn">
+          Resumiendo la conversación desde {fmtTokens(health.contextTokens)}. El widget se
+          actualizará solo cuando llegue el contexto nuevo.
+        </div>
+      </div>
+    )
+  }
+
   // Uso de la sesión = lo consumido frente a los límites que fijó el usuario
   // (presupuesto US$ y máximo de turnos); manda el más avanzado de los dos.
   const budgetUsd = p.tab.llmParams?.maxBudgetUsd ?? 0

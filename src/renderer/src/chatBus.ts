@@ -11,6 +11,7 @@
  */
 
 import type {
+  ChatHealth,
   ChatMessage,
   ChatResultMeta,
   ModelOption,
@@ -46,6 +47,7 @@ export interface ChatPayloads {
     max?: number
   }
   autoContinue: { tabId: string; count: number }
+  health: ChatHealth
   subagentBatch: { tabId: string; batches: { parentId: string; messages: ChatMessage[] }[] }
   agentDone: { tabId: string; toolUseId: string; status?: string }
   switched: { tabId: string }
@@ -72,6 +74,7 @@ const REGISTER: Record<ChatChannel, (cb: (p: never) => void) => () => void> = {
   todos: (cb) => window.deck.onChatTodos(cb as never),
   autoCompact: (cb) => window.deck.onChatAutoCompact(cb as never),
   autoContinue: (cb) => window.deck.onChatAutoContinue(cb as never),
+  health: (cb) => window.deck.onChatHealth(cb as never),
   subagentBatch: (cb) => window.deck.onChatSubagentBatch(cb as never),
   agentDone: (cb) => window.deck.onChatAgentDone(cb as never),
   switched: (cb) => window.deck.onChatSwitched(cb as never)

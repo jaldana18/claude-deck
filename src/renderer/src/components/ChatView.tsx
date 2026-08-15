@@ -76,6 +76,33 @@ const COMPACT_STOPS: { label: string; tokens: number | undefined }[] = [
   { label: '300k', tokens: 300_000 }
 ]
 
+/**
+ * Banda de progreso mientras se compacta el contexto. La compactación no
+ * reporta avance real (el modelo está leyendo la conversación entera para
+ * resumirla), así que la barra es indeterminada y lo que sí se muestra —
+ * porque sí es información— es el tiempo transcurrido.
+ */
+function CompactBar(p: { startedAt: number }): React.JSX.Element {
+  const [secs, setSecs] = useState(0)
+  useEffect(() => {
+    const tick = (): void => setSecs(Math.floor((Date.now() - p.startedAt) / 1000))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [p.startedAt])
+  return (
+    <div className="compact-bar" role="status" aria-live="polite">
+      <div className="compact-bar-head">
+        <span>⟳ Compactando el contexto…</span>
+        <span className="compact-bar-secs">{secs}s</span>
+      </div>
+      <div className="healthw-bar">
+        <div className="healthw-fill indeterminate" />
+      </div>
+    </div>
+  )
+}
+
 /** Slider estilo mockup 1c: barra con porción acento y perilla blanca */
 function ParamSlider(p: {
   label: string
@@ -603,6 +630,8 @@ export function ChatView(p: Props): React.JSX.Element {
   const [slashSel, setSlashSel] = useState(0)
   const [slashDismissed, setSlashDismissed] = useState(false)
   const [todos, setTodos] = useState<TodoItem[]>([])
+  /** instante en que empezó la compactación (null = no hay ninguna en curso) */
+  const [compacting, setCompacting] = useState<number | null>(null)
   const [subagents, setSubagents] = useState<Record<string, ChatMessage[]>>({})
   const [doneAgents, setDoneAgents] = useState<Record<string, boolean>>({})
   const [agentActivity, setAgentActivity] = useState<Record<string, number>>({})
@@ -740,6 +769,12 @@ export function ChatView(p: Props): React.JSX.Element {
       }),
       todos: (({ tabId: id, todos }) => {
         if (id === tabId) setTodos(todos)
+      }),
+      // La salud es la fuente de verdad del indicador: cubre el /compact
+      // manual, el automático, el timeout de seguridad y los errores.
+      health: ((h) => {
+        if (h.tabId !== tabId) return
+        setCompacting((prev) => (h.compacting ? (prev ?? Date.now()) : null))
       }),
       autoCompact: (({ tabId: id, phase, pct, tokens, count, max }) => {
         if (id !== tabId) return
@@ -1478,6 +1513,7 @@ export function ChatView(p: Props): React.JSX.Element {
             e.target.value = ''
           }}
         />
+        {compacting && <CompactBar startedAt={compacting} />}
         <div className="composer">
           <textarea
             ref={inputRef}
