@@ -17,12 +17,17 @@ import { Markdown } from './Markdown'
 import {
   IconBoard,
   IconBook,
+  IconClock,
+  IconClipboard,
+  IconDiffStats,
+  IconFolderTree,
   IconGitBranch,
   IconPlay,
   IconPr,
   IconPulse,
   IconRefresh,
   IconTasks,
+  IconTerminalLog,
   IconX
 } from './Icons'
 
@@ -53,7 +58,12 @@ const WIDGET_TITLES: Record<WidgetKind, string> = {
   tasks: 'Tareas',
   ci: 'Pipelines',
   prs: 'Pull requests',
-  notes: 'Notas'
+  notes: 'Notas',
+  timer: 'Sesión',
+  clipboard: 'Portapapeles',
+  logs: 'Logs',
+  files: 'Archivos',
+  diffstats: 'Diff Stats'
 }
 
 const LANE_COLORS = ['#d97757', '#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#f778ba', '#39c5cf']
@@ -410,6 +420,16 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
       <IconPr size={12} />
     ) : p.widget.kind === 'notes' ? (
       <IconBook size={12} />
+    ) : p.widget.kind === 'timer' ? (
+      <IconClock size={12} />
+    ) : p.widget.kind === 'clipboard' ? (
+      <IconClipboard size={12} />
+    ) : p.widget.kind === 'logs' ? (
+      <IconTerminalLog size={12} />
+    ) : p.widget.kind === 'files' ? (
+      <IconFolderTree size={12} />
+    ) : p.widget.kind === 'diffstats' ? (
+      <IconDiffStats size={12} />
     ) : (
       <IconTasks size={12} />
     )
@@ -463,6 +483,15 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
         {p.widget.kind === 'ci' && <CiWidget tab={p.tab} visible={p.visible} />}
         {p.widget.kind === 'prs' && <PrsWidget tab={p.tab} visible={p.visible} />}
         {p.widget.kind === 'notes' && <NotesWidget widget={p.widget} onConfig={patchConfig} />}
+        {p.widget.kind === 'timer' && <TimerWidget tab={p.tab} />}
+        {p.widget.kind === 'clipboard' && <ClipboardWidget />}
+        {p.widget.kind === 'logs' && (
+          <LogsWidget widget={p.widget} tab={p.tab} visible={p.visible} onConfig={patchConfig} />
+        )}
+        {p.widget.kind === 'files' && (
+          <FilesWidget widget={p.widget} tab={p.tab} visible={p.visible} onConfig={patchConfig} />
+        )}
+        {p.widget.kind === 'diffstats' && <DiffStatsWidget tab={p.tab} visible={p.visible} />}
       </div>
       <div
         className="widget-resize"
@@ -1292,6 +1321,422 @@ function AgentsWidget(p: {
           ))}
         </>
       )}
+    </div>
+  )
+}
+
+// ---------- Widget: Cronómetro de sesión ----------
+
+function TimerWidget(p: { tab: TabState }): React.JSX.Element {
+  const [elapsed, setElapsed] = useState(0)
+  const [health, setHealth] = useState<ChatHealth | null>(null)
+  const startRef = useRef(Date.now())
+
+  useEffect(() => {
+    startRef.current = (p.tab as TabState & { createdAt?: number }).createdAt ?? Date.now()
+  }, [p.tab])
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    void window.deck.chatHealth(p.tab.id).then(setHealth)
+    const off = window.deck.onChatHealth((h) => {
+      if ((h as ChatHealth & { tabId?: string }).tabId === p.tab.id) setHealth(h)
+    })
+    return off
+  }, [p.tab.id])
+
+  const hh = Math.floor(elapsed / 3600)
+  const mm = Math.floor((elapsed % 3600) / 60)
+  const ss = elapsed % 60
+  const fmt = (n: number): string => String(n).padStart(2, '0')
+
+  const cost = health?.costUsd ?? 0
+  const turnsUsed = health?.numTurns ?? 0
+  const tokensIn = health?.contextTokens ?? 0
+  const tokensOut = health?.outputTokens ?? 0
+
+  return (
+    <div className="timerw" style={{ padding: 8 }}>
+      <div style={{ fontSize: 28, fontFamily: '"JetBrains Mono", monospace', textAlign: 'center', letterSpacing: 2 }}>
+        {fmt(hh)}:{fmt(mm)}:{fmt(ss)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', marginTop: 10, fontSize: 12 }}>
+        <span className="hint">Costo</span>
+        <span className="mono">${cost.toFixed(4)}</span>
+        <span className="hint">Turnos</span>
+        <span className="mono">{turnsUsed}</span>
+        <span className="hint">Tokens in (Context)</span>
+        <span className="mono">{tokensIn.toLocaleString()}</span>
+        <span className="hint">Tokens out</span>
+        <span className="mono">{tokensOut.toLocaleString()}</span>
+      </div>
+    </div>
+  )
+}
+
+// ---------- Widget: Portapapeles ----------
+
+function ClipboardWidget(): React.JSX.Element {
+  const [items, setItems] = useState<{ text: string; ts: number }[]>([])
+  const MAX = 20
+
+  useEffect(() => {
+    const onCopy = (): void => {
+      void navigator.clipboard.readText().then((text) => {
+        if (!text.trim()) return
+        setItems((prev) => {
+          const next = [{ text, ts: Date.now() }, ...prev.filter((i) => i.text !== text)]
+          return next.slice(0, MAX)
+        })
+      })
+    }
+    document.addEventListener('copy', onCopy)
+    return () => document.removeEventListener('copy', onCopy)
+  }, [])
+
+  const recopy = (text: string): void => {
+    void navigator.clipboard.writeText(text)
+  }
+
+  const insert = (text: string): void => {
+    window.dispatchEvent(new CustomEvent('deck:chat-insert', { detail: text }))
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="hint" style={{ padding: 8 }}>
+        Copia texto (Ctrl+C) y aparecerá aquí. Clic para re-copiar, doble clic para pegar en el chat.
+      </p>
+    )
+  }
+
+  return (
+    <div className="clipw">
+      {items.map((item) => (
+        <div
+          key={item.ts}
+          className="clipw-item"
+          title="Clic: copiar · Doble clic: insertar en el chat"
+          onClick={() => recopy(item.text)}
+          onDoubleClick={() => insert(item.text)}
+          style={{
+            padding: '4px 8px',
+            cursor: 'pointer',
+            borderBottom: '1px solid var(--border)',
+            fontSize: 12,
+            fontFamily: '"JetBrains Mono", monospace',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxHeight: 40
+          }}
+        >
+          {item.text.slice(0, 200)}
+        </div>
+      ))}
+      {items.length > 0 && (
+        <button className="widget-btn" style={{ margin: '4px 8px', fontSize: 11 }} onClick={() => setItems([])}>
+          Limpiar historial
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ---------- Widget: Logs / Output Viewer ----------
+
+function LogsWidget(p: {
+  widget: WidgetState
+  tab: TabState
+  visible: boolean
+  onConfig: (c: WidgetState['config']) => void
+}): React.JSX.Element {
+  const [output, setOutput] = useState('')
+  const [command, setCommand] = useState(p.widget.config.logsCommand ?? '')
+  const [running, setRunning] = useState(false)
+  const [filter, setFilter] = useState('')
+  const scrollRef = useRef<HTMLPreElement>(null)
+  const widgetId = p.widget.id
+
+  useEffect(() => {
+    const off = window.deck.onLogsData((ev: { widgetId: string; data: string }) => {
+      if (ev.widgetId !== widgetId) return
+      setOutput((prev) => {
+        const next = prev + ev.data
+        return next.length > 50_000 ? next.slice(-50_000) : next
+      })
+    })
+    return off
+  }, [widgetId])
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [output])
+
+  const start = async (): Promise<void> => {
+    if (!command.trim()) return
+    setOutput('')
+    setRunning(true)
+    p.onConfig({ ...p.widget.config, logsCommand: command.trim() })
+    await window.deck.logsSpawn(widgetId, command.trim(), p.tab.cwd)
+  }
+
+  const stop = async (): Promise<void> => {
+    setRunning(false)
+    await window.deck.logsKill(widgetId)
+  }
+
+  useEffect(() => {
+    return () => { void window.deck.logsKill(widgetId) }
+  }, [widgetId])
+
+  const lines = output.split('\n')
+  const filtered = filter
+    ? lines.filter((l) => l.toLowerCase().includes(filter.toLowerCase()))
+    : lines
+
+  const presets = [
+    { label: 'npm run dev', cmd: 'npm run dev' },
+    { label: 'docker logs', cmd: 'docker logs -f $(docker ps -q --latest)' },
+    { label: 'tail log', cmd: 'tail -f /var/log/syslog' }
+  ]
+
+  return (
+    <div className="logsw" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div className="widget-toolbar" style={{ flexWrap: 'wrap', gap: 4 }}>
+        <input
+          className="cd-input cd-input--mono"
+          style={{ flex: 1, minWidth: 120, fontSize: 11 }}
+          value={command}
+          placeholder="npm run dev, docker logs -f, tail -f ..."
+          onChange={(e) => setCommand(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !running) void start() }}
+        />
+        {running ? (
+          <button className="widget-btn" onClick={() => void stop()} style={{ color: '#ef4444' }}>■ Detener</button>
+        ) : (
+          <button className="widget-btn" onClick={() => void start()} disabled={!command.trim()}>▶ Iniciar</button>
+        )}
+      </div>
+      {!running && !output && (
+        <div style={{ padding: '4px 8px' }}>
+          <span className="hint" style={{ fontSize: 11 }}>Presets:</span>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+            {presets.map((ps) => (
+              <button key={ps.cmd} className="cd-chip" style={{ fontSize: 10 }} onClick={() => setCommand(ps.cmd)}>
+                {ps.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {output && (
+        <>
+          <div style={{ padding: '2px 8px' }}>
+            <input
+              className="cd-input cd-input--mono"
+              style={{ fontSize: 10, width: '100%' }}
+              value={filter}
+              placeholder="Filtrar líneas… (ERROR, WARN, etc.)"
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+          <pre
+            ref={scrollRef}
+            style={{
+              flex: 1, overflow: 'auto', padding: '4px 8px', margin: 0,
+              fontSize: 11, fontFamily: '"JetBrains Mono", monospace',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.5
+            }}
+          >
+            {filtered.map((line, i) => {
+              const cls = line.includes('ERROR') || line.includes('error')
+                ? 'log-error' : line.includes('WARN') || line.includes('warn')
+                  ? 'log-warn' : ''
+              return <div key={i} className={cls}>{line}</div>
+            })}
+          </pre>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---------- Widget: File Explorer ----------
+
+interface FsNode {
+  name: string; path: string; isDir: boolean; children?: FsNode[]; gitStatus?: string
+}
+
+function FilesWidget(p: {
+  widget: WidgetState
+  tab: TabState
+  visible: boolean
+  onConfig: (c: WidgetState['config']) => void
+}): React.JSX.Element {
+  const [tree, setTree] = useState<FsNode[]>([])
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const loadTree = useCallback(async () => {
+    const data = (await window.deck.fsTree(p.tab.cwd, 1)) as FsNode[]
+    setTree(data)
+  }, [p.tab.cwd])
+
+  useEffect(() => {
+    if (!p.visible) return
+    void loadTree()
+    const t = setInterval(() => void loadTree(), 15_000)
+    return () => clearInterval(t)
+  }, [loadTree, p.visible])
+
+  const toggle = async (node: FsNode): Promise<void> => {
+    if (!node.isDir) return
+    const next = new Set(expanded)
+    if (next.has(node.path)) {
+      next.delete(node.path)
+    } else {
+      next.add(node.path)
+      if (!node.children || node.children.length === 0) {
+        const children = (await window.deck.fsTree(node.path, 1)) as FsNode[]
+        const patch = (nodes: FsNode[]): FsNode[] =>
+          nodes.map((n) => n.path === node.path ? { ...n, children } : n.children ? { ...n, children: patch(n.children) } : n)
+        setTree((t) => patch(t))
+      }
+    }
+    setExpanded(next)
+  }
+
+  const renderNode = (node: FsNode, depth: number): React.JSX.Element => {
+    const isOpen = expanded.has(node.path)
+    const statusColor = node.gitStatus === 'M' || node.gitStatus === 'MM' ? '#d29922'
+      : node.gitStatus === '??' || node.gitStatus === 'A' ? '#3fb950'
+        : node.gitStatus === 'D' ? '#f85149' : undefined
+    return (
+      <div key={node.path}>
+        <div
+          style={{
+            paddingLeft: depth * 14 + 4, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', gap: 4, padding: '2px 4px 2px ' + (depth * 14 + 4) + 'px',
+            fontSize: 12, color: statusColor ?? 'inherit', borderRadius: 3
+          }}
+          title={node.path}
+          onClick={() => node.isDir ? void toggle(node) : void window.deck.openTarget(node.path, p.tab.cwd)}
+          onDoubleClick={() => {
+            if (!node.isDir) window.dispatchEvent(new CustomEvent('deck:chat-insert', { detail: node.path }))
+          }}
+        >
+          <span style={{ fontSize: 10, width: 14, textAlign: 'center', flexShrink: 0 }}>
+            {node.isDir ? (isOpen ? '▾' : '▸') : '·'}
+          </span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {node.isDir ? '📁' : '📄'} {node.name}
+          </span>
+          {node.gitStatus && (
+            <span className="mono" style={{ fontSize: 9, marginLeft: 'auto', opacity: 0.7 }}>{node.gitStatus}</span>
+          )}
+        </div>
+        {node.isDir && isOpen && node.children?.map((child) => renderNode(child, depth + 1))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="filesw">
+      <div className="widget-toolbar">
+        <span className="widget-path" style={{ fontSize: 11 }}>
+          📁 {p.tab.cwd.split(/[\\/]/).filter(Boolean).at(-1)}
+        </span>
+        <span style={{ flex: 1 }} />
+        <button className="widget-btn" onClick={() => void loadTree()} title="Refrescar">
+          <IconRefresh size={11} />
+        </button>
+      </div>
+      <div style={{ overflow: 'auto', maxHeight: 400 }}>
+        {tree.length === 0
+          ? <p className="hint" style={{ padding: 8 }}>Cargando archivos…</p>
+          : tree.map((node) => renderNode(node, 0))}
+      </div>
+    </div>
+  )
+}
+
+// ---------- Widget: Diff Stats ----------
+
+interface DiffStat { file: string; added: number; removed: number; staged: boolean }
+
+function DiffStatsWidget(p: { tab: TabState; visible: boolean }): React.JSX.Element {
+  const [stats, setStats] = useState<DiffStat[]>([])
+  const [error, setError] = useState('')
+
+  const refresh = useCallback(async () => {
+    const res = (await window.deck.fsDiffStats(p.tab.cwd)) as { ok: boolean; stats: DiffStat[]; error?: string }
+    if (res.ok) { setStats(res.stats); setError('') }
+    else setError(res.error ?? 'Error al obtener diff')
+  }, [p.tab.cwd])
+
+  useEffect(() => {
+    if (!p.visible) return
+    void refresh()
+    const t = setInterval(() => void refresh(), 10_000)
+    return () => clearInterval(t)
+  }, [refresh, p.visible])
+
+  const totalAdded = stats.reduce((a, s) => a + s.added, 0)
+  const totalRemoved = stats.reduce((a, s) => a + s.removed, 0)
+  const maxChange = Math.max(1, ...stats.map((s) => s.added + s.removed))
+
+  if (error) return <p className="hint" style={{ padding: 8 }}>{error}</p>
+  if (stats.length === 0) {
+    return <p className="hint" style={{ padding: 8 }}>Sin cambios en el working tree.</p>
+  }
+
+  return (
+    <div className="diffw">
+      <div className="widget-toolbar">
+        <span className="chip" style={{ color: '#3fb950' }}>+{totalAdded}</span>
+        <span className="chip" style={{ color: '#f85149' }}>−{totalRemoved}</span>
+        <span className="hint" style={{ marginLeft: 4 }}>{stats.length} archivo(s)</span>
+        <span style={{ flex: 1 }} />
+        <button className="widget-btn" onClick={() => void refresh()} title="Refrescar">
+          <IconRefresh size={11} />
+        </button>
+      </div>
+      <div style={{ overflow: 'auto', maxHeight: 350 }}>
+        {stats.map((s) => {
+          const addPct = (s.added / maxChange) * 100
+          const delPct = (s.removed / maxChange) * 100
+          return (
+            <div
+              key={`${s.file}-${s.staged}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '3px 8px', fontSize: 11, borderBottom: '1px solid var(--border)', cursor: 'pointer'
+              }}
+              title={`${s.file}\n+${s.added} −${s.removed}${s.staged ? ' (staged)' : ''}`}
+              onClick={() => void window.deck.openTarget(s.file, p.tab.cwd)}
+            >
+              <span className="mono" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'rtl', textAlign: 'left' }}>
+                {s.staged && <span className="cd-badge" style={{ fontSize: 9, marginRight: 4 }}>S</span>}
+                {s.file}
+              </span>
+              <span style={{ width: 80, display: 'flex', height: 8, borderRadius: 3, overflow: 'hidden', background: 'var(--border)', flexShrink: 0 }}>
+                <span style={{ width: `${addPct}%`, background: '#3fb950' }} />
+                <span style={{ width: `${delPct}%`, background: '#f85149' }} />
+              </span>
+              <span className="mono" style={{ fontSize: 10, width: 50, textAlign: 'right', flexShrink: 0 }}>
+                <span style={{ color: '#3fb950' }}>+{s.added}</span>{' '}
+                <span style={{ color: '#f85149' }}>−{s.removed}</span>
+              </span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

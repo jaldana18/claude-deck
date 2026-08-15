@@ -236,6 +236,16 @@ const api = {
   globalAgents: (): Promise<GlobalAgentInfo[]> => ipcRenderer.invoke('config:globalAgents'),
   configPreview: (path: string): Promise<string> => ipcRenderer.invoke('config:preview', path),
 
+  // widgets nuevos: files, diff, logs
+  fsTree: (dir: string, depth?: number): Promise<unknown[]> =>
+    ipcRenderer.invoke('fs:tree', { dir, depth }),
+  fsDiffStats: (cwd: string): Promise<{ ok: boolean; stats: unknown[]; error?: string }> =>
+    ipcRenderer.invoke('fs:diffstats', cwd),
+  logsSpawn: (widgetId: string, command: string, cwd: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('logs:spawn', { widgetId, command, cwd }),
+  logsKill: (widgetId: string): Promise<void> => ipcRenderer.invoke('logs:kill', widgetId),
+  onLogsData: (cb: (p: { widgetId: string; data: string }) => void) => on('logs:data', cb),
+
   // git y board del sprint
   gitInfo: (cwd: string): Promise<GitInfo> => ipcRenderer.invoke('git:info', cwd),
   boardGet: (cwd: string, project: string, team: string, iterationId?: string): Promise<BoardData> =>

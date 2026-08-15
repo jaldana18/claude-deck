@@ -267,6 +267,117 @@ ipcMain.handle('store:pluginManifest', (_e, dir: string) => readLocalPluginManif
 ipcMain.handle('ci:builds', (_e, cwd: string) => getBuilds(cwd))
 ipcMain.handle('ci:prs', (_e, cwd: string) => getPullRequests(cwd))
 
+/** Árbol de archivos de un directorio (primer nivel + expansión bajo demanda) */
+ipcMain.handle('fs:tree', async (_e, args: { dir: string; depth?: number }) => {
+  const { readdirSync, statSync } = await import('node:fs')
+  const { join, relative } = await import('node:path')
+  interface FsNode { name: string; path: string; isDir: boolean; children?: FsNode[]; gitStatus?: string }
+  const IGNORE = new Set(['node_modules', '.git', '.next', 'dist', 'out', 'build', '__pycache__', '.cache', 'coverage', '.turbo'])
+  const maxDepth = args.depth ?? 1
+  function walk(dir: string, depth: number): FsNode[] {
+    try {
+      return readdirSync(dir)
+        .filter(name => !name.startsWith('.') || name === '.env')
+        .filter(name => !IGNORE.has(name))
+        .sort((a, b) => {
+          const aDir = statSync(join(dir, a)).isDirectory()
+          const bDir = statSync(join(dir, b)).isDirectory()
+          if (aDir !== bDir) return aDir ? -1 : 1
+          return a.localeCompare(b, 'es', { sensitivity: 'base' })
+        })
+        .map(name => {
+          const full = join(dir, name)
+          const isDir = statSync(full).isDirectory()
+          return {
+            name,
+            path: full,
+            isDir,
+            children: isDir && depth < maxDepth ? walk(full, depth + 1) : undefined
+          }
+        })
+    } catch { return [] }
+  }
+  // obtener git status para marcar archivos modificados
+  let gitMap: Record<string, string> = {}
+  try {
+    const { execSync } = await import('node:child_process')
+    const raw = execSync('git status --porcelain -uall', { cwd: args.dir, encoding: 'utf-8', timeout: 5000 })
+    for (const line of raw.split('\n')) {
+      if (line.length < 4) continue
+      const status = line.slice(0, 2).trim()
+      const file = line.slice(3).trim().replace(/"/g, '')
+      gitMap[file] = status
+    }
+  } catch { /* not a git repo */ }
+  const tree = walk(args.dir, 0)
+  // annotate git status
+  function annotate(nodes: FsNode[], base: string): void {
+    for (const n of nodes) {
+      const rel = relative(args.dir, n.path).replace(/\\/g, '/')
+      if (gitMap[rel]) n.gitStatus = gitMap[rel]
+      if (n.children) annotate(n.children, base)
+    }
+  }
+  annotate(tree, args.dir)
+  return tree
+})
+
+/** Estadísticas de diff del working tree */
+ipcMain.handle('fs:diffstats', async (_e, cwd: string) => {
+  const { execSync } = await import('node:child_process')
+  interface DiffStat { file: string; added: number; removed: number; staged: boolean }
+  const parse = (raw: string, staged: boolean): DiffStat[] =>
+    raw.split('\n').filter(l => l.trim()).map(line => {
+      const [add, del, ...rest] = line.split('\t')
+      return {
+        file: rest.join('\t'),
+        added: add === '-' ? 0 : Number(add),
+        removed: del === '-' ? 0 : Number(del),
+        staged
+      }
+    })
+  try {
+    const unstaged = execSync('git diff --numstat', { cwd, encoding: 'utf-8', timeout: 5000 })
+    const staged = execSync('git diff --cached --numstat', { cwd, encoding: 'utf-8', timeout: 5000 })
+    return { ok: true, stats: [...parse(unstaged, false), ...parse(staged, true)] }
+  } catch (e) {
+    return { ok: false, stats: [], error: String(e) }
+  }
+})
+
+/** Procesos de log por widget (spawn + streaming al renderer) */
+const logProcesses = new Map<string, import('node:child_process').ChildProcess>()
+
+ipcMain.handle('logs:spawn', (_e, args: { widgetId: string; command: string; cwd: string }) => {
+  const old = logProcesses.get(args.widgetId)
+  if (old) { try { old.kill() } catch {} }
+  const { spawn: cpSpawn } = require('node:child_process') as typeof import('node:child_process')
+  const parts = args.command.match(/(?:[^\s"]+|"[^"]*")+/g) ?? [args.command]
+  const child = cpSpawn(parts[0], parts.slice(1), {
+    cwd: args.cwd,
+    shell: true,
+    windowsHide: true,
+    env: process.env
+  })
+  logProcesses.set(args.widgetId, child)
+  const send = (data: string): void => {
+    try {
+      const w = getWindow()
+      if (w && !w.isDestroyed()) w.webContents.send('logs:data', { widgetId: args.widgetId, data })
+    } catch {}
+  }
+  child.stdout?.on('data', (d: Buffer) => send(d.toString()))
+  child.stderr?.on('data', (d: Buffer) => send(d.toString()))
+  child.on('exit', (code) => send(`\n--- proceso terminó con código ${code ?? '?'} ---\n`))
+  child.on('error', (err) => send(`\n--- error: ${err.message} ---\n`))
+  return { ok: true }
+})
+
+ipcMain.handle('logs:kill', (_e, widgetId: string) => {
+  const child = logProcesses.get(widgetId)
+  if (child) { try { child.kill() } catch {} logProcesses.delete(widgetId) }
+})
+
 // ---------- IPC: CLIs de agente (claude/codex/gemini/custom) ----------
 
 /** Detecta qué CLIs están en el PATH (where.exe) para el selector */

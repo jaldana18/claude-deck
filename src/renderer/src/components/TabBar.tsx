@@ -5,7 +5,11 @@ import {
   IconBoard,
   IconBook,
   IconChat,
+  IconClock,
+  IconClipboard,
   IconCommand,
+  IconDiffStats,
+  IconFolderTree,
   IconGitBranch,
   IconHistory,
   IconMoon,
@@ -19,6 +23,7 @@ import {
   IconSun,
   IconTasks,
   IconTerminal,
+  IconTerminalLog,
   IconX
 } from './Icons'
 
@@ -48,7 +53,12 @@ const WIDGET_GALLERY: { kind: WidgetKind; icon: React.JSX.Element; name: string;
   { kind: 'tasks', icon: <IconTasks size={15} />, name: 'Tareas', desc: 'plan de Claude' },
   { kind: 'ci', icon: <IconPlay size={15} />, name: 'Pipelines', desc: 'builds del repo' },
   { kind: 'prs', icon: <IconPr size={15} />, name: 'Pull requests', desc: 'PRs abiertos' },
-  { kind: 'notes', icon: <IconBook size={15} />, name: 'Notas', desc: 'bloc por pestaña' }
+  { kind: 'notes', icon: <IconBook size={15} />, name: 'Notas', desc: 'bloc por pestaña' },
+  { kind: 'timer', icon: <IconClock size={15} />, name: 'Sesión', desc: 'tiempo y costo' },
+  { kind: 'clipboard', icon: <IconClipboard size={15} />, name: 'Portapapeles', desc: 'historial de copias' },
+  { kind: 'logs', icon: <IconTerminalLog size={15} />, name: 'Logs', desc: 'salida de procesos' },
+  { kind: 'files', icon: <IconFolderTree size={15} />, name: 'Archivos', desc: 'explorador con git' },
+  { kind: 'diffstats', icon: <IconDiffStats size={15} />, name: 'Diff Stats', desc: 'cambios del repo' }
 ]
 
 export function TabBar(p: Props): React.JSX.Element {

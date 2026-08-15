@@ -43,20 +43,50 @@ export class PtyManager {
   ): void {
     this.kill(paneId)
     this.buffers.set(paneId, '')
-    // Selector de shell (kit §7). El panel con la TUI de claude siempre corre
-    // en PowerShell (command != null); los paneles planos usan el elegido.
+    // Selector de shell (kit §7):
+    // - Panel con CLI de agente (command != null): ejecutar el CLI directamente
+    //   como proceso del PTY para que reciba input sin intermediarios.
+    // - Panel plano (command == null): usar el shell elegido por el usuario.
+    if (command) {
+      // Partir el comando en ejecutable + args (ej. "claude --resume abc" → ["claude", "--resume", "abc"])
+      const parts = command.match(/(?:[^\s"]+|"[^"]*")+/g) ?? [command]
+      const exe = parts[0]
+      const args = parts.slice(1)
+      let pty: IPty
+      try {
+        pty = spawn(exe, args, {
+          name: 'xterm-256color',
+          cols,
+          rows,
+          cwd,
+          env: process.env as Record<string, string>
+        })
+      } catch (err) {
+        this.emit(paneId, `\r\n\x1b[31mNo se pudo iniciar ${exe}: ${err}\x1b[0m\r\n`)
+        return
+      }
+      this.ptys.set(paneId, pty)
+      pty.onData((data) => this.emit(paneId, data))
+      pty.onExit(({ exitCode }) => {
+        if (this.ptys.get(paneId) !== pty) return
+        this.ptys.delete(paneId)
+        this.send('pty:exit', { paneId, exitCode })
+      })
+      return
+    }
     const exe =
-      command || shell === 'powershell'
-        ? 'powershell.exe'
-        : shell === 'cmd'
-          ? 'cmd.exe'
-          : 'bash.exe'
+      shell === 'cmd'
+        ? 'cmd.exe'
+        : shell === 'bash'
+          ? 'bash.exe'
+          : 'powershell.exe'
     const args =
       exe === 'powershell.exe'
-        ? ['-NoLogo', '-NoExit', ...(command ? ['-Command', command] : [])]
+        ? ['-NoLogo', '-NoExit']
         : exe === 'cmd.exe'
           ? []
           : ['-i']
+
     let pty: IPty
     try {
       pty = spawn(exe, args, {

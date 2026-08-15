@@ -114,7 +114,7 @@ export interface GitInfo {
 
 // ---------- Widgets acoplables a los laterales del chat ----------
 
-export type WidgetKind = 'git' | 'board' | 'agents' | 'health' | 'tasks' | 'ci' | 'prs' | 'notes'
+export type WidgetKind = 'git' | 'board' | 'agents' | 'health' | 'tasks' | 'ci' | 'prs' | 'notes' | 'timer' | 'clipboard' | 'logs' | 'files' | 'diffstats'
 export type WidgetSide = 'left' | 'right'
 
 // ---------- CI / Pull requests (multi-proveedor) ----------
@@ -165,6 +165,8 @@ export interface WidgetConfig {
   notes?: string
   /** notes: ver renderizado como markdown en vez de editar */
   notesPreview?: boolean
+  /** logs: comando para el widget de logs */
+  logsCommand?: string
 }
 
 export interface WidgetState {

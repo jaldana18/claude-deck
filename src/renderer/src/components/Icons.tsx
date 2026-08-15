@@ -238,3 +238,44 @@ export const IconTerminal = (p: IconProps): React.JSX.Element => (
     <path d="m6 9 3 3-3 3M12 15h6" />
   </Svg>
 )
+
+export const IconClock = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 3" />
+  </Svg>
+)
+
+export const IconClipboard = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <rect x="8" y="2" width="8" height="4" rx="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="M9 14h6M9 18h4" />
+  </Svg>
+)
+
+export const IconTerminalLog = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m6 9 2 2-2 2" />
+    <path d="M11 13h4" />
+    <path d="M11 17h6" />
+  </Svg>
+)
+
+export const IconFolderTree = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" />
+    <path d="M8 10v6M8 13h4M8 16h3" />
+  </Svg>
+)
+
+export const IconDiffStats = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M12 3v18" />
+    <path d="M8 7H4v4h4V7Z" fill="rgba(59,130,246,0.3)" stroke="currentColor" />
+    <path d="M8 13H5v4h3v-4Z" fill="rgba(59,130,246,0.3)" stroke="currentColor" />
+    <path d="M16 5h4v4h-4V5Z" fill="rgba(239,68,68,0.3)" stroke="currentColor" />
+    <path d="M16 11h3v4h-3v-4Z" fill="rgba(239,68,68,0.3)" stroke="currentColor" />
+  </Svg>
+)
