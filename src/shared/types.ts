@@ -167,6 +167,8 @@ export interface WidgetConfig {
   notesPreview?: boolean
   /** logs: comando para el widget de logs */
   logsCommand?: string
+  /** files: raíz del árbol (por defecto el cwd de la pestaña) */
+  rootPath?: string
 }
 
 export interface WidgetState {

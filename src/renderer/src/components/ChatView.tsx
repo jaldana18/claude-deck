@@ -15,6 +15,7 @@ import type {
 } from '../../../shared/types'
 import { subscribeChat } from '../chatBus'
 import { WidgetDock } from './WidgetDock'
+import { isImagePath, relativeToCwd } from '../../../shared/paths'
 import { Markdown, MarkdownCwd } from './Markdown'
 import {
   IconCommand,
@@ -960,6 +961,36 @@ export function ChatView(p: Props): React.JSX.Element {
 
   // ---------- imágenes ----------
 
+  /**
+   * Archivo del proyecto mandado al chat desde el widget de Archivos.
+   *
+   * Las imágenes se adjuntan, porque el modelo las ve nativamente. Del resto
+   * se inserta solo la RUTA relativa: insertar el contenido lo dejaría en el
+   * contexto y se pagaría en cada turno posterior de la sesión, mientras que
+   * con la ruta Claude lee el archivo únicamente si le hace falta.
+   */
+  const addProjectFile = useCallback(
+    async (path: string): Promise<void> => {
+      if (isImagePath(path)) {
+        const att = await window.deck.attachFile(path)
+        if (!att) {
+          setError(`No se pudo adjuntar "${path}" (¿supera los 5 MB?)`)
+          return
+        }
+        setAttachments((a) =>
+          a.length >= MAX_IMAGES
+            ? a
+            : [...a, { ...att, dataUrl: `data:${att.mediaType};base64,${att.dataBase64}` }]
+        )
+      } else {
+        const rel = relativeToCwd(path, p.tab.cwd)
+        setInput((v) => (v && !v.endsWith(' ') ? `${v} ${rel} ` : `${v}${rel} `))
+      }
+      inputRef.current?.focus()
+    },
+    [p.tab.cwd]
+  )
+
   const addFiles = useCallback((files: Iterable<File>) => {
     for (const file of files) {
       if (!IMAGE_TYPES.includes(file.type)) continue
@@ -1063,6 +1094,16 @@ export function ChatView(p: Props): React.JSX.Element {
     window.addEventListener('deck:chat-insert', onInsert)
     return () => window.removeEventListener('deck:chat-insert', onInsert)
   }, [tabId, sendText])
+
+  // Archivo mandado desde el widget de Archivos (doble clic o arrastre)
+  useEffect(() => {
+    const onFile = (e: Event): void => {
+      const d = (e as CustomEvent).detail as { tabId: string; path: string }
+      if (d.tabId === tabId) void addProjectFile(d.path)
+    }
+    window.addEventListener('deck:chat-file', onFile)
+    return () => window.removeEventListener('deck:chat-file', onFile)
+  }, [tabId, addProjectFile])
 
   const answerPermission = (req: PermissionRequestEvent, decision: 'allow' | 'always' | 'deny'): void => {
     window.deck.chatPermissionResponse(tabId, req.requestId, decision)
@@ -1229,9 +1270,17 @@ export function ChatView(p: Props): React.JSX.Element {
     <div
       className="chat-view"
       style={{ display: p.visible ? 'flex' : 'none' }}
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={(e) => {
+        e.preventDefault()
+        // arrastre interno desde el widget de Archivos: copiar, no mover
+        if (e.dataTransfer.types.includes('application/x-deck-file')) {
+          e.dataTransfer.dropEffect = 'copy'
+        }
+      }}
       onDrop={(e) => {
         e.preventDefault()
+        const fromWidget = e.dataTransfer.getData('application/x-deck-file')
+        if (fromWidget) return void addProjectFile(fromWidget)
         addFiles(e.dataTransfer.files)
       }}
     >

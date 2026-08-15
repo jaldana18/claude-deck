@@ -1655,6 +1655,18 @@ interface FsNode {
   name: string; path: string; isDir: boolean; children?: FsNode[]; gitStatus?: string
 }
 
+/**
+ * Manda un archivo al composer del chat. Las imágenes se adjuntan (el modelo
+ * las ve nativamente); del resto se inserta solo la RUTA, para que Claude lea
+ * el archivo si lo necesita en vez de arrastrar su contenido en el contexto
+ * durante el resto de la sesión.
+ */
+export function insertPathInChat(tabId: string, path: string, cwd: string): void {
+  window.dispatchEvent(
+    new CustomEvent('deck:chat-file', { detail: { tabId, path, cwd } })
+  )
+}
+
 function FilesWidget(p: {
   widget: WidgetState
   tab: TabState
@@ -1663,11 +1675,24 @@ function FilesWidget(p: {
 }): React.JSX.Element {
   const [tree, setTree] = useState<FsNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // raíz del árbol: por defecto el cwd de la pestaña, cambiable como en Git
+  const root = (p.widget.config.rootPath as string) || p.tab.cwd
+  /** el clic simple abre en el editor, pero hay que darle margen al doble clic */
+  const clickTimer = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => () => { if (clickTimer.current) clearTimeout(clickTimer.current) }, [])
+
+  const pickRoot = async (): Promise<void> => {
+    const folder = await window.deck.pickFolder()
+    if (folder) {
+      setExpanded(new Set())
+      p.onConfig({ ...p.widget.config, rootPath: folder })
+    }
+  }
 
   const loadTree = useCallback(async () => {
-    const data = (await window.deck.fsTree(p.tab.cwd, 1)) as FsNode[]
+    const data = (await window.deck.fsTree(root, 1)) as FsNode[]
     setTree(data)
-  }, [p.tab.cwd])
+  }, [root])
 
   useEffect(() => {
     if (!p.visible) return
@@ -1706,10 +1731,35 @@ function FilesWidget(p: {
             alignItems: 'center', gap: 4, padding: '2px 4px 2px ' + (depth * 14 + 4) + 'px',
             fontSize: 12, color: statusColor ?? 'inherit', borderRadius: 3
           }}
-          title={node.path}
-          onClick={() => node.isDir ? void toggle(node) : void window.deck.openTarget(node.path, p.tab.cwd)}
+          title={
+            node.isDir
+              ? node.path
+              : `${node.path}\nClic: abrir · Doble clic o arrastrar al chat: mandar la ruta`
+          }
+          // Arrastrar al chat manda la RUTA (o adjunta la imagen); el contenido
+          // no se inserta a propósito: se quedaría en el contexto para siempre.
+          draggable={!node.isDir}
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/x-deck-file', node.path)
+            e.dataTransfer.setData('text/plain', node.path)
+            e.dataTransfer.effectAllowed = 'copy'
+          }}
+          onClick={() => {
+            if (node.isDir) return void toggle(node)
+            // se difiere ~220ms para poder distinguir el doble clic; sin esto
+            // el doble clic abría el editor y nunca llegaba al chat
+            if (clickTimer.current) clearTimeout(clickTimer.current)
+            clickTimer.current = setTimeout(() => {
+              void window.deck.openTarget(node.path, p.tab.cwd)
+            }, 220)
+          }}
           onDoubleClick={() => {
-            if (!node.isDir) window.dispatchEvent(new CustomEvent('deck:chat-insert', { detail: node.path }))
+            if (node.isDir) return
+            if (clickTimer.current) {
+              clearTimeout(clickTimer.current)
+              clickTimer.current = null
+            }
+            insertPathInChat(p.tab.id, node.path, p.tab.cwd)
           }}
         >
           <span style={{ fontSize: 10, width: 14, textAlign: 'center', flexShrink: 0 }}>
@@ -1730,8 +1780,13 @@ function FilesWidget(p: {
   return (
     <div className="filesw">
       <div className="widget-toolbar">
-        <span className="widget-path" style={{ fontSize: 11 }}>
-          📁 {p.tab.cwd.split(/[\\/]/).filter(Boolean).at(-1)}
+        <span
+          className="widget-path"
+          style={{ fontSize: 11 }}
+          title={`${root}\nClic para cambiar de carpeta`}
+          onClick={() => void pickRoot()}
+        >
+          📁 {root.split(/[\\/]/).filter(Boolean).at(-1)}
         </span>
         <span style={{ flex: 1 }} />
         <button className="widget-btn" onClick={() => void loadTree()} title="Refrescar">

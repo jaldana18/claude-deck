@@ -287,6 +287,9 @@ const api = {
   onUpdateAvailable: (cb: (info: { version: string; installerPath?: string; url?: string }) => void) =>
     on('update:available', cb),
   onUpdateProgress: (cb: (p: { percent: number }) => void) => on('update:progress', cb),
+  /** lee una imagen del disco para adjuntarla (arrastre desde el widget de Archivos) */
+  attachFile: (path: string): Promise<ChatAttachment | null> =>
+    ipcRenderer.invoke('file:attach', path),
   getGlobalSettings: (): Promise<GlobalSettings> => ipcRenderer.invoke('settings:get'),
   setGlobalSettings: (settings: GlobalSettings): Promise<void> =>
     ipcRenderer.invoke('settings:set', settings),

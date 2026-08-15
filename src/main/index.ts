@@ -20,6 +20,7 @@ import type {
   WidgetState
 } from '../shared/types'
 import { paneIdsFor, paneTabId } from '../shared/types'
+import { imageMediaType } from '../shared/paths'
 import { Store } from './store'
 import { PtyManager } from './ptys'
 import { SessionTracker } from './sessionTracker'
@@ -579,6 +580,26 @@ ipcMain.handle('chat:history', async (_e, tabId: string) => {
 })
 
 ipcMain.handle('config:globalAgents', () => listGlobalAgents())
+
+/**
+ * Lee un archivo de imagen del disco para adjuntarlo al chat (arrastre desde
+ * el widget de Archivos). Solo imágenes: el resto de archivos se mandan como
+ * ruta para que Claude los lea bajo demanda y no ocupen contexto para siempre.
+ */
+ipcMain.handle('file:attach', (_e, path: string): ChatAttachment | null => {
+  try {
+    const mediaType = imageMediaType(path)
+    if (!mediaType) return null
+    if (statSync(path).size > 5 * 1024 * 1024) return null
+    return {
+      name: path.split(/[\\/]/).filter(Boolean).at(-1) ?? 'imagen',
+      mediaType: mediaType as ChatAttachment['mediaType'],
+      dataBase64: readFileSync(path).toString('base64')
+    }
+  } catch {
+    return null
+  }
+})
 
 /** Previsualización (hover) del contenido de un agente/skill/archivo de config */
 ipcMain.handle('config:preview', (_e, path: string) => {
