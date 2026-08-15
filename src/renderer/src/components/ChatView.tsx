@@ -658,14 +658,20 @@ export function ChatView(p: Props): React.JSX.Element {
   const [overflowing, setOverflowing] = useState(false)
   useEffect(() => {
     const el = inputRef.current
-    if (!el) return
+    // En una pestaña oculta scrollHeight es 0 y el alto quedaba fijado en 0px:
+    // al volver a ella el composer aparecía aplastado y el placeholder cortado,
+    // porque `input` no cambia y el efecto no se volvía a ejecutar. Por eso se
+    // depende también de `visible` y se aplica un mínimo de una línea.
+    if (!el || !p.visible) return
     el.style.height = 'auto'
-    const max = 5 * 19.6 + 8 // 5 líneas (13.5px · 1.45) + padding
-    el.style.height = `${Math.min(max, el.scrollHeight)}px`
+    const line = 19.6 // 13.5px · 1.45
+    const max = 5 * line + 8 // 5 líneas + padding
+    const min = line + 8
+    el.style.height = `${Math.max(min, Math.min(max, el.scrollHeight))}px`
     const over = el.scrollHeight > max
     el.style.overflowY = over ? 'auto' : 'hidden'
     setOverflowing(over)
-  }, [input])
+  }, [input, p.visible])
   const stickToBottom = useRef(true)
   /** última rueda hacia arriba: suspende el re-enganche por cercanía */
   const lastWheelUp = useRef(0)

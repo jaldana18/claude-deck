@@ -3,6 +3,8 @@ import {
   DEFAULT_CONTEXT_WINDOW,
   MAX_AUTO_COMPACTS,
   contextWindowFor,
+  normalizeUtilization,
+  rateLimitLabel,
   resolveCompactThreshold,
   shouldAutoCompact
 } from '../src/shared/context'
@@ -106,5 +108,40 @@ describe('shouldAutoCompact', () => {
 
   it('respeta el off explícito de la pestaña aunque el global esté activo', () => {
     expect(shouldAutoCompact({ ...base, tabTokens: 0 })).toBe(false)
+  })
+})
+
+describe('normalizeUtilization', () => {
+  it('trata 0-1 como fracción', () => {
+    expect(normalizeUtilization(0.34)).toBe(34)
+    expect(normalizeUtilization(0.005)).toBe(1)
+  })
+
+  it('trata >1 como porcentaje ya hecho', () => {
+    expect(normalizeUtilization(34)).toBe(34)
+    expect(normalizeUtilization(99.6)).toBe(100)
+  })
+
+  it('en el 1 exacto elige 100% (errar avisando de más)', () => {
+    expect(normalizeUtilization(1)).toBe(100)
+  })
+
+  it('acota a 100 y descarta basura', () => {
+    expect(normalizeUtilization(250)).toBe(100)
+    expect(normalizeUtilization(-5)).toBe(0)
+    expect(normalizeUtilization(undefined)).toBe(0)
+    expect(normalizeUtilization(NaN)).toBe(0)
+  })
+})
+
+describe('rateLimitLabel', () => {
+  it('traduce las ventanas conocidas', () => {
+    expect(rateLimitLabel('five_hour')).toBe('Sesión')
+    expect(rateLimitLabel('seven_day')).toBe('Semana')
+    expect(rateLimitLabel('seven_day_opus')).toBe('Semana Opus')
+  })
+
+  it('deja pasar las desconocidas sin romper', () => {
+    expect(rateLimitLabel('algo_nuevo')).toBe('algo_nuevo')
   })
 })

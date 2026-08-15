@@ -16,6 +16,7 @@ import type {
   ChatMessage,
   ChatResultMeta,
   LlmParams,
+  RateLimitUsage,
   ModelOption,
   PermissionModeId,
   SlashCommandInfo,
@@ -27,6 +28,7 @@ import {
   DEFAULT_CONTEXT_WINDOW,
   MAX_AUTO_COMPACTS,
   contextWindowFor,
+  normalizeUtilization,
   resolveCompactThreshold,
   shouldAutoCompact
 } from '../shared/context'
@@ -116,6 +118,9 @@ class ChatSession {
   private compactFromTokens = 0
   /** red de seguridad: si la compactación falla, el indicador no se queda fijo */
   private compactUiTimer: NodeJS.Timeout | null = null
+  /** consumo de los límites de la suscripción, una entrada por ventana; el
+   *  CLI las reporta de una en una según cambian */
+  private limits = new Map<string, RateLimitUsage>()
   private ctxTokens = 0
   private ctxWindow = DEFAULT_CONTEXT_WINDOW
   private outTokens = 0
@@ -162,7 +167,8 @@ class ChatSession {
       costUsd: this.costUsd,
       numTurns: this.numTurns,
       model: this.sessionModel,
-      ...(this.compactUi ? { compacting: true } : {})
+      ...(this.compactUi ? { compacting: true } : {}),
+      ...(this.limits.size ? { limits: [...this.limits.values()] } : {})
     }
   }
 
@@ -425,6 +431,27 @@ class ChatSession {
                 })
               }
             }
+          }
+        } else if (msg.type === 'rate_limit_event') {
+          // Consumo de los límites de la suscripción. Llega una ventana por
+          // evento (5h, semanal, …) y solo cuando cambia, así que se acumulan.
+          const info = (msg as { rate_limit_info?: {
+            status?: 'allowed' | 'allowed_warning' | 'rejected'
+            rateLimitType?: string
+            utilization?: number
+            resetsAt?: number
+          } }).rate_limit_info
+          if (info?.rateLimitType) {
+            this.limits.set(info.rateLimitType, {
+              type: info.rateLimitType,
+              pct: normalizeUtilization(info.utilization),
+              // resetsAt puede venir en segundos: normalizar a ms
+              ...(info.resetsAt
+                ? { resetsAt: info.resetsAt < 1e12 ? info.resetsAt * 1000 : info.resetsAt }
+                : {}),
+              ...(info.status ? { status: info.status } : {})
+            })
+            this.sendHealth()
           }
         } else if (msg.type === 'system' && msg.subtype === 'init') {
           this.updateSession((msg as { session_id?: string }).session_id)

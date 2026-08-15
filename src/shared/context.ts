@@ -39,6 +39,40 @@ export function contextWindowFor(model?: string): number {
   return DEFAULT_CONTEXT_WINDOW
 }
 
+/**
+ * Normaliza el `utilization` del rate_limit_event a porcentaje 0-100.
+ *
+ * El SDK no documenta la unidad y no hay dato local con el que comprobarla,
+ * así que se aceptan las dos convenciones: un valor de 0 a 1 se toma como
+ * fracción y cualquier cosa mayor como porcentaje ya hecho. El único caso
+ * ambiguo es el 1 exacto (¿1 % o 100 %?), y ahí se elige 100 % porque errar
+ * avisando de más es preferible a decir que queda cuota cuando no queda.
+ */
+export function normalizeUtilization(u: number | undefined): number {
+  if (typeof u !== 'number' || !Number.isFinite(u) || u < 0) return 0
+  const pct = u <= 1 ? u * 100 : u
+  return Math.min(100, Math.round(pct))
+}
+
+/** Etiqueta corta de cada ventana de límite para los chips del widget */
+export function rateLimitLabel(type: string): string {
+  switch (type) {
+    case 'five_hour':
+      return 'Sesión'
+    case 'seven_day':
+      return 'Semana'
+    case 'seven_day_opus':
+      return 'Semana Opus'
+    case 'seven_day_sonnet':
+      return 'Semana Sonnet'
+    case 'overage':
+    case 'seven_day_overage_included':
+      return 'Extra'
+    default:
+      return type
+  }
+}
+
 export interface CompactThresholdInput {
   /** Ventana del modelo activo */
   window: number

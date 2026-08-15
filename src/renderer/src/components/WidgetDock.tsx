@@ -13,6 +13,8 @@ import type {
   WidgetSide,
   WidgetState
 } from '../../../shared/types'
+import { nearestDock } from '../../../shared/dropTarget'
+import { rateLimitLabel } from '../../../shared/context'
 import { Markdown } from './Markdown'
 import {
   IconBoard,
@@ -48,6 +50,32 @@ interface DockProps {
   todos: TodoItem[]
   onOpenSubagent: (id: string) => void
   onChange: (widgets: WidgetState[]) => void
+}
+
+/**
+ * Dock más cercano al puntero durante un arrastre. Se resuelve por distancia
+ * y no por `elementsFromPoint` para que no haga falta acertar el recuadro
+ * punteado: basta con acercarse al lateral.
+ */
+export function nearestDockSide(x: number, y: number): WidgetSide | null {
+  const docks = [...document.querySelectorAll<HTMLElement>('[data-dock-side]')]
+    // el propio recuadro punteado vive dentro del dock: quedarse con el dock
+    .filter((el) => el.classList.contains('widget-dock'))
+    .map((el) => {
+      const r = el.getBoundingClientRect()
+      return {
+        side: el.dataset.dockSide as WidgetSide,
+        box: { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
+      }
+    })
+  return nearestDock(x, y, docks)
+}
+
+/** Marca visualmente el dock que recibiría el widget (null = ninguno) */
+export function highlightDock(side: WidgetSide | null): void {
+  for (const el of document.querySelectorAll<HTMLElement>('.widget-dock[data-dock-side]')) {
+    el.classList.toggle('cd-dock--over', el.dataset.dockSide === side)
+  }
 }
 
 const WIDGET_TITLES: Record<WidgetKind, string> = {
@@ -289,6 +317,7 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
       jiggling?.classList.remove('cd-jiggle', 'cd-pair-left', 'cd-pair-right')
       jiggling = null
       pairSide = null
+      highlightDock(null)
     }
 
     const start = (): void => {
@@ -346,6 +375,9 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
       const under = document
         .elementsFromPoint(ev.clientX, ev.clientY)
         .find((el) => el !== root && el.hasAttribute?.('data-widget-id'))
+      // Resaltar en vivo el dock que recibiría el widget: sin esto el arrastre
+      // no da ninguna pista de dónde va a caer y parece que no responde.
+      highlightDock(under ? null : nearestDockSide(ev.clientX, ev.clientY))
       // Soltar en el TERCIO izquierdo o derecho de otro widget los acopla
       // lado a lado (como el snap de pestañas); el centro solo reordena.
       let side: 'left' | 'right' | null = null
@@ -375,9 +407,9 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
       const targetWidget = stack.find(
         (el) => el !== root && el.hasAttribute?.('data-widget-id')
       ) as HTMLElement | undefined
-      const targetDock = stack.find((el) => el.hasAttribute?.('data-dock-side')) as
-        | HTMLElement
-        | undefined
+      // Fuera de un widget concreto, el dock se resuelve por cercanía: ya no
+      // hace falta acertar el recuadro punteado de la esquina.
+      const nearSide = targetWidget ? null : nearestDockSide(ev.clientX, ev.clientY)
       const dropPair = pairSide
       cleanup()
       ghost?.remove()
@@ -391,11 +423,11 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
           targetWidget.dataset.widgetId,
           dropPair ? { targetId: targetWidget.dataset.widgetId!, at: dropPair } : undefined
         )
-      } else if (targetDock) {
-        // soltar en el hueco del dock = fila propia a lo ancho
-        propsRef.current.onMove(id, targetDock.dataset.dockSide as WidgetSide)
+      } else if (nearSide) {
+        // soltar en (o cerca de) el dock = fila propia a lo ancho
+        propsRef.current.onMove(id, nearSide)
       }
-      // soltar fuera de toda zona: no-op (equivale a cancelar)
+      // soltar lejos de todo dock: no-op (equivale a cancelar)
     }
 
     window.addEventListener('pointermove', onMove)
@@ -909,6 +941,12 @@ function HealthWidget(p: { tab: TabState }): React.JSX.Element {
 
   const pct = health.contextWindow > 0 ? health.contextTokens / health.contextWindow : 0
   const level = pct >= 0.8 ? 'danger' : pct >= 0.6 ? 'warn' : 'ok'
+  // sesión (5h) primero, semanal después, y el resto detrás
+  const ORDER = ['five_hour', 'seven_day', 'seven_day_opus', 'seven_day_sonnet']
+  const limits = [...(health.limits ?? [])].sort(
+    (a, b) =>
+      (ORDER.indexOf(a.type) + 1 || 99) - (ORDER.indexOf(b.type) + 1 || 99)
+  )
 
   // Mientras se compacta, los tokens de arriba son los de ANTES: mostrar una
   // barra indeterminada en vez de una cifra que sabemos que ya no es válida.
@@ -942,6 +980,29 @@ function HealthWidget(p: { tab: TabState }): React.JSX.Element {
 
   return (
     <div className="healthw">
+      {/* Consumo de los límites de la suscripción: chips, no barras — son
+          ventanas distintas (5h / 7 días) y compararlas con el contexto en el
+          mismo formato de barra invitaría a leerlas como lo mismo. */}
+      {limits.length > 0 && (
+        <div className="healthw-chips">
+          {limits.map((l) => (
+            <span
+              key={l.type}
+              className={`healthw-chip ${l.pct >= 90 ? 'danger' : l.pct >= 70 ? 'warn' : 'ok'}`}
+              title={
+                l.resetsAt
+                  ? `${rateLimitLabel(l.type)}: ${l.pct}% consumido · se reinicia ${new Date(
+                      l.resetsAt
+                    ).toLocaleString()}`
+                  : `${rateLimitLabel(l.type)}: ${l.pct}% consumido`
+              }
+            >
+              <span className="healthw-chip-k">{rateLimitLabel(l.type)}</span>
+              <b>{l.pct}%</b>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="healthw-row">
         <span className="healthw-label">Contexto</span>
         <span className={`healthw-value ${level}`}>

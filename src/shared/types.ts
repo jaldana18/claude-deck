@@ -241,6 +241,23 @@ export interface ChatHealth {
   /** hay una compactación en curso: los tokens de arriba son los de ANTES de
    *  compactar y no se refrescan hasta que llega el primer uso posterior */
   compacting?: boolean
+  /** consumo de los límites de la suscripción (ventana de 5h, semanal, …) */
+  limits?: RateLimitUsage[]
+}
+
+/**
+ * Consumo de una ventana de límite de la suscripción. Lo reporta el CLI en el
+ * evento `rate_limit_event` del SDK, una ventana por evento, así que se
+ * acumulan por tipo.
+ */
+export interface RateLimitUsage {
+  /** five_hour = sesión de 5h · seven_day = semanal · seven_day_opus, … */
+  type: string
+  /** porcentaje consumido, 0-100 */
+  pct: number
+  /** epoch ms en que se reinicia la ventana */
+  resetsAt?: number
+  status?: 'allowed' | 'allowed_warning' | 'rejected'
 }
 
 export interface AzureListItem {

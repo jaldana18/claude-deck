@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { PaneLayout, TabState, TabStatus, WidgetKind, WidgetSide } from '../../../shared/types'
 import { LayoutPicker } from './PaneGrid'
+import { highlightDock, nearestDockSide } from './WidgetDock'
 import {
   IconBoard,
   IconBook,
@@ -153,6 +154,7 @@ export function TabBar(p: Props): React.JSX.Element {
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('keydown', onKey, true)
       document.body.classList.remove('cd-drag-active')
+      highlightDock(null)
       ghost?.remove()
     }
     const onMove = (ev: PointerEvent): void => {
@@ -171,16 +173,16 @@ export function TabBar(p: Props): React.JSX.Element {
         ghost.style.left = `${ev.clientX + 10}px`
         ghost.style.top = `${ev.clientY + 10}px`
       }
+      // realimentación en vivo: se resalta el dock que lo recibiría
+      highlightDock(nearestDockSide(ev.clientX, ev.clientY))
     }
     const onUp = (ev: PointerEvent): void => {
       const wasDrag = started
+      const side = wasDrag ? nearestDockSide(ev.clientX, ev.clientY) : null
       cleanup()
       if (!wasDrag) return
-      const dock = document
-        .elementsFromPoint(ev.clientX, ev.clientY)
-        .find((el) => (el as HTMLElement).dataset?.dockSide) as HTMLElement | undefined
-      if (dock) {
-        p.onAddWidget(kind, dock.dataset.dockSide as WidgetSide)
+      if (side) {
+        p.onAddWidget(kind, side)
         closeMenus()
       }
       // liberar la supresión del click en el siguiente tick

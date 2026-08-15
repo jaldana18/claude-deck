@@ -2927,6 +2927,17 @@ kbd {
   min-height: 80px;
   animation: fadeIn 0.12s;
 }
+/* Dock que recibiría el widget al soltar: el destino se resuelve por cercanía,
+   así que hace falta decir cuál es — sin esto el arrastre parece no responder. */
+.widget-dock.cd-dock--over {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 10px;
+}
+.widget-dock.cd-dock--over .cd-dropzone {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
 .deck-widget-ghost {
   position: fixed;
   z-index: 100;
@@ -3344,6 +3355,9 @@ kbd {
 .composer textarea {
   flex: none;
   width: 100%;
+  /* suelo duro: si el autogrow no llega a correr (pestaña oculta al montar),
+     el composer nunca debe quedar aplastado con el placeholder cortado */
+  min-height: 28px;
 }
 
 /* asa para ensanchar los docks de widgets (borde interior, estilo VS Code) */
@@ -3626,4 +3640,48 @@ kbd {
 }
 .notesw-preview {
   flex: 1;
+}
+
+/* Chips de consumo de los límites de la suscripción (widget Salud).
+   Van como chips y no como barra: son ventanas de tiempo distintas (5h y 7
+   días) y no comparables con el llenado del contexto. */
+.healthw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+.healthw-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill, 999px);
+  font: 500 10.5px var(--font-ui);
+  border: 1px solid var(--border);
+  background: var(--bg-bar);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.healthw-chip b {
+  font: 600 11px var(--font-mono);
+}
+.healthw-chip-k {
+  opacity: 0.8;
+}
+.healthw-chip.ok b {
+  color: var(--green);
+}
+.healthw-chip.warn {
+  border-color: color-mix(in srgb, var(--yellow) 45%, transparent);
+}
+.healthw-chip.warn b {
+  color: var(--yellow);
+}
+.healthw-chip.danger {
+  border-color: color-mix(in srgb, var(--red) 55%, transparent);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+.healthw-chip.danger b {
+  color: var(--red);
 }
