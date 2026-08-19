@@ -41,8 +41,14 @@ export class PtyManager {
     cols = 120,
     rows = 30
   ): void {
+    // El xterm del renderer sigue montado tras un relanzamiento (cambio de
+    // shell, ↻ Relanzar): solo hace ptyAttach al montarse. Si kill() borrara su
+    // marca de «attached», la salida del proceso nuevo se quedaría en el buffer
+    // y el panel parecería congelado aunque el shell estuviera vivo.
+    const wasAttached = this.attached.has(paneId)
     this.kill(paneId)
     this.buffers.set(paneId, '')
+    if (wasAttached) this.attached.add(paneId)
     // Selector de shell (kit §7):
     // - Panel con CLI de agente (command != null): ejecutar el CLI directamente
     //   como proceso del PTY para que reciba input sin intermediarios.

@@ -1568,8 +1568,8 @@ export function ChatView(p: Props): React.JSX.Element {
             e.target.value = ''
           }}
         />
-        {compacting && <CompactBar startedAt={compacting} />}
         <div className="composer">
+          {compacting && <CompactBar startedAt={compacting} />}
           <textarea
             ref={inputRef}
             value={input}

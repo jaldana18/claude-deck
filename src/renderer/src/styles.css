@@ -2323,13 +2323,13 @@ kbd {
     animation-duration: 2.4s;
   }
 }
-/* Banda de compactación sobre el composer */
+/* Banda de compactación: primera fila DENTRO de la tarjeta del composer, así
+   ocupa exactamente su ancho y queda pegada encima del textbox. */
 .compact-bar {
-  margin: 0 0 6px;
-  padding: 7px 10px 9px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-radius: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 1px 4px 7px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .compact-bar-head {
   display: flex;

@@ -338,12 +338,29 @@ ipcMain.handle('fs:diffstats', async (_e, cwd: string) => {
         staged
       }
     })
+  // stderr descartado a propósito: cuando git falla vuelca su ayuda completa
+  // (decenas de líneas de opciones) y eso acababa impreso en el widget
+  const run = (args: string): string =>
+    execSync(`git ${args}`, {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
   try {
-    const unstaged = execSync('git diff --numstat', { cwd, encoding: 'utf-8', timeout: 5000 })
-    const staged = execSync('git diff --cached --numstat', { cwd, encoding: 'utf-8', timeout: 5000 })
-    return { ok: true, stats: [...parse(unstaged, false), ...parse(staged, true)] }
+    run('rev-parse --is-inside-work-tree')
+  } catch {
+    return { ok: false, stats: [], error: 'Esta carpeta no es un repositorio git.' }
+  }
+  try {
+    return {
+      ok: true,
+      stats: [...parse(run('diff --numstat'), false), ...parse(run('diff --cached --numstat'), true)]
+    }
   } catch (e) {
-    return { ok: false, stats: [], error: String(e) }
+    const msg = String(e instanceof Error ? e.message : e)
+    const first = msg.split(/\r?\n/)[0]
+    return { ok: false, stats: [], error: first }
   }
 })
 

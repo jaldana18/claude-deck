@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SerializeAddon } from '@xterm/addon-serialize'
 
@@ -14,21 +14,61 @@ interface Props {
   onFocus?: () => void
 }
 
-/** Tema del terminal según el tema de la app (kit §7): crema o oscuro cálido */
-function termTheme(): { background: string; foreground: string; cursor: string; selectionBackground: string } {
+/**
+ * Tema del terminal según el tema de la app (kit §7): crema o oscuro cálido.
+ * La paleta ANSI se define entera a propósito: la de fábrica de xterm está
+ * pensada para fondo negro y su amarillo/verde/cian son ilegibles sobre el
+ * fondo crema del tema claro (PowerShell pinta en amarillo casi todo aviso).
+ */
+function termTheme(): ITheme {
   const dark = document.documentElement.dataset.theme === 'dark'
   return dark
     ? {
         background: '#14120f',
         foreground: '#cfcabd',
         cursor: '#e0955f',
-        selectionBackground: 'rgba(224,149,95,0.35)'
+        cursorAccent: '#14120f',
+        selectionBackground: 'rgba(224,149,95,0.35)',
+        black: '#2a2723',
+        red: '#e0705e',
+        green: '#93be6c',
+        yellow: '#e0b25f',
+        blue: '#7cb0e8',
+        magenta: '#c890d8',
+        cyan: '#72c7c7',
+        white: '#cfcabd',
+        brightBlack: '#6b6558',
+        brightRed: '#ff8f7a',
+        brightGreen: '#a9d986',
+        brightYellow: '#f0cc85',
+        brightBlue: '#9ac8f5',
+        brightMagenta: '#dcaae8',
+        brightCyan: '#8fdcdc',
+        brightWhite: '#f0ece2'
       }
     : {
         background: '#ebe6da',
         foreground: '#3d3931',
         cursor: '#b3541e',
-        selectionBackground: 'rgba(179,84,30,0.25)'
+        cursorAccent: '#ebe6da',
+        selectionBackground: 'rgba(179,84,30,0.25)',
+        black: '#3d3931',
+        red: '#a82f1d',
+        green: '#3f6b25',
+        // ámbar oscuro: el amarillo puro desaparece sobre crema
+        yellow: '#8a6100',
+        blue: '#1a5b9e',
+        magenta: '#8a3585',
+        cyan: '#1d6b70',
+        white: '#5c574d',
+        brightBlack: '#6b6558',
+        brightRed: '#c53f22',
+        brightGreen: '#4d842d',
+        brightYellow: '#a1741f',
+        brightBlue: '#2270bd',
+        brightMagenta: '#a44a9d',
+        brightCyan: '#26838a',
+        brightWhite: '#2a2723'
       }
 }
 
