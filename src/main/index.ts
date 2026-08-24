@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { extname, isAbsolute, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
@@ -20,6 +20,7 @@ import type {
   WidgetState
 } from '../shared/types'
 import { paneIdsFor, paneTabId } from '../shared/types'
+import { trayStatusLabel, trayTooltip } from '../shared/tray'
 import { imageMediaType } from '../shared/paths'
 import { Store } from './store'
 import { PtyManager } from './ptys'
@@ -54,6 +55,10 @@ import {
 let win: BrowserWindow | null = null
 const getWindow = (): BrowserWindow | null => win
 
+let tray: Tray | null = null
+/** Cierre real en curso: distingue «me voy» de «solo esconde la ventana». */
+let quitting = false
+
 const store = new Store()
 const ptys = new PtyManager(getWindow)
 const tracker = new SessionTracker(store, getWindow)
@@ -75,6 +80,116 @@ function startTab(tab: TabState): void {
   }
 }
 
+// ---------- Modo bandeja («modo Spotify») ----------
+
+/**
+ * Icono para la bandeja. En desarrollo se lee del árbol de fuentes; empaquetada
+ * la app, de resources/ (electron-builder lo copia vía extraResources). Si
+ * faltara, se devuelve un nativeImage vacío: Windows pinta un hueco pero la app
+ * no se cae, y perder el icono no debe impedir que el modo bandeja funcione.
+ */
+function trayIcon(): Electron.NativeImage {
+  const candidates = [
+    join(process.resourcesPath, 'icon.ico'),
+    join(__dirname, '../../build/icon.ico')
+  ]
+  for (const path of candidates) {
+    if (!existsSync(path)) continue
+    const img = nativeImage.createFromPath(path)
+    if (!img.isEmpty()) return img
+  }
+  return nativeImage.createEmpty()
+}
+
+/** Trae la ventana al frente; si ya no existe, la vuelve a crear. */
+function showWindow(): void {
+  if (!win || win.isDestroyed()) {
+    createWindow()
+    return
+  }
+  if (!win.isVisible()) win.show()
+  if (win.isMinimized()) win.restore()
+  win.focus()
+}
+
+/** Sale de verdad, saltándose la intercepción de la ✕. */
+function quitForReal(): void {
+  quitting = true
+  app.quit()
+}
+
+/** Reconstruye tooltip y menú del icono con el número de pestañas vivas. */
+function refreshTray(): void {
+  if (!tray) return
+  const counts = {
+    chats: store.tabs.filter((t) => t.mode === 'chat').length,
+    terminals: store.tabs.filter((t) => t.mode !== 'chat').length
+  }
+  tray.setToolTip(trayTooltip(counts))
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Abrir Claude Deck', click: showWindow },
+      { type: 'separator' },
+      { label: trayStatusLabel(counts), enabled: false },
+      { type: 'separator' },
+      { label: 'Salir de Claude Deck', click: quitForReal }
+    ])
+  )
+}
+
+/**
+ * El modo bandeja solo cuenta como activo si el icono existe de verdad. Sin esa
+ * condición, un fallo al crear el Tray dejaría la ✕ escondiendo la ventana sin
+ * nada visible con lo que recuperarla.
+ */
+function trayActive(): boolean {
+  return tray !== null && !tray.isDestroyed()
+}
+
+/**
+ * Crea o destruye el icono según el ajuste. Se llama al arrancar y cada vez
+ * que se guardan los ajustes, así el interruptor tiene efecto inmediato sin
+ * reiniciar.
+ */
+function syncTray(): void {
+  const wanted = store.globalSettings.closeToTray === true
+  if (wanted && !tray) {
+    try {
+      tray = new Tray(trayIcon())
+      tray.on('click', showWindow)
+      tray.on('double-click', showWindow)
+      refreshTray()
+    } catch {
+      tray = null
+    }
+  } else if (!wanted && tray) {
+    tray.destroy()
+    tray = null
+  } else {
+    refreshTray()
+  }
+}
+
+/**
+ * Aviso único la primera vez que la ✕ esconde la app. Sin él, la ventana
+ * desaparece y parece que se cerró: el usuario relanza el acceso directo, la
+ * instancia única le devuelve la misma ventana y no entiende por qué sus
+ * sesiones siguen ahí.
+ */
+function hintTrayOnce(): void {
+  if (!tray || store.globalSettings.trayHintShown) return
+  store.setGlobalSettings({ trayHintShown: true })
+  try {
+    tray.displayBalloon({
+      title: 'Claude Deck sigue trabajando',
+      content:
+        'La ventana se escondió, pero tus sesiones y terminales siguen vivas. Haz clic en este icono para volver.'
+    })
+  } catch {
+    // displayBalloon no está en todas las versiones de Windows; no es crítico
+  }
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1480,
@@ -89,6 +204,14 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false
     }
+  })
+  // Modo bandeja: la ✕ esconde en vez de cerrar. No se tocan los PTY ni las
+  // sesiones — el renderer sigue montado, solo deja de verse.
+  win.on('close', (e) => {
+    if (quitting || !trayActive()) return
+    e.preventDefault()
+    win?.hide()
+    hintTrayOnce()
   })
   win.on('closed', () => {
     win = null
@@ -144,6 +267,7 @@ ipcMain.handle(
       createdAt: Date.now()
     }
     store.addTab(tab)
+    refreshTray()
     startTab(tab)
     return tab
   }
@@ -156,6 +280,7 @@ ipcMain.handle('tabs:close', (_e, tabId: string) => {
   chatSessions.stop(tabId)
   for (const paneId of paneIdsFor(tabId, tab?.paneLayout)) store.removeScrollback(paneId)
   store.removeTab(tabId)
+  refreshTray()
   return store.tabs
 })
 
@@ -631,7 +756,11 @@ ipcMain.handle('config:preview', (_e, path: string) => {
 ipcMain.handle('settings:get', () => store.globalSettings)
 ipcMain.handle('settings:set', (_e, settings: GlobalSettings) => {
   store.setGlobalSettings(settings)
+  syncTray()
 })
+
+/** El renderer necesita saberlo para ofrecer «Salir» de verdad desde la UI. */
+ipcMain.handle('app:quit', () => quitForReal())
 
 ipcMain.handle('prefs:get', (_e, cwd: string) => store.getProjectPrefs(cwd))
 ipcMain.handle('prefs:set', (_e, args: { cwd: string; prefs: ProjectPrefs }) => {
@@ -686,6 +815,7 @@ ipcMain.handle('chats:open', (_e, args: { cwd: string; sessionId: string }) => {
     createdAt: Date.now()
   }
   store.addTab(tab)
+  refreshTray()
   startTab(tab)
   return tab
 })
@@ -702,15 +832,15 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
+  // Relanzar el acceso directo estando en la bandeja debe devolver la ventana,
+  // no abrir una segunda instancia ni no hacer nada.
   app.on('second-instance', () => {
-    if (win) {
-      if (win.isMinimized()) win.restore()
-      win.focus()
-    }
+    showWindow()
   })
 
   app.whenReady().then(() => {
     createWindow()
+    syncTray()
     hookServer.start()
     updater.startAutoCheck()
     // Resurrección: relanzar cada pestaña guardada (chat con resume, terminal con --resume)
@@ -720,11 +850,17 @@ if (!gotLock) {
     })
   })
 
+  // Con el modo bandeja activo la app sobrevive sin ventanas: sigue viva en la
+  // bandeja hasta que se pida salir explícitamente.
   app.on('window-all-closed', () => {
+    if (trayActive() && !quitting) return
     app.quit()
   })
 
   app.on('before-quit', () => {
+    quitting = true
+    tray?.destroy()
+    tray = null
     store.flush()
     ptys.killAll()
     chatSessions.stopAll()

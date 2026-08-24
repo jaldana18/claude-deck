@@ -293,6 +293,8 @@ const api = {
   getGlobalSettings: (): Promise<GlobalSettings> => ipcRenderer.invoke('settings:get'),
   setGlobalSettings: (settings: GlobalSettings): Promise<void> =>
     ipcRenderer.invoke('settings:set', settings),
+  /** Salida real, saltándose el modo bandeja */
+  quitApp: (): Promise<void> => ipcRenderer.invoke('app:quit'),
   getProjectPrefs: (cwd: string): Promise<ProjectPrefs> => ipcRenderer.invoke('prefs:get', cwd),
   setProjectPrefs: (cwd: string, prefs: ProjectPrefs): Promise<void> =>
     ipcRenderer.invoke('prefs:set', { cwd, prefs })

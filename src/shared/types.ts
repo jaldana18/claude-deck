@@ -217,6 +217,13 @@ export interface GlobalSettings {
   /** Umbral por defecto en tokens para el auto-compact de todas las pestañas
    *  de chat (0/ausente = desactivado). Cada pestaña puede sobreescribirlo. */
   autoCompactTokens?: number
+  /** «Modo Spotify»: la ✕ esconde la ventana en vez de cerrar la app. Las
+   *  sesiones de chat, los PTY y el servidor de hooks siguen vivos; solo se
+   *  sale de verdad desde el menú de la bandeja o con Salir. */
+  closeToTray?: boolean
+  /** El globo que explica dónde quedó la ventana se muestra una sola vez;
+   *  repetirlo en cada cierre sería ruido. */
+  trayHintShown?: boolean
 }
 
 /** Resultado genérico de las acciones de la tienda */

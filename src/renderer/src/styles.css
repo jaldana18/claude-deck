@@ -2726,6 +2726,13 @@ kbd {
 .menu-item:hover {
   background: var(--bg-hover);
 }
+/* Acción destructiva del menú (salir de verdad, matando todas las sesiones) */
+.menu-item.danger {
+  color: var(--red);
+}
+.menu-item.danger:hover {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
 .menu-item kbd {
   margin-left: auto;
   font-family: var(--font-mono);

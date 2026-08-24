@@ -92,6 +92,17 @@ npm start          # ejecutar la versión compilada
 - Si la ventana no tiene el foco, llega una notificación de Windows.
 - Con la app cerrada los hooks no molestan (hacen `try/catch` y salen con código 0).
 
+### Modo bandeja: cerrar sin detener nada («modo Spotify»)
+- En **Ajustes de la app** puedes activar *Al cerrar con ✕ → seguir en segundo plano*.
+- Con eso, la ✕ solo esconde la ventana: los chats siguen respondiendo, los terminales
+  siguen corriendo y el servidor de hooks sigue escuchando. No se mata ningún PTY ni se
+  interrumpe ninguna sesión del SDK.
+- Queda un icono junto al reloj. Un clic devuelve la ventana; su menú derecho muestra
+  cuántas sesiones siguen vivas y ofrece **Salir de Claude Deck**, que sí cierra todo.
+- Relanzar el acceso directo estando escondida devuelve la misma ventana (instancia única),
+  no abre una segunda copia.
+- Con el ajuste desactivado (por defecto) la ✕ se comporta como siempre: cierra la app.
+
 ### Paleta de comandos (Ctrl+Shift+P)
 - Snippets globales o por proyecto (prompts frecuentes, `/resume`, `ultrathink`, …).
 - Enter inserta el texto en la pestaña activa; los snippets pueden auto-enviarse con ⏎.

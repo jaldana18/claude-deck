@@ -62,7 +62,14 @@ export class Store {
           snippets: parsed.snippets?.length ? parsed.snippets : DEFAULT_SNIPPETS,
           projectPrefs: parsed.projectPrefs ?? {},
           tabWidgets: parsed.tabWidgets ?? {},
-          widgets: parsed.widgets
+          widgets: parsed.widgets,
+          // Estos cuatro se arrastraban campo a campo y se perdían en cada
+          // arranque: el JSON se reescribe entero desde este objeto, así que
+          // omitir uno equivale a borrarlo del disco.
+          updateDir: parsed.updateDir,
+          defaultCli: parsed.defaultCli,
+          defaultCliCommand: parsed.defaultCliCommand,
+          globalSettings: parsed.globalSettings
         }
       }
     } catch (err) {

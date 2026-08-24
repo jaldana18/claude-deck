@@ -68,6 +68,10 @@ export function TabBar(p: Props): React.JSX.Element {
   const [theme, setTheme] = useState(localStorage.getItem('deck-theme') ?? 'light')
   const [gallery, setGallery] = useState(false)
   const [menu, setMenu] = useState(false)
+  // Solo tiene sentido ofrecer «Salir» si la ✕ dejó de cerrar la app; se
+  // relee al abrir el menú para no montar un listener por un ajuste que
+  // cambia una vez cada mucho.
+  const [trayMode, setTrayMode] = useState(false)
 
   /**
    * Snap de pestañas (mockup 2b): arrastrar una pestaña hacia el área de
@@ -302,6 +306,7 @@ export function TabBar(p: Props): React.JSX.Element {
             onClick={() => {
               setGallery(false)
               setMenu((v) => !v)
+              void window.deck.getGlobalSettings().then((g) => setTrayMode(g.closeToTray === true))
             }}
             title="Más acciones"
           >
@@ -370,6 +375,23 @@ export function TabBar(p: Props): React.JSX.Element {
                     cambiar
                   </span>
                 </div>
+                {trayMode && (
+                  <>
+                    <div className="menu-sep" />
+                    <div
+                      className="menu-item danger"
+                      onClick={() => {
+                        closeMenus()
+                        void window.deck.quitApp()
+                      }}
+                    >
+                      ⏻ Salir de Claude Deck
+                      <span className="hint" style={{ margin: '0 0 0 auto' }}>
+                        detiene todo
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}

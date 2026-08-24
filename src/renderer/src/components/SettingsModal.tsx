@@ -27,6 +27,7 @@ function fmt(n: number): string {
 
 export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
   const [tokens, setTokens] = useState(150_000)
+  const [closeToTray, setCloseToTray] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [saved, setSaved] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -34,6 +35,7 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
   useEffect(() => {
     void window.deck.getGlobalSettings().then((s: GlobalSettings) => {
       setTokens(s.autoCompactTokens ?? 0)
+      setCloseToTray(s.closeToTray === true)
       setLoaded(true)
     })
   }, [])
@@ -44,7 +46,7 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
   }
 
   const save = async (): Promise<void> => {
-    await window.deck.setGlobalSettings({ autoCompactTokens: tokens })
+    await window.deck.setGlobalSettings({ autoCompactTokens: tokens, closeToTray })
     setSaved(true)
     setTimeout(close, 500)
   }
@@ -113,6 +115,31 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
             Parámetros del LLM. Como tope de seguridad, la app encadena un máximo de{' '}
             <b>3 compactaciones automáticas</b> sin que escribas nada; a partir de ahí avisa y se
             detiene, en vez de seguir compactando y reanudando sola.
+          </p>
+
+          <hr className="cd-sep" />
+
+          <label className="cd-label">Al cerrar con ✕</label>
+          <div className="cd-switchrow">
+            <label className="switch" title="Seguir en segundo plano al cerrar la ventana">
+              <input
+                type="checkbox"
+                checked={closeToTray}
+                onChange={(e) => setCloseToTray(e.target.checked)}
+              />
+              <span className="slider" />
+            </label>
+            <span className="cd-switchrow__text">
+              {closeToTray
+                ? 'Seguir en segundo plano (icono en la bandeja)'
+                : 'Cerrar la aplicación y detener todas las sesiones'}
+            </span>
+          </div>
+          <p className="cd-help">
+            Con esto activo la ✕ solo esconde la ventana: los chats siguen respondiendo, los
+            terminales siguen corriendo y los hooks siguen escuchando. Vuelves con un clic en el
+            icono de la bandeja, junto al reloj. Para salir de verdad, usa <b>Salir de Claude
+            Deck</b> en el menú de ese icono.
           </p>
         </div>
 

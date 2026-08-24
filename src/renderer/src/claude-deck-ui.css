@@ -53,6 +53,11 @@ code,pre,kbd,.mono{font-family:var(--font-mono)}
 .cd-label{display:block;font:600 11.5px var(--font-ui);margin:0 0 4px}
 .cd-help{font:400 10.5px var(--font-ui);color:var(--fg-3)}
 .cd-field{display:flex;flex-direction:column;gap:0;margin:0 0 11px}
+.cd-sep{border:none;border-top:1px solid var(--border);margin:16px 0 14px}
+/* Fila de interruptor: el switch no debe encogerse cuando el texto es largo */
+.cd-switchrow{display:flex;align-items:center;gap:10px;margin:0 0 6px}
+.cd-switchrow .switch{flex:none}
+.cd-switchrow__text{font:400 12px var(--font-ui);color:var(--fg-2)}
 
 /* Toggle */
 .cd-toggle{width:30px;height:17px;border-radius:9px;background:var(--border-strong);position:relative;cursor:pointer;border:none;flex:none}
