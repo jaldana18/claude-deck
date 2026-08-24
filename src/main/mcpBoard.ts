@@ -303,7 +303,7 @@ export async function getSprintBoard(
         arguments: { action: 'list_for_iteration', project, team, iterationId: current.id }
       })
     )
-    const ids = collectWorkItemIds(listRes).slice(0, 120)
+    const ids = collectWorkItemIds(listRes)
     if (ids.length === 0) {
       return {
         ok: true,
@@ -313,29 +313,34 @@ export async function getSprintBoard(
       }
     }
 
-    // 3. Detalle de los items para las tarjetas
-    const batchRes = parseToolResult(
-      await c.callTool({
-        name: 'wit_work_item',
-        arguments: {
-          action: 'get_batch',
-          project,
-          ids,
-          fields: [
-            'System.Id',
-            'System.Title',
-            'System.State',
-            'System.WorkItemType',
-            'System.AssignedTo',
-            'Microsoft.VSTS.Scheduling.StoryPoints'
-          ]
-        }
-      })
-    ) as Record<string, unknown> | Record<string, unknown>[] | null
-
-    const rows = Array.isArray(batchRes)
-      ? batchRes
-      : ((batchRes as Record<string, unknown>)?.value as Record<string, unknown>[] | undefined) ?? []
+    // 3. Detalle de los items para las tarjetas — en lotes de 100 porque
+    //    get_batch falla con sprints grandes (el tope de la API es 200)
+    const rows: Record<string, unknown>[] = []
+    for (let i = 0; i < ids.length; i += 100) {
+      const batchRes = parseToolResult(
+        await c.callTool({
+          name: 'wit_work_item',
+          arguments: {
+            action: 'get_batch',
+            project,
+            ids: ids.slice(i, i + 100),
+            fields: [
+              'System.Id',
+              'System.Title',
+              'System.State',
+              'System.WorkItemType',
+              'System.AssignedTo',
+              'Microsoft.VSTS.Scheduling.StoryPoints'
+            ]
+          }
+        })
+      ) as Record<string, unknown> | Record<string, unknown>[] | null
+      rows.push(
+        ...(Array.isArray(batchRes)
+          ? batchRes
+          : ((batchRes as Record<string, unknown>)?.value as Record<string, unknown>[] | undefined) ?? [])
+      )
+    }
 
     const items: BoardItem[] = rows
       .map((row) => {

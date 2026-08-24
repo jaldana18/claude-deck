@@ -303,6 +303,7 @@ class ChatSession {
             title: opts.title,
             description: opts.description,
             inputPreview: safeJson(input, 1600),
+            input: trimStrings(input, 40_000) as Record<string, unknown>,
             canAlwaysAllow: Boolean(opts.suggestions?.length)
           })
         })
@@ -861,6 +862,21 @@ export class ChatSessionManager {
 }
 
 // ---------- helpers ----------
+
+/** Copia el input recortando strings largos: mantiene la estructura para el
+ *  render rico de la tarjeta de permisos sin inflar el payload IPC. */
+function trimStrings(v: unknown, max: number): unknown {
+  if (typeof v === 'string') {
+    return v.length > max ? v.slice(0, max) + `\n… (recortado, ${v.length} caracteres en total)` : v
+  }
+  if (Array.isArray(v)) return v.map((x) => trimStrings(x, max))
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, val] of Object.entries(v)) out[k] = trimStrings(val, max)
+    return out
+  }
+  return v
+}
 
 function safeJson(v: unknown, max: number): string {
   try {

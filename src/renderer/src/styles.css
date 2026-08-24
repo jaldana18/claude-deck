@@ -866,6 +866,130 @@ button {
   margin-top: 10px;
 }
 
+/* detalle rico de la acción (PermissionDetail) */
+.perm-detail {
+  margin: 8px 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.perm-detail .code-block.perm-code {
+  margin: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 11.5px;
+}
+.perm-file {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.perm-file:hover {
+  text-decoration: underline;
+}
+/* diff siempre oscuro, como los bloques de código */
+.perm-diff {
+  background: var(--code-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-m);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px 0;
+  color: #e6edf3;
+}
+.diff-line {
+  display: flex;
+  padding: 0 10px 0 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.diff-line.del {
+  background: rgba(248, 81, 73, 0.16);
+}
+.diff-line.ins {
+  background: rgba(63, 185, 80, 0.16);
+}
+.diff-sign {
+  flex: none;
+  width: 16px;
+  opacity: 0.75;
+  user-select: none;
+}
+.diff-line.del .diff-sign {
+  color: #ff938a;
+}
+.diff-line.ins .diff-sign {
+  color: #7ee295;
+}
+.perm-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+.perm-row {
+  display: flex;
+  gap: 8px;
+}
+.perm-key {
+  color: var(--text-dim);
+  flex: none;
+  min-width: 80px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.perm-val {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+.perm-raw summary {
+  font-size: 11px;
+}
+
+/* github-dark pinta strings/números/atributos en azules claros que chocan con
+   la paleta cálida de la app: se reemplazan por arena y ámbar (el fondo del
+   código sigue oscuro). Selectores anidados para ganar en especificidad. */
+.code-block .hljs-string,
+.code-block .hljs-regexp,
+.code-block .hljs-meta .hljs-string,
+.perm-diff .hljs-string,
+.perm-diff .hljs-regexp,
+.perm-diff .hljs-meta .hljs-string {
+  color: #ddc38f;
+}
+.code-block .hljs-attr,
+.code-block .hljs-attribute,
+.code-block .hljs-literal,
+.code-block .hljs-meta,
+.code-block .hljs-number,
+.code-block .hljs-operator,
+.code-block .hljs-variable,
+.code-block .hljs-template-variable,
+.code-block .hljs-selector-attr,
+.code-block .hljs-selector-class,
+.code-block .hljs-selector-id,
+.perm-diff .hljs-attr,
+.perm-diff .hljs-attribute,
+.perm-diff .hljs-literal,
+.perm-diff .hljs-meta,
+.perm-diff .hljs-number,
+.perm-diff .hljs-operator,
+.perm-diff .hljs-variable,
+.perm-diff .hljs-template-variable,
+.perm-diff .hljs-selector-attr,
+.perm-diff .hljs-selector-class,
+.perm-diff .hljs-selector-id {
+  color: #e8b264;
+}
+
 /* preguntas de opción múltiple (AskUserQuestion) */
 .question-card {
   border: 1px solid color-mix(in srgb, var(--blue) 55%, transparent);

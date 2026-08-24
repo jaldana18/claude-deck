@@ -17,6 +17,7 @@ import { subscribeChat } from '../chatBus'
 import { WidgetDock } from './WidgetDock'
 import { isImagePath, relativeToCwd } from '../../../shared/paths'
 import { Markdown, MarkdownCwd } from './Markdown'
+import { PermissionDetail } from './PermissionDetail'
 import {
   IconCommand,
   IconEye,
@@ -1485,10 +1486,11 @@ export function ChatView(p: Props): React.JSX.Element {
             <div key={req.requestId} className="permission-card">
               <div className="perm-title">🔐 {req.title ?? `Claude quiere usar ${req.toolName}`}</div>
               {req.description && <div className="hint">{req.description}</div>}
-              <details>
-                <summary>Ver detalle de la acción</summary>
-                <pre>{req.inputPreview}</pre>
-              </details>
+              <PermissionDetail
+                toolName={req.toolName}
+                input={req.input}
+                fallback={req.inputPreview}
+              />
               <div className="perm-actions">
                 <button className="iconbtn primary" onClick={() => answerPermission(req, 'allow')}>
                   ✓ Permitir

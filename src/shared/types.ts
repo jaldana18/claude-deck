@@ -530,6 +530,8 @@ export interface PermissionRequestEvent {
   title?: string
   description?: string
   inputPreview: string
+  /** Input estructurado del tool (strings largos recortados) para render rico */
+  input?: Record<string, unknown>
   /** true si el SDK trae sugerencias para "permitir siempre" */
   canAlwaysAllow: boolean
 }
