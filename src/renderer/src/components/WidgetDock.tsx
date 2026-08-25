@@ -15,6 +15,7 @@ import type {
 } from '../../../shared/types'
 import { nearestDock } from '../../../shared/dropTarget'
 import { rateLimitLabel } from '../../../shared/context'
+import { runDuration } from '../../../shared/messageTime'
 import { Markdown } from './Markdown'
 import {
   IconBoard,
@@ -38,6 +39,10 @@ export interface AgentRun {
   label: string
   running: boolean
   msgCount: number
+  /** instante en que se invocó al agente (ms); ausente si no se pudo datar */
+  startedAt?: number
+  /** instante en que terminó; ausente mientras sigue corriendo */
+  endedAt?: number
 }
 
 interface DockProps {
@@ -508,7 +513,12 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
           <BoardWidget widget={p.widget} tab={p.tab} visible={p.visible} onConfig={patchConfig} />
         )}
         {p.widget.kind === 'agents' && (
-          <AgentsWidget agents={p.agents} todos={p.todos} onOpenSubagent={p.onOpenSubagent} />
+          <AgentsWidget
+            agents={p.agents}
+            todos={p.todos}
+            visible={p.visible}
+            onOpenSubagent={p.onOpenSubagent}
+          />
         )}
         {p.widget.kind === 'health' && <HealthWidget tab={p.tab} />}
         {p.widget.kind === 'tasks' && <TasksWidget todos={p.todos} />}
@@ -1365,9 +1375,20 @@ function TasksWidget(p: { todos: TodoItem[] }): React.JSX.Element {
 function AgentsWidget(p: {
   agents: AgentRun[]
   todos: TodoItem[]
+  visible: boolean
   onOpenSubagent: (id: string) => void
 }): React.JSX.Element {
   const running = p.agents.filter((a) => a.running)
+  // Cronómetro en vivo: un solo intervalo, y solo si hay algo que contar Y la
+  // pestaña se ve. Sin las dos condiciones, cada pestaña de fondo repintaría
+  // este widget una vez por segundo sin mostrar un píxel.
+  const [, setTick] = useState(0)
+  const contando = running.length > 0 && p.visible
+  useEffect(() => {
+    if (!contando) return
+    const t = setInterval(() => setTick((n) => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [contando])
   return (
     <div className="agentsw">
       {running.length === 0 && p.todos.length === 0 && (
@@ -1378,13 +1399,19 @@ function AgentsWidget(p: {
       {running.length > 0 && (
         <>
           <div className="side-section-title">🤖 Agentes en ejecución</div>
-          {running.map((a) => (
-            <div key={a.id} className="agent-item running" onClick={() => p.onOpenSubagent(a.id)}>
-              <span className="dot working" />
-              <span className="agent-label">{a.label}</span>
-              <span className="agent-meta">{a.msgCount > 0 ? `${a.msgCount}` : '…'}</span>
-            </div>
-          ))}
+          {running.map((a) => {
+            const dur = runDuration(a.startedAt, a.endedAt)
+            return (
+              <div key={a.id} className="agent-item running" onClick={() => p.onOpenSubagent(a.id)}>
+                <span className="dot working" />
+                <span className="agent-label">{a.label}</span>
+                <span className="agent-meta" title="Iteraciones · tiempo en ejecución">
+                  {a.msgCount > 0 ? `${a.msgCount}` : '…'}
+                  {dur && <span className="agent-elapsed">⏱ {dur}</span>}
+                </span>
+              </div>
+            )
+          })}
         </>
       )}
       {p.todos.length > 0 && (

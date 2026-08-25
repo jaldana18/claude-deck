@@ -18,15 +18,16 @@ export async function loadChatHistory(
 
     for (const m of messages) {
       if (m.parent_tool_use_id) continue // subagentes fuera del hilo principal
+      const ts = entryTimestamp(m)
       if (m.type === 'assistant') {
-        const chat = toChatMessage(m.uuid, m.message)
+        const chat = toChatMessage(m.uuid, m.message, ts)
         if (chat) out.push(chat)
       } else if (m.type === 'user') {
         const content = (m.message as { content?: unknown }).content
         if (typeof content === 'string') {
           const text = cleanUserText(content)
           if (text) {
-            out.push({ id: m.uuid, role: 'user', text, toolUses: [] })
+            out.push({ id: m.uuid, role: 'user', text, toolUses: [], ...(ts ? { timestamp: ts } : {}) })
           }
         } else if (Array.isArray(content)) {
           let text = ''
@@ -50,7 +51,8 @@ export async function loadChatHistory(
               role: 'user',
               text: cleaned,
               toolUses: [],
-              ...(images.length ? { images } : {})
+              ...(images.length ? { images } : {}),
+              ...(ts ? { timestamp: ts } : {})
             })
           }
         }
@@ -72,6 +74,19 @@ export async function loadChatHistory(
     console.error('loadChatHistory:', err)
     return []
   }
+}
+
+/**
+ * Hora real de la entrada del transcript.
+ *
+ * El .jsonl guarda `timestamp` en cada entrada de usuario y asistente, y
+ * `getSessionMessages` lo devuelve — pero el tipo `SessionMessage` del SDK NO
+ * lo declara. Se lee con cast y comprobación en vez de confiar en el tipo: si
+ * un día deja de venir, el historial se queda sin hora en lugar de romperse.
+ */
+function entryTimestamp(m: unknown): string | undefined {
+  const t = (m as { timestamp?: unknown }).timestamp
+  return typeof t === 'string' && t ? t : undefined
 }
 
 /**

@@ -16,6 +16,8 @@ import type {
 import { subscribeChat } from '../chatBus'
 import { WidgetDock } from './WidgetDock'
 import { isImagePath, relativeToCwd } from '../../../shared/paths'
+import { appendDelta, type StreamChunk } from '../../../shared/streamBuffer'
+import { formatFullTime, formatMessageTime, runDuration } from '../../../shared/messageTime'
 import { Markdown, MarkdownCwd } from './Markdown'
 import { PermissionDetail } from './PermissionDetail'
 import {
@@ -505,12 +507,30 @@ const StreamingBubble = memo(function StreamingBubble(p: { text: string }): Reac
 const MessageBubble = memo(function MessageBubble(p: {
   message: ChatMessage
   subagentCounts: Record<string, number>
+  /**
+   * Duración final por agente, SOLO de los ya terminados. Los que siguen
+   * corriendo se quedan fuera a propósito: una duración viva cambiaría cada
+   * segundo y arrastraría a esta burbuja —memoizada justo para evitar eso— a
+   * un repintado por segundo. El cronómetro en vivo vive en el widget.
+   */
+  agentTimes: Record<string, string>
   onOpenSubagent: (id: string) => void
   onOpenImage: (src: string) => void
 }): React.JSX.Element {
   const m = p.message
+  // La etiqueta se calcula en el render de la burbuja, que está memoizada: no
+  // se recalcula mientras el mensaje no cambie. El día se resuelve contra la
+  // hora actual, así que un mensaje de hoy pasa a mostrar «24 ago, …» cuando
+  // la burbuja se vuelva a renderizar tras la medianoche; no se fuerza un
+  // repintado por eso.
+  const hora = formatMessageTime(m.timestamp)
   return (
     <div className={`bubble ${m.role}`} data-mid={m.id}>
+      {hora && (
+        <time className="bubble-time" dateTime={m.timestamp} title={formatFullTime(m.timestamp)}>
+          {hora}
+        </time>
+      )}
       {m.images && m.images.length > 0 && (
         <div className="bubble-images">
           {m.images.map((src, i) => (
@@ -533,6 +553,11 @@ const MessageBubble = memo(function MessageBubble(p: {
               <summary>
                 {isAgent ? '🤖' : '🔧'} {tu.name}
                 {tu.result === undefined ? ' · ejecutando…' : tu.isError ? ' · ⚠️ error' : ' · ✓'}
+                {isAgent && p.agentTimes[tu.id] && (
+                  <span className="agent-duration" title="Tiempo total de ejecución del agente">
+                    ⏱ {p.agentTimes[tu.id]}
+                  </span>
+                )}
                 {isAgent && (
                   <button
                     className="subagent-link"
@@ -555,12 +580,13 @@ const MessageBubble = memo(function MessageBubble(p: {
     </div>
   )
 },
-// Solo re-renderizar si cambió SU mensaje o el conteo de SUS subagentes —
-// los conteos de otras burbujas no la tocan.
+// Solo re-renderizar si cambió SU mensaje, el conteo de SUS subagentes o la
+// duración de SUS agentes — lo de otras burbujas no la toca.
 (prev, next) => {
   if (prev.message !== next.message) return false
   for (const tu of next.message.toolUses) {
     if (prev.subagentCounts[tu.id] !== next.subagentCounts[tu.id]) return false
+    if (prev.agentTimes[tu.id] !== next.agentTimes[tu.id]) return false
   }
   return true
 })
@@ -635,7 +661,8 @@ export function ChatView(p: Props): React.JSX.Element {
   /** instante en que empezó la compactación (null = no hay ninguna en curso) */
   const [compacting, setCompacting] = useState<number | null>(null)
   const [subagents, setSubagents] = useState<Record<string, ChatMessage[]>>({})
-  const [doneAgents, setDoneAgents] = useState<Record<string, boolean>>({})
+  /** id de agente → instante en que llegó su aviso de finalización (ms) */
+  const [doneAgents, setDoneAgents] = useState<Record<string, number>>({})
   const [agentActivity, setAgentActivity] = useState<Record<string, number>>({})
   const [, setTick] = useState(0)
   const [subagentView, setSubagentView] = useState<string | null>(null)
@@ -679,6 +706,21 @@ export function ChatView(p: Props): React.JSX.Element {
   const lastWheelUp = useRef(0)
   const tabId = p.tab.id
 
+  /**
+   * `p.visible` leído desde callbacks que no se recrean. Los handlers del
+   * stream se suscriben una sola vez por pestaña; sin este ref tendrían que
+   * depender de `visible` y resuscribirse en cada cambio de pestaña.
+   */
+  const visibleRef = useRef(p.visible)
+  visibleRef.current = p.visible
+  /**
+   * Deltas llegados con la pestaña oculta. `display:none` ahorra pintado pero
+   * no ahorra nada de React: sin este buffer, cada pestaña de fondo que está
+   * respondiendo re-renderiza su árbol entero diez veces por segundo, con su
+   * markdown y su resaltado de código, sin mostrar un píxel.
+   */
+  const hiddenDelta = useRef<StreamChunk | null>(null)
+
   // Enfocar el input al activar la pestaña
   useEffect(() => {
     if (p.visible) inputRef.current?.focus()
@@ -707,12 +749,16 @@ export function ChatView(p: Props): React.JSX.Element {
       }),
       delta: (({ tabId: id, messageId, text }) => {
         if (id !== tabId) return
-        setStreamText((s) =>
-          s && s.id === messageId ? { ...s, text: s.text + text } : { id: messageId, text }
-        )
+        if (!visibleRef.current) {
+          hiddenDelta.current = appendDelta(hiddenDelta.current, messageId, text)
+          return
+        }
+        setStreamText((s) => appendDelta(s, messageId, text))
       }),
       message: (({ tabId: id, message }) => {
         if (id !== tabId) return
+        // el mensaje final llega completo: lo pendiente en el buffer ya sobra
+        hiddenDelta.current = null
         setStreamText(null)
         setMessages((ms) =>
           ms.some((m) => m.id === message.id) ? ms : capMessages([...ms, message])
@@ -801,7 +847,8 @@ export function ChatView(p: Props): React.JSX.Element {
                 : phase === 'done'
                   ? '⟳ Compact terminado: retomando el proceso si había uno en curso.'
                   : `⚠ Auto-compact detenido: ya se hicieron ${max} compactaciones seguidas sin que escribieras y el contexto sigue en ${kTok}. Escribe algo para reanudarlo, o usa /clear para empezar limpio.`,
-            toolUses: []
+            toolUses: [],
+            timestamp: new Date().toISOString()
           }
         ])
       }),
@@ -814,7 +861,8 @@ export function ChatView(p: Props): React.JSX.Element {
             id: `auto-cont-${Date.now()}`,
             role: 'user',
             text: `⟳ Continuación automática (${count}/5): retomando donde quedó.`,
-            toolUses: []
+            toolUses: [],
+            timestamp: new Date().toISOString()
           }
         ])
       }),
@@ -841,7 +889,9 @@ export function ChatView(p: Props): React.JSX.Element {
         })
       }),
       agentDone: (({ tabId: id, toolUseId }) => {
-        if (id === tabId) setDoneAgents((d) => ({ ...d, [toolUseId]: true }))
+        if (id !== tabId) return
+        // el primer aviso manda: si llegara repetido, la duración no debe saltar
+        setDoneAgents((d) => (d[toolUseId] ? d : { ...d, [toolUseId]: Date.now() }))
       }),
       switched: (({ tabId: id }) => {
         if (id !== tabId) return
@@ -857,16 +907,51 @@ export function ChatView(p: Props): React.JSX.Element {
         setDoneAgents({})
         setAgentActivity({})
         setWindowSize(WINDOW_STEP)
+        hiddenDelta.current = null
         void loadHistory()
       })
     })
   }, [tabId, loadHistory])
 
-  // Autoscroll anclado al fondo
+  // Volcado del buffer de la pestaña oculta: un solo render con todo lo que
+  // llegó mientras no se veía, en vez de uno por cada 100 ms de stream.
   useEffect(() => {
-    const el = listRef.current
-    if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
-  }, [messages, streamText, permissions, questions])
+    if (!p.visible) return
+    const buf = hiddenDelta.current
+    if (!buf) return
+    hiddenDelta.current = null
+    setStreamText((s) => appendDelta(s, buf.id, buf.text))
+  }, [p.visible])
+
+  /**
+   * Único punto que reancla la lista al fondo. Antes escribían `scrollTop` tres
+   * fuentes por su cuenta —un efecto, el ResizeObserver y un intervalo de
+   * 150 ms— y cada una leía `scrollHeight` justo después de tocar el DOM, lo
+   * que fuerza un recálculo de layout síncrono del documento entero (las cinco
+   * pestañas siguen montadas). Coalescer en un solo rAF deja como mucho una
+   * escritura por frame.
+   */
+  const scrollPending = useRef(0)
+  const scrollToBottom = useCallback(() => {
+    if (scrollPending.current || !visibleRef.current) return
+    scrollPending.current = requestAnimationFrame(() => {
+      scrollPending.current = 0
+      const el = listRef.current
+      if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
+    })
+  }, [])
+  useEffect(
+    () => () => {
+      if (scrollPending.current) cancelAnimationFrame(scrollPending.current)
+    },
+    []
+  )
+
+  // Autoscroll anclado al fondo. `p.visible` entra en las dependencias porque
+  // al volver a una pestaña que siguió respondiendo hay que reengancharse.
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, streamText, permissions, questions, p.visible, scrollToBottom])
 
   // Seguir lo último también cuando el contenido crece SIN re-render de React
   // (streaming markdown, código resaltado, imágenes, tarjetas que se abren):
@@ -875,26 +960,21 @@ export function ChatView(p: Props): React.JSX.Element {
   useEffect(() => {
     const col = columnRef.current
     if (!col || !p.visible) return
-    const obs = new ResizeObserver(() => {
-      const el = listRef.current
-      if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
-    })
+    const obs = new ResizeObserver(() => scrollToBottom())
     obs.observe(col)
     return () => obs.disconnect()
-  }, [p.visible])
+  }, [p.visible, scrollToBottom])
 
-  // Cinturón y tirantes: mientras la sesión está TRABAJANDO, re-anclar al
-  // fondo cada 150ms pase lo que pase (cubre cualquier evento perdido por
-  // content-visibility, layouts diferidos o buffers del renderer). Solo la
-  // rueda hacia arriba lo pausa (stickToBottom=false).
+  // Red de seguridad para el contenido que crece SIN render de React y SIN
+  // cambiar el tamaño de la columna (imágenes que decodifican, resaltado
+  // tardío). Era cada 150 ms y escribía directo; ahora pasa por el coalescer,
+  // así que como mucho cuesta un reflow cada 400 ms y solo con la pestaña
+  // visible y la sesión trabajando.
   useEffect(() => {
     if (!busy || !p.visible) return
-    const t = setInterval(() => {
-      const el = listRef.current
-      if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
-    }, 150)
+    const t = setInterval(scrollToBottom, 400)
     return () => clearInterval(t)
-  }, [busy, p.visible])
+  }, [busy, p.visible, scrollToBottom])
 
   const interrupt = useCallback(() => {
     void window.deck.chatInterrupt(tabId)
@@ -1057,6 +1137,7 @@ export function ChatView(p: Props): React.JSX.Element {
           role: 'user',
           text,
           toolUses: [],
+          timestamp: new Date().toISOString(),
           ...(atts.length ? { images: atts.map((a) => a.dataUrl) } : {})
         }
       ])
@@ -1194,9 +1275,10 @@ export function ChatView(p: Props): React.JSX.Element {
 
   // Re-evaluar la actividad de los agentes cada 15 s (para retirar inactivos)
   useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 15_000)  // gated abajo
+    if (!p.visible) return
+    const t = setInterval(() => setTick((n) => n + 1), 15_000)
     return () => clearInterval(t)
-  }, [])
+  }, [p.visible])
 
   // Subagentes detectados en la conversación (tarjetas Agent/Task del hilo).
   // "En ejecución" = sin resultado aún, O con actividad reciente (los agentes
@@ -1207,17 +1289,22 @@ export function ChatView(p: Props): React.JSX.Element {
   // (O(agentes × mensajes)) y se recalculaba ~7 veces por segundo.
   const agentToolUses = useMemo(
     () =>
-      messages.flatMap((m) =>
-        m.toolUses
+      messages.flatMap((m) => {
+        // El agente arrancó cuando se emitió el mensaje que lo invoca. Salir de
+        // ahí y no de un `Date.now()` al montar hace que la duración sobreviva
+        // a recargar la pestaña en vez de reiniciarse a cero.
+        const t = m.timestamp ? Date.parse(m.timestamp) : Number.NaN
+        const startedAt = Number.isFinite(t) ? t : undefined
+        return m.toolUses
           .filter((tu) => tu.name === 'Agent' || tu.name === 'Task')
-          .map((tu) => ({ tu, label: describeAgentToolUse(tu) }))
-      ),
+          .map((tu) => ({ tu, label: describeAgentToolUse(tu), startedAt }))
+      }),
     [messages]
   )
 
   const agentRuns = useMemo(
     () =>
-      agentToolUses.map(({ tu, label }) => {
+      agentToolUses.map(({ tu, label, startedAt }) => {
         const recentActivity = Date.now() - (agentActivity[tu.id] ?? 0) < 60_000
         const running = !doneAgents[tu.id] && (tu.result === undefined || recentActivity)
         return {
@@ -1225,12 +1312,31 @@ export function ChatView(p: Props): React.JSX.Element {
           label,
           running,
           isError: Boolean(tu.isError),
-          msgCount: subagents[tu.id]?.length ?? 0
+          msgCount: subagents[tu.id]?.length ?? 0,
+          startedAt,
+          // Fin: el aviso de finalización si llegó. Los agentes síncronos no lo
+          // emiten —devuelven su resultado y ya—, así que ahí se usa la última
+          // actividad vista, que es lo más cercano al final que se conoce.
+          endedAt: running ? undefined : (doneAgents[tu.id] ?? agentActivity[tu.id] ?? undefined)
         }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agentToolUses, subagents, doneAgents, agentActivity]
   )
+
+  /**
+   * Duraciones ya cerradas, indexadas por agente, para las tarjetas del hilo.
+   * Solo los terminados: ver el comentario de `agentTimes` en MessageBubble.
+   */
+  const agentTimes = useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const a of agentRuns) {
+      if (a.running) continue
+      const d = runDuration(a.startedAt, a.endedAt)
+      if (d) out[a.id] = d
+    }
+    return out
+  }, [agentRuns])
 
   const subagentCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -1477,6 +1583,7 @@ export function ChatView(p: Props): React.JSX.Element {
               key={m.id}
               message={m}
               subagentCounts={subagentCounts}
+              agentTimes={agentTimes}
               onOpenSubagent={openSubagent}
               onOpenImage={openImage}
             />

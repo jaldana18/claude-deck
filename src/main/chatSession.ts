@@ -321,7 +321,7 @@ class ChatSession {
         // Mensajes de subagentes: se capturan aparte para el visor por tool_use
         if ('parent_tool_use_id' in msg && msg.parent_tool_use_id) {
           if (msg.type === 'assistant') {
-            const chat = toChatMessage(msg.uuid, msg.message)
+            const chat = toChatMessage(msg.uuid, msg.message, sdkTimestamp(msg))
             if (chat) {
               const arr = this.subagentBuf.get(msg.parent_tool_use_id) ?? []
               arr.push(chat)
@@ -375,7 +375,7 @@ class ChatSession {
             }
             this.sendHealth()
           }
-          const chat = toChatMessage(msg.uuid, msg.message)
+          const chat = toChatMessage(msg.uuid, msg.message, sdkTimestamp(msg))
           if (chat) {
             // Espejo del plan de tareas. Claude Code planifica de dos formas
             // según versión: TodoWrite (lista completa en cada llamada) o el
@@ -898,8 +898,19 @@ function extractBlockText(content: unknown): string {
   return ''
 }
 
-/** Convierte un BetaMessage del SDK a nuestro ChatMessage (texto + tool uses) */
-export function toChatMessage(uuid: string, message: unknown): ChatMessage | null {
+/**
+ * Convierte un BetaMessage del SDK a nuestro ChatMessage (texto + tool uses).
+ *
+ * `timestamp` es la marca del emisor cuando el SDK la trae. Se cae a la hora de
+ * recepción porque el propio SDK documenta que los emisores antiguos la omiten,
+ * y una burbuja sin hora se ve peor que una hora con unos milisegundos de
+ * desfase.
+ */
+export function toChatMessage(
+  uuid: string,
+  message: unknown,
+  timestamp?: string
+): ChatMessage | null {
   const content = (message as { content?: unknown }).content
   if (!Array.isArray(content)) return null
   let text = ''
@@ -916,7 +927,23 @@ export function toChatMessage(uuid: string, message: unknown): ChatMessage | nul
     }
   }
   if (!text && toolUses.length === 0) return null
-  return { id: uuid, role: 'assistant', text, toolUses }
+  return {
+    id: uuid,
+    role: 'assistant',
+    text,
+    toolUses,
+    timestamp: timestamp ?? new Date().toISOString()
+  }
+}
+
+/**
+ * Marca de tiempo del mensaje del SDK. El tipo `SDKMessage` no la declara en
+ * todas sus variantes, pero el emisor la incluye; se lee defensivamente para
+ * que un cambio de forma degrade a la hora de recepción en vez de romper.
+ */
+function sdkTimestamp(msg: unknown): string | undefined {
+  const t = (msg as { timestamp?: unknown }).timestamp
+  return typeof t === 'string' ? t : undefined
 }
 
 function friendlyError(err: unknown): string {

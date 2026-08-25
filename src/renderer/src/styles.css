@@ -673,6 +673,30 @@ button {
   animation: pulse 1s infinite;
   font-weight: bold;
 }
+/* Hora del mensaje. Bloque propio alineado a la derecha en vez de posición
+   absoluta: las burbujas de usuario son `width: fit-content`, así que una
+   etiqueta flotando en la esquina se solaparía con el texto de los mensajes
+   cortos. Cuesta una línea de 14px por burbuja y nunca pisa nada. */
+.bubble-time {
+  display: block;
+  text-align: right;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-dim);
+  opacity: 0.7;
+  margin: -2px 0 5px;
+  /* dígitos de ancho fijo: sin esto la hora «baila» al pasar de 11:59 a 12:00 */
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+/* Duración final del agente, en la cabecera de su tarjeta del hilo */
+.agent-duration {
+  margin-left: 8px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 
 /* markdown */
 .md {
@@ -1186,6 +1210,16 @@ button {
   color: var(--text-dim);
   font-size: 10.5px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Cronómetro en vivo del agente: tabular para que el ancho no oscile cada
+   segundo y arrastre a la etiqueta de al lado con él. */
+.agent-elapsed {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--blue);
 }
 .iconbtn.agents-live {
   border-color: var(--blue);
@@ -3385,13 +3419,26 @@ kbd {
 
 /* editor grande de mensaje (cuando el composer se queda corto) */
 .editor-modal {
-  width: min(760px, 92vw);
+  width: min(1040px, 94vw);
+  /* Sin altura propia el modal se ajusta a su contenido, así que el «editor
+     grande» acababa midiendo lo que midiera el textarea. La altura se reclama
+     aquí y el textarea la rellena con flex. */
+  height: min(78vh, 900px);
   display: flex;
   flex-direction: column;
 }
-.editor-modal-input {
+/* Estas reglas van con el ancestro delante a propósito: «.modal textarea» es
+   más específico que una sola clase y estaba imponiendo min-height:110px,
+   resize:vertical y fuente monoespaciada, dejando el editor grande del tamaño
+   de una caja normal. */
+.editor-modal .editor-modal-input {
   flex: 1;
-  min-height: 46vh;
+  /* el suelo lo pone la altura del modal; un min-height propio solo impediría
+     encogerse en ventanas bajas */
+  min-height: 0;
+  /* «.modal textarea» impone width:100%, que sumado a estos márgenes sacaba el
+     textarea 14px por fuera del modal por la derecha */
+  width: auto;
   margin: 0 14px;
   background: var(--bg-raised);
   color: var(--text);
@@ -3403,7 +3450,7 @@ kbd {
   line-height: 1.55;
   resize: none;
 }
-.editor-modal-input:focus {
+.editor-modal .editor-modal-input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
