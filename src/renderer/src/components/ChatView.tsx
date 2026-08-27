@@ -18,6 +18,15 @@ import { WidgetDock } from './WidgetDock'
 import { isImagePath, relativeToCwd } from '../../../shared/paths'
 import { appendDelta, type StreamChunk } from '../../../shared/streamBuffer'
 import { formatFullTime, formatMessageTime, runDuration } from '../../../shared/messageTime'
+import {
+  MAX_QUEUE,
+  canQueue,
+  dequeue,
+  enqueue,
+  queueLabel,
+  removeQueued,
+  type QueuedMessage
+} from '../../../shared/messageQueue'
 import { Markdown, MarkdownCwd } from './Markdown'
 import { PermissionDetail } from './PermissionDetail'
 import {
@@ -649,6 +658,13 @@ export function ChatView(p: Props): React.JSX.Element {
   const [streamText, setStreamText] = useState<{ id: string; text: string } | null>(null)
   const [permissions, setPermissions] = useState<PermissionRequestEvent[]>([])
   const [busy, setBusy] = useState(false)
+  // Cola de mensajes escritos mientras Claude responde. Vive solo en memoria:
+  // no se persiste a propósito, porque reabrir la app y ver salir solos unos
+  // mensajes escritos ayer, sin nadie mirando, es peor que perderlos.
+  const [queue, setQueue] = useState<QueuedMessage[]>([])
+  // Detener el turno también detiene la cola: si «Detener» disparase el
+  // siguiente encolado, el botón no serviría para parar nada.
+  const [queuePaused, setQueuePaused] = useState(false)
   const [cost, setCost] = useState(0)
   const [error, setError] = useState('')
   const [input, setInput] = useState('')
@@ -906,6 +922,10 @@ export function ChatView(p: Props): React.JSX.Element {
         setSubagents({})
         setDoneAgents({})
         setAgentActivity({})
+        // La cola pertenece a la conversación que se abandona: restaurar otra
+        // sesión no debe disparar mensajes escritos para la anterior.
+        setQueue([])
+        setQueuePaused(false)
         setWindowSize(WINDOW_STEP)
         hiddenDelta.current = null
         void loadHistory()
@@ -980,6 +1000,9 @@ export function ChatView(p: Props): React.JSX.Element {
     void window.deck.chatInterrupt(tabId)
     setBusy(false)
     setStreamText(null)
+    // Detener para de verdad: la cola queda en pausa, no se envía sola. Los
+    // mensajes siguen ahí para reanudarlos o borrarlos.
+    setQueuePaused(true)
   }, [tabId])
 
   // Ctrl+C (sin selección) y Esc detienen; Ctrl+F busca en la conversación
@@ -1155,27 +1178,100 @@ export function ChatView(p: Props): React.JSX.Element {
     [tabId]
   )
 
+  // Contador para el id: dos Enter en el mismo milisegundo darían la misma
+  // clave si el id fuera solo la fecha, y React perdería una fila de la lista.
+  const queueSeq = useRef(0)
+  // Espejo de `queue` para leerla desde callbacks estables sin recrearlos.
+  const queueRef = useRef<QueuedMessage[]>([])
+  queueRef.current = queue
+
+  /**
+   * Encola un mensaje. Devuelve false solo si la cola está llena, para que
+   * quien llama pueda conservar el texto en el composer en vez de tirarlo.
+   */
+  const queueMessage = useCallback((raw: string, atts: Attachment[]): boolean => {
+    const text = raw.trim()
+    if (!text && atts.length === 0) return true // nada que encolar: no es un fallo
+    // Se consulta el ref y no el updater de setQueue: React ejecuta el updater
+    // en el render siguiente, así que un `ok` calculado dentro se leería
+    // siempre antes de tiempo y el tope no frenaría nada.
+    if (!canQueue(queueRef.current)) return false
+    queueSeq.current += 1
+    const msg: QueuedMessage = {
+      id: `q-${Date.now()}-${queueSeq.current}`,
+      text,
+      attachments: atts,
+      queuedAt: Date.now()
+    }
+    setQueue((q) => enqueue(q, msg))
+    return true
+  }, [])
+
   const send = (): void => {
-    if ((!input.trim() && attachments.length === 0) || busy) return
-    sendText(input, attachments)
+    if (!input.trim() && attachments.length === 0) return
+    if (busy) {
+      // La cola llena es el único caso en que el texto se queda donde estaba:
+      // vaciar el composer sin haber encolado nada perdería lo escrito.
+      if (!queueMessage(input, attachments)) {
+        setError(`La cola está llena (${MAX_QUEUE}). Espera o elimina alguno antes de añadir más.`)
+        return
+      }
+    } else {
+      sendText(input, attachments)
+    }
     setInput('')
     setAttachments([])
   }
+
+  /**
+   * Drenado: en cuanto el turno termina sale el siguiente de la cola. El
+   * efecto puede dispararse de más (cambia `queue` al sacar un elemento),
+   * pero `sendText` deja `busy` en true en el mismo commit que acorta la
+   * cola, así que la siguiente pasada sale por la guarda de arriba.
+   */
+  useEffect(() => {
+    if (busy || queuePaused || queue.length === 0 || permissions.length > 0) return
+    const { next, rest } = dequeue(queue)
+    if (!next) return
+    setQueue(rest)
+    sendText(next.text, next.attachments)
+  }, [busy, queuePaused, queue, permissions.length, sendText])
+
+  /**
+   * La pausa solo cubre el lote que había al pulsar «Detener»: en cuanto la
+   * cola queda vacía se levanta sola. Sin esto, una pausa de hace una hora
+   * dejaría clavado un mensaje encolado mucho después, sin causa visible.
+   */
+  useEffect(() => {
+    if (queuePaused && queue.length === 0) setQueuePaused(false)
+  }, [queuePaused, queue.length])
+
+  const removeQueuedMessage = useCallback((id: string): void => {
+    setQueue((q) => removeQueued(q, id))
+  }, [])
+
+  // useCallback y no una lambda inline: WidgetDock está memoizado y una
+  // función nueva por render lo repintaría en cada tecla del composer.
+  const resumeQueue = useCallback((): void => setQueuePaused(false), [])
 
   // Inserción desde la paleta de comandos (Ctrl+Shift+P)
   useEffect(() => {
     const onInsert = (e: Event): void => {
       const d = (e as CustomEvent).detail as { tabId: string; text: string; submit: boolean }
       if (d.tabId !== tabId) return
-      if (d.submit) sendText(d.text)
-      else {
+      if (d.submit) {
+        // Un snippet lanzado con Claude ocupado se encola igual que un Enter:
+        // antes se perdía en silencio porque `sendText` no mira `busy`.
+        if (busy) queueMessage(d.text, [])
+        else sendText(d.text)
+      } else {
         setInput((v) => v + d.text)
         inputRef.current?.focus()
       }
     }
     window.addEventListener('deck:chat-insert', onInsert)
     return () => window.removeEventListener('deck:chat-insert', onInsert)
-  }, [tabId, sendText])
+  }, [tabId, sendText, busy, queueMessage])
 
   // Archivo mandado desde el widget de Archivos (doble clic o arrastre)
   useEffect(() => {
@@ -1523,6 +1619,10 @@ export function ChatView(p: Props): React.JSX.Element {
           visible={p.visible}
           agents={activeAgents}
           todos={todos}
+          queue={queue}
+          queuePaused={queuePaused}
+          onRemoveQueued={removeQueuedMessage}
+          onResumeQueue={resumeQueue}
           onOpenSubagent={openSubagent}
           onChange={p.onWidgetsChange}
         />
@@ -1677,6 +1777,47 @@ export function ChatView(p: Props): React.JSX.Element {
             e.target.value = ''
           }}
         />
+        {/* La cola también se ve aquí, no solo en el widget de Actividad: ese
+            widget puede no estar en el dock, y un Enter que aparenta no hacer
+            nada es peor que no tener cola. */}
+        {queue.length > 0 && (
+          <div className={`queue-strip ${queuePaused ? 'paused' : ''}`}>
+            <div className="queue-strip-head">
+              <span className="queue-count">
+                ✉ {queue.length} en cola{queuePaused ? ' · en pausa' : ''}
+              </span>
+              <span style={{ flex: 1 }} />
+              {queuePaused && (
+                <button
+                  className="iconbtn"
+                  onClick={() => setQueuePaused(false)}
+                  title="Reanudar el envío de la cola"
+                >
+                  ▶ Reanudar
+                </button>
+              )}
+              <button className="iconbtn" onClick={() => setQueue([])} title="Vaciar la cola">
+                Vaciar
+              </button>
+            </div>
+            <div className="queue-list">
+              {queue.map((m) => (
+                <div key={m.id} className="queue-item">
+                  <span className="queue-text" title={m.text || undefined}>
+                    {queueLabel(m)}
+                  </span>
+                  <button
+                    className="queue-del"
+                    onClick={() => removeQueuedMessage(m.id)}
+                    title="Eliminar de la cola"
+                  >
+                    <IconX size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="composer">
           {compacting && <CompactBar startedAt={compacting} />}
           <textarea
@@ -1715,20 +1856,22 @@ export function ChatView(p: Props): React.JSX.Element {
               ⤢
             </button>
             <span style={{ flex: 1 }} />
-            {busy ? (
+            {busy && (
               <button className="stopbtn iconlabel" onClick={interrupt} title="Detener (Ctrl+C / Esc)">
                 <IconStop size={13} /> Detener
               </button>
-            ) : (
-              <button
-                className="iconbtn primary iconlabel"
-                onClick={send}
-                disabled={!input.trim() && attachments.length === 0}
-                title="Enviar (Enter)"
-              >
-                Enviar <IconSend size={13} />
-              </button>
             )}
+            {/* El botón de enviar ya no desaparece mientras Claude responde:
+                cambia a «Encolar». Antes, con la respuesta en curso, no había
+                forma de mandar nada con el ratón. */}
+            <button
+              className="iconbtn primary iconlabel"
+              onClick={send}
+              disabled={!input.trim() && attachments.length === 0}
+              title={busy ? 'Añadir a la cola (Enter)' : 'Enviar (Enter)'}
+            >
+              {busy ? 'Encolar' : 'Enviar'} <IconSend size={13} />
+            </button>
           </div>
         </div>
       </div>
@@ -1741,6 +1884,10 @@ export function ChatView(p: Props): React.JSX.Element {
           visible={p.visible}
           agents={activeAgents}
           todos={todos}
+          queue={queue}
+          queuePaused={queuePaused}
+          onRemoveQueued={removeQueuedMessage}
+          onResumeQueue={resumeQueue}
           onOpenSubagent={openSubagent}
           onChange={p.onWidgetsChange}
         />

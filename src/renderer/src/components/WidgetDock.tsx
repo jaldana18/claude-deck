@@ -16,6 +16,7 @@ import type {
 import { nearestDock } from '../../../shared/dropTarget'
 import { rateLimitLabel } from '../../../shared/context'
 import { runDuration } from '../../../shared/messageTime'
+import { queueLabel, type QueuedMessage } from '../../../shared/messageQueue'
 import { Markdown } from './Markdown'
 import {
   IconBoard,
@@ -53,6 +54,12 @@ interface DockProps {
   visible: boolean
   agents: AgentRun[]
   todos: TodoItem[]
+  /** mensajes escritos mientras Claude responde, pendientes de salir */
+  queue: QueuedMessage[]
+  /** true tras pulsar «Detener»: la cola no se drena sola */
+  queuePaused: boolean
+  onRemoveQueued: (id: string) => void
+  onResumeQueue: () => void
   onOpenSubagent: (id: string) => void
   onChange: (widgets: WidgetState[]) => void
 }
@@ -233,6 +240,10 @@ export const WidgetDock = memo(function WidgetDock(p: DockProps): React.JSX.Elem
           tab={p.tab}
           agents={p.agents}
           todos={p.todos}
+          queue={p.queue}
+          queuePaused={p.queuePaused}
+          onRemoveQueued={p.onRemoveQueued}
+          onResumeQueue={p.onResumeQueue}
           onOpenSubagent={p.onOpenSubagent}
           visible={p.visible}
           onMove={moveWidget}
@@ -254,6 +265,10 @@ interface WidgetProps {
   visible: boolean
   agents: AgentRun[]
   todos: TodoItem[]
+  queue: QueuedMessage[]
+  queuePaused: boolean
+  onRemoveQueued: (id: string) => void
+  onResumeQueue: () => void
   onOpenSubagent: (id: string) => void
   onMove: (
     id: string,
@@ -516,6 +531,10 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
           <AgentsWidget
             agents={p.agents}
             todos={p.todos}
+            queue={p.queue}
+            queuePaused={p.queuePaused}
+            onRemoveQueued={p.onRemoveQueued}
+            onResumeQueue={p.onResumeQueue}
             visible={p.visible}
             onOpenSubagent={p.onOpenSubagent}
           />
@@ -1375,7 +1394,11 @@ function TasksWidget(p: { todos: TodoItem[] }): React.JSX.Element {
 function AgentsWidget(p: {
   agents: AgentRun[]
   todos: TodoItem[]
+  queue: QueuedMessage[]
+  queuePaused: boolean
   visible: boolean
+  onRemoveQueued: (id: string) => void
+  onResumeQueue: () => void
   onOpenSubagent: (id: string) => void
 }): React.JSX.Element {
   const running = p.agents.filter((a) => a.running)
@@ -1391,10 +1414,40 @@ function AgentsWidget(p: {
   }, [contando])
   return (
     <div className="agentsw">
-      {running.length === 0 && p.todos.length === 0 && (
+      {running.length === 0 && p.todos.length === 0 && p.queue.length === 0 && (
         <p className="hint" style={{ padding: 8 }}>
-          Aquí verás los agentes en ejecución y el plan de tareas de Claude cuando los haya.
+          Aquí verás los agentes en ejecución, los mensajes en cola y el plan de tareas de Claude
+          cuando los haya.
         </p>
+      )}
+      {p.queue.length > 0 && (
+        <>
+          <div className="side-section-title">
+            ✉ En cola ({p.queue.length})
+            {p.queuePaused && <span className="queue-paused-tag">en pausa</span>}
+          </div>
+          {p.queuePaused && (
+            <button className="queue-resume" onClick={p.onResumeQueue}>
+              ▶ Reanudar envío
+            </button>
+          )}
+          {p.queue.map((m, i) => (
+            <div key={m.id} className="queue-row">
+              {/* el orden importa: sale antes el de arriba */}
+              <span className="queue-pos">{i + 1}</span>
+              <span className="queue-row-text" title={m.text || undefined}>
+                {queueLabel(m)}
+              </span>
+              <button
+                className="queue-del"
+                onClick={() => p.onRemoveQueued(m.id)}
+                title="Eliminar de la cola"
+              >
+                <IconX size={10} />
+              </button>
+            </div>
+          ))}
+        </>
       )}
       {running.length > 0 && (
         <>

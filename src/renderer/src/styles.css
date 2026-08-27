@@ -3863,3 +3863,113 @@ kbd {
 .healthw-chip.danger b {
   color: var(--red);
 }
+
+/* ---------- cola de mensajes ---------- */
+
+/* Tira sobre el composer. Existe además del widget de Actividad porque ese
+   widget puede no estar en el dock, y un Enter que aparenta no hacer nada es
+   peor que no tener cola. */
+.queue-strip {
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--bg-soft);
+  padding: 5px 8px 6px;
+  margin: 0 0 -1px;
+}
+/* En pausa el borde se tiñe: es el único aviso de que la cola NO va a salir
+   sola, y sin él «Detener» parecería no haber hecho nada con lo encolado. */
+.queue-strip.paused {
+  border-color: var(--warn, #d29922);
+}
+.queue-strip-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.queue-count {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.queue-strip.paused .queue-count {
+  color: var(--warn, #d29922);
+}
+/* Tope de altura: con la cola llena (25) la tira se comería el composer. */
+.queue-list {
+  max-height: 108px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.queue-item,
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 5px;
+}
+.queue-text,
+.queue-row-text {
+  flex: 1;
+  /* una sola línea: el texto ya viene colapsado por queueLabel(), esto cubre
+     el caso de una palabra larguísima sin espacios */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-del {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 4px;
+  line-height: 0;
+}
+.queue-del:hover {
+  color: var(--danger, #f85149);
+  background: var(--bg-soft);
+}
+
+/* filas dentro del widget de Actividad */
+.queue-row {
+  margin: 0 6px 3px;
+}
+.queue-pos {
+  flex-shrink: 0;
+  min-width: 13px;
+  text-align: right;
+  font-size: 9.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.queue-paused-tag {
+  margin-left: 6px;
+  font-size: 9.5px;
+  color: var(--warn, #d29922);
+  text-transform: none;
+}
+.queue-resume {
+  display: block;
+  margin: 0 6px 4px;
+  width: calc(100% - 12px);
+  font-size: 10.5px;
+  padding: 3px;
+  background: var(--bg-soft);
+  color: var(--warn, #d29922);
+  border: 1px solid var(--warn, #d29922);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.queue-resume:hover {
+  background: var(--bg);
+}
