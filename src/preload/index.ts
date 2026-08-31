@@ -11,6 +11,7 @@ import type {
   CliInfo,
   GitInfo,
   WidgetState,
+  AparteModo,
   ChatDeltaEvent,
   ChatMessage,
   ChatResultMeta,
@@ -275,6 +276,16 @@ const api = {
   widgetsGet: (tabId: string): Promise<WidgetState[]> => ipcRenderer.invoke('widgets:get', tabId),
   widgetsSet: (tabId: string, widgets: WidgetState[]): Promise<void> =>
     ipcRenderer.invoke('widgets:set', { tabId, widgets }),
+
+  // widget «aparte»: sesión paralela a la del chat principal.
+  // Para enviar y cortar se usan chatSend/chatInterrupt con el asideId.
+  aparteStart: (
+    tabId: string,
+    asideId: string,
+    modo: AparteModo
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('aparte:start', { tabId, asideId, modo }),
+  aparteStop: (asideId: string): Promise<void> => ipcRenderer.invoke('aparte:stop', asideId),
 
   // app / actualización automática
   appVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),

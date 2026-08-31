@@ -114,7 +114,7 @@ export interface GitInfo {
 
 // ---------- Widgets acoplables a los laterales del chat ----------
 
-export type WidgetKind = 'git' | 'board' | 'agents' | 'health' | 'tasks' | 'ci' | 'prs' | 'notes' | 'timer' | 'clipboard' | 'logs' | 'files' | 'diffstats'
+export type WidgetKind = 'git' | 'board' | 'agents' | 'health' | 'tasks' | 'ci' | 'prs' | 'notes' | 'timer' | 'clipboard' | 'logs' | 'files' | 'diffstats' | 'aparte'
 export type WidgetSide = 'left' | 'right'
 
 // ---------- CI / Pull requests (multi-proveedor) ----------
@@ -169,7 +169,15 @@ export interface WidgetConfig {
   logsCommand?: string
   /** files: raíz del árbol (por defecto el cwd de la pestaña) */
   rootPath?: string
+  /**
+   * aparte: de dónde parte la sesión al crearse o reiniciarse.
+   * 'limpia' = sin contexto; 'fork' = reanuda el sessionId del chat principal.
+   */
+  aparteModo?: AparteModo
 }
+
+/** aparte: origen del contexto de la sesión al margen */
+export type AparteModo = 'limpia' | 'fork'
 
 export interface WidgetState {
   id: string

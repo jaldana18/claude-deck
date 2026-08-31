@@ -279,3 +279,11 @@ export const IconDiffStats = (p: IconProps): React.JSX.Element => (
     <path d="M16 11h3v4h-3v-4Z" fill="rgba(239,68,68,0.3)" stroke="currentColor" />
   </Svg>
 )
+
+/** Aparte: bocadillo principal con una consulta al margen superpuesta */
+export const IconAparte = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M3 5h11a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-1-2V7a2 2 0 0 1 0-2Z" />
+    <path d="M14 15h6a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-2l-2 2v-2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z" fill="rgba(217,119,87,0.25)" stroke="currentColor" />
+  </Svg>
+)

@@ -9,6 +9,7 @@ import {
   IconClock,
   IconClipboard,
   IconCommand,
+  IconAparte,
   IconDiffStats,
   IconFolderTree,
   IconGitBranch,
@@ -61,7 +62,8 @@ const WIDGET_GALLERY: { kind: WidgetKind; icon: React.JSX.Element; name: string;
   { kind: 'clipboard', icon: <IconClipboard size={15} />, name: 'Portapapeles', desc: 'historial de copias' },
   { kind: 'logs', icon: <IconTerminalLog size={15} />, name: 'Logs', desc: 'salida de procesos' },
   { kind: 'files', icon: <IconFolderTree size={15} />, name: 'Archivos', desc: 'explorador con git' },
-  { kind: 'diffstats', icon: <IconDiffStats size={15} />, name: 'Diff Stats', desc: 'cambios del repo' }
+  { kind: 'diffstats', icon: <IconDiffStats size={15} />, name: 'Diff Stats', desc: 'cambios del repo' },
+  { kind: 'aparte', icon: <IconAparte size={15} />, name: 'Aparte', desc: 'preguntar sin tocar el hilo' }
 ]
 
 export function TabBar(p: Props): React.JSX.Element {

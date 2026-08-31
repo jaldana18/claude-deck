@@ -6,6 +6,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import type {
   ArtifactDraft,
   ChatAttachment,
+  AparteModo,
   ConfigScope,
   HookItem,
   LlmParams,
@@ -790,6 +791,30 @@ ipcMain.handle('board:iterations', (_e, args: { cwd: string; project: string; te
 ipcMain.handle('widgets:get', (_e, tabId: string) => store.getTabWidgets(tabId))
 ipcMain.handle('widgets:set', (_e, args: { tabId: string; widgets: WidgetState[] }) => {
   store.setTabWidgets(args.tabId, args.widgets)
+})
+
+// ---------- IPC: sesión «al margen» (widget Aparte) ----------
+
+/**
+ * Arranca la sesión paralela del widget. `asideId` es la clave sintética con la
+ * que el widget se suscribe a los eventos `chat:*`, así que reusa `chat:send` y
+ * `chat:interrupt` sin necesidad de canales propios.
+ */
+ipcMain.handle(
+  'aparte:start',
+  (_e, args: { tabId: string; asideId: string; modo: AparteModo }) => {
+    const tab = store.tabs.find((t) => t.id === args.tabId)
+    if (!tab) return { ok: false, error: 'La pestaña ya no existe' }
+    if (args.modo === 'fork' && !tab.claudeSessionId) {
+      return { ok: false, error: 'El chat principal aún no tiene sesión que bifurcar' }
+    }
+    chatSessions.startAparte(tab, args.asideId, args.modo)
+    return { ok: true }
+  }
+)
+
+ipcMain.handle('aparte:stop', (_e, asideId: string) => {
+  chatSessions.stop(asideId)
 })
 
 // ---------- IPC: actualización / app ----------

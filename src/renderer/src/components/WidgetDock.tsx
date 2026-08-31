@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type {
+  AparteModo,
   AzureListItem,
   BoardData,
   ChatHealth,
@@ -18,7 +19,9 @@ import { rateLimitLabel } from '../../../shared/context'
 import { runDuration } from '../../../shared/messageTime'
 import { queueLabel, type QueuedMessage } from '../../../shared/messageQueue'
 import { Markdown } from './Markdown'
+import { subscribeChat } from '../chatBus'
 import {
+  IconAparte,
   IconBoard,
   IconBook,
   IconClock,
@@ -103,7 +106,8 @@ const WIDGET_TITLES: Record<WidgetKind, string> = {
   clipboard: 'Portapapeles',
   logs: 'Logs',
   files: 'Archivos',
-  diffstats: 'Diff Stats'
+  diffstats: 'Diff Stats',
+  aparte: 'Aparte'
 }
 
 const LANE_COLORS = ['#d97757', '#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#f778ba', '#39c5cf']
@@ -482,6 +486,8 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
       <IconFolderTree size={12} />
     ) : p.widget.kind === 'diffstats' ? (
       <IconDiffStats size={12} />
+    ) : p.widget.kind === 'aparte' ? (
+      <IconAparte size={12} />
     ) : (
       <IconTasks size={12} />
     )
@@ -553,6 +559,9 @@ const Widget = memo(function Widget(p: WidgetProps): React.JSX.Element {
           <FilesWidget widget={p.widget} tab={p.tab} visible={p.visible} onConfig={patchConfig} />
         )}
         {p.widget.kind === 'diffstats' && <DiffStatsWidget tab={p.tab} visible={p.visible} />}
+        {p.widget.kind === 'aparte' && (
+          <AparteWidget widget={p.widget} tab={p.tab} onConfig={patchConfig} />
+        )}
       </div>
       <div
         className="widget-resize"
@@ -1952,6 +1961,202 @@ function DiffStatsWidget(p: { tab: TabState; visible: boolean }): React.JSX.Elem
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ---------- Widget: Aparte (sesión paralela al chat principal) ----------
+
+/** Turno de la conversación al margen; `pendiente` marca el que aún se está escribiendo */
+interface TurnoAparte {
+  id: string
+  rol: 'user' | 'assistant'
+  texto: string
+  pendiente?: boolean
+}
+
+/**
+ * Pregunta al margen sin ensuciar el hilo principal: mantiene su propia sesión
+ * de Claude, enrutada con una clave sintética (`aparte::<widgetId>`) que el main
+ * reconoce pero que no corresponde a ninguna pestaña real.
+ *
+ * La sesión se crea de forma perezosa con la primera pregunta y se destruye al
+ * desmontar el widget, para no dejar un claude.exe vivo por widget abierto.
+ */
+function AparteWidget(p: {
+  widget: WidgetState
+  tab: TabState
+  onConfig: (c: WidgetState['config']) => void
+}): React.JSX.Element {
+  const asideId = `aparte::${p.widget.id}`
+  const modo: AparteModo = p.widget.config.aparteModo ?? 'limpia'
+
+  const [turnos, setTurnos] = useState<TurnoAparte[]>([])
+  const [entrada, setEntrada] = useState('')
+  const [viva, setViva] = useState(false)
+  const [trabajando, setTrabajando] = useState(false)
+  const [error, setError] = useState('')
+  const [costo, setCosto] = useState(0)
+  const finRef = useRef<HTMLDivElement>(null)
+  // se lee dentro de callbacks sin volver a suscribir el bus en cada cambio
+  const vivaRef = useRef(false)
+  vivaRef.current = viva
+
+  // Suscripción a los eventos de ESTA sesión. El bus reparte por tabId, así que
+  // con el id sintético solo llega lo del aparte: el chat principal no se entera.
+  useEffect(() => {
+    const off = subscribeChat(asideId, {
+      streamStart: (ev) => {
+        setTurnos((t) => [...t, { id: ev.messageId, rol: 'assistant', texto: '', pendiente: true }])
+      },
+      delta: (ev) => {
+        setTurnos((t) =>
+          t.map((x) => (x.id === ev.messageId ? { ...x, texto: x.texto + ev.text } : x))
+        )
+      },
+      message: (ev) => {
+        if (ev.message.role !== 'assistant') return
+        setTurnos((t) => {
+          const sinPendiente = t.filter((x) => !x.pendiente)
+          return [...sinPendiente, { id: ev.message.id, rol: 'assistant', texto: ev.message.text }]
+        })
+      },
+      result: (ev) => {
+        setTrabajando(false)
+        if (ev.costUsd) setCosto((c) => c + ev.costUsd)
+        if (ev.isError && ev.errorText) setError(ev.errorText)
+      },
+      error: (ev) => {
+        setTrabajando(false)
+        setError(ev.message)
+      }
+    })
+    return off
+  }, [asideId])
+
+  // Al desmontar (cerrar el widget o la pestaña) se mata la sesión: sin esto
+  // quedaría un proceso del CLI vivo por cada aparte que se haya abierto.
+  useEffect(() => {
+    return () => {
+      if (vivaRef.current) void window.deck.aparteStop(asideId)
+    }
+  }, [asideId])
+
+  useEffect(() => {
+    finRef.current?.scrollIntoView({ block: 'end' })
+  }, [turnos])
+
+  const arrancar = async (): Promise<boolean> => {
+    const r = await window.deck.aparteStart(p.tab.id, asideId, modo)
+    if (!r.ok) {
+      setError(r.error ?? 'No se pudo abrir la sesión al margen')
+      return false
+    }
+    setViva(true)
+    setError('')
+    return true
+  }
+
+  const preguntar = async (): Promise<void> => {
+    const texto = entrada.trim()
+    if (!texto || trabajando) return
+    if (!viva && !(await arrancar())) return
+    setEntrada('')
+    setError('')
+    setTrabajando(true)
+    setTurnos((t) => [...t, { id: `u-${Date.now()}`, rol: 'user', texto }])
+    window.deck.chatSend(asideId, texto)
+  }
+
+  /** Tira la sesión y arranca otra: es el punto donde se aplica un cambio de modo */
+  const reiniciar = async (nuevoModo?: AparteModo): Promise<void> => {
+    if (viva) await window.deck.aparteStop(asideId)
+    setViva(false)
+    setTurnos([])
+    setCosto(0)
+    setError('')
+    setTrabajando(false)
+    if (nuevoModo && nuevoModo !== modo) {
+      p.onConfig({ ...p.widget.config, aparteModo: nuevoModo })
+    }
+  }
+
+  const cortar = (): void => {
+    void window.deck.chatInterrupt(asideId)
+    setTrabajando(false)
+  }
+
+  return (
+    <div className="apartew">
+      <div className="widget-toolbar">
+        <select
+          className="cd-input"
+          style={{ fontSize: 10, padding: '1px 4px' }}
+          value={modo}
+          onChange={(e) => void reiniciar(e.target.value as AparteModo)}
+          title="De dónde parte la sesión al crearse o reiniciarse"
+        >
+          <option value="limpia">Limpia</option>
+          <option value="fork">Fork del hilo</option>
+        </select>
+        <span className={`cd-badge${viva ? ' cd-badge--on' : ''}`} title="Estado de la sesión">
+          {trabajando ? 'pensando…' : viva ? 'viva' : 'inactiva'}
+        </span>
+        <span style={{ flex: 1 }} />
+        {costo > 0 && <span className="hint apartew-costo">${costo.toFixed(3)}</span>}
+        {trabajando && (
+          <button className="widget-btn" onClick={cortar} title="Interrumpir">
+            ■
+          </button>
+        )}
+        <button
+          className="widget-btn"
+          onClick={() => void reiniciar()}
+          disabled={!viva && turnos.length === 0}
+          title="Reiniciar la sesión al margen"
+        >
+          <IconRefresh size={11} />
+        </button>
+      </div>
+
+      <div className="apartew-hilo">
+        {turnos.length === 0 && !error && (
+          <div className="hint apartew-vacio">
+            Pregunta al margen. No toca el hilo principal.
+            {modo === 'fork' && ' Arranca con el contexto del chat.'}
+          </div>
+        )}
+        {turnos.map((t) => (
+          <div key={t.id} className={`apartew-turno apartew-turno--${t.rol}`}>
+            {t.rol === 'assistant' ? <Markdown text={t.texto} /> : t.texto}
+          </div>
+        ))}
+        {error && <div className="validation err">{error}</div>}
+        <div ref={finRef} />
+      </div>
+
+      <div className="apartew-pie">
+        <textarea
+          className="cd-input apartew-entrada"
+          value={entrada}
+          placeholder="Preguntar aparte…"
+          rows={2}
+          onChange={(e) => setEntrada(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              void preguntar()
+            }
+          }}
+        />
+        <button
+          className="iconbtn primary apartew-enviar"
+          onClick={() => void preguntar()}
+          disabled={!entrada.trim() || trabajando}
+        >
+          Enviar
+        </button>
       </div>
     </div>
   )

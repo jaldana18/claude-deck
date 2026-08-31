@@ -3973,3 +3973,91 @@ kbd {
 .queue-resume:hover {
   background: var(--bg);
 }
+
+/* ---------- Widget Aparte: sesión paralela al chat principal ---------- */
+
+.apartew {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  gap: 4px;
+}
+
+/* el hilo crece y scrollea; el pie queda anclado abajo */
+.apartew-hilo {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.apartew-vacio {
+  font-size: 11px;
+  padding: 6px 0;
+}
+
+.apartew-turno {
+  border-radius: 8px;
+  padding: 5px 8px;
+  word-break: break-word;
+}
+
+.apartew-turno--user {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  align-self: flex-end;
+  max-width: 90%;
+  white-space: pre-wrap;
+}
+
+.apartew-turno--assistant {
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+}
+
+.apartew-turno--assistant p:first-child {
+  margin-top: 0;
+}
+
+.apartew-turno--assistant p:last-child {
+  margin-bottom: 0;
+}
+
+.apartew-costo {
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.apartew-pie {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  padding: 0 8px 6px;
+}
+
+.apartew-entrada {
+  flex: 1;
+  resize: none;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 4px 6px;
+}
+
+.apartew-enviar {
+  font-size: 11px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+/* la insignia se enciende cuando la sesión está viva */
+.cd-badge--on {
+  background: color-mix(in srgb, #3fb950 20%, transparent);
+  border-color: color-mix(in srgb, #3fb950 45%, transparent);
+  color: #3fb950;
+}

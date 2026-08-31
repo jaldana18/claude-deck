@@ -11,6 +11,7 @@ import {
   type SDKUserMessage
 } from '@anthropic-ai/claude-agent-sdk'
 import type {
+  AparteModo,
   ChatAttachment,
   ChatHealth,
   ChatMessage,
@@ -767,6 +768,15 @@ class ChatSession {
     }
     this.waiters.splice(0).forEach((w) => w())
     this.abort.abort()
+    // abort() corta el stream pero no garantiza la muerte del CLI: close() es la
+    // terminación forzada que documenta el SDK. Sin esto quedaban claude.exe
+    // huérfanos acumulándose cada vez que se paraba una sesión.
+    try {
+      void this.q?.close()
+    } catch {
+      /* la query ya estaba cerrada */
+    }
+    this.q = null
   }
 }
 
@@ -782,6 +792,34 @@ export class ChatSessionManager {
     this.stop(tab.id)
     const session = new ChatSession(tab, this.store, this.getWindow)
     this.sessions.set(tab.id, session)
+    session.start()
+  }
+
+  /**
+   * Sesión «al margen»: corre en paralelo a la del chat principal sin tocar su
+   * hilo. Se enruta con una clave sintética (`aparte::<widgetId>`) que no existe
+   * en `store.tabs`, así que todo lo que la sesión intente persistir —sessionId,
+   * lastHealth— cae en un no-op y la pestaña real queda intacta.
+   *
+   * Los automatismos van desactivados a propósito: una sesión al margen que se
+   * auto-compacte o se auto-continúe reinyectaría prompts por su cuenta.
+   */
+  startAparte(base: TabState, asideId: string, modo: AparteModo): void {
+    this.stop(asideId)
+    const fantasma: TabState = {
+      ...base,
+      id: asideId,
+      // 'limpia' arranca sin resume; 'fork' hereda el contexto del chat principal
+      claudeSessionId: modo === 'fork' ? base.claudeSessionId : undefined,
+      llmParams: {
+        ...(base.llmParams ?? {}),
+        autoContinue: false,
+        autoCompactTokens: 0
+      },
+      lastHealth: undefined
+    }
+    const session = new ChatSession(fantasma, this.store, this.getWindow)
+    this.sessions.set(asideId, session)
     session.start()
   }
 
