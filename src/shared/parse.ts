@@ -35,17 +35,48 @@ export function slugify(name: string): string {
 }
 
 /**
- * Extrae el bloque JSON de un texto que puede traer preámbulo. El MCP de
- * azure-devops antepone líneas como "Project: X, Team: Y" antes del JSON;
- * sin esto el board se veía vacío. Devuelve null si no hay bloque.
+ * Extrae el bloque JSON de un texto que puede traer preámbulo o envoltorios.
+ * El MCP de azure-devops antepone "Project: X, Team: Y" y, desde la v2.10,
+ * envuelve todo en marcadores «<<hash>> [UNTRUSTED ...] <<hash>>» que también
+ * contienen corchetes; por eso no basta con cortar del primer corchete al
+ * último: hay que probar cada bloque balanceado hasta hallar JSON válido.
  */
 export function extractJsonBlock(text: string): string | null {
-  const firstArr = text.indexOf('[')
-  const firstObj = text.indexOf('{')
-  const starts = [firstArr, firstObj].filter((i) => i >= 0)
-  if (starts.length === 0) return null
-  const start = Math.min(...starts)
-  const end = text[start] === '[' ? text.lastIndexOf(']') : text.lastIndexOf('}')
-  if (end <= start) return null
-  return text.slice(start, end + 1)
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch !== '[' && ch !== '{') continue
+    const end = scanBalanced(text, i)
+    if (end === -1) continue
+    const block = text.slice(i, end + 1)
+    try {
+      JSON.parse(block)
+      return block
+    } catch {
+      /* no era JSON: probar el siguiente candidato */
+    }
+  }
+  return null
+}
+
+/** Fin del bloque con corchetes/llaves balanceados desde `start`, respetando
+ *  strings JSON (comillas y escapes). -1 si no cierra o cierra desparejado. */
+function scanBalanced(text: string, start: number): number {
+  const stack: string[] = []
+  let inString = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      if (ch === '\\') i++
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === '[' || ch === '{') stack.push(ch)
+    else if (ch === ']' || ch === '}') {
+      const open = stack.pop()
+      if ((ch === ']' && open !== '[') || (ch === '}' && open !== '{')) return -1
+      if (stack.length === 0) return i
+    }
+  }
+  return -1
 }
