@@ -34,6 +34,7 @@ import {
   shouldAutoCompact
 } from '../shared/context'
 import type { Store } from './store'
+import type { StatusWatcher } from './status'
 
 /**
  * Ruta al CLI de Claude Code. El binario que el SDK trae embebido (~278 MB)
@@ -132,7 +133,9 @@ class ChatSession {
   constructor(
     private tab: TabState,
     private store: Store,
-    private getWindow: () => BrowserWindow | null
+    private getWindow: () => BrowserWindow | null,
+    /** vigilante de estado: recibe los fallos de API para detectar caídas */
+    private watcher?: StatusWatcher
   ) {
     // sembrar la salud desde lo persistido: sobrevive al reinicio de la app
     const lh = tab.lastHealth
@@ -231,6 +234,10 @@ class ChatSession {
       ...(cliPath ? { pathToClaudeCodeExecutable: cliPath } : {}),
       permissionMode: this.tab.permissionMode ?? 'default',
       ...(this.tab.model ? { model: this.tab.model } : {}),
+      // Respaldo ante sobrecarga del principal. El SDK reintenta el modelo
+      // principal al inicio de cada turno, así que una caída pasajera no deja
+      // la sesión degradada para siempre.
+      ...(this.tab.fallbackModel ? { fallbackModel: this.tab.fallbackModel } : {}),
       ...(lp.effort ? { effort: lp.effort } : {}),
       ...(lp.thinkingBudget !== undefined
         ? {
@@ -455,6 +462,20 @@ class ChatSession {
             })
             this.sendHealth()
           }
+        } else if (msg.type === 'system' && msg.subtype === 'api_retry') {
+          // El SDK avisa de cada petición que falla y va a reintentarse. Es la
+          // señal más temprana y más honesta de que un modelo está caído: llega
+          // antes de que Anthropic abra el incidente, y sabe qué modelo era.
+          const r = msg as unknown as {
+            error_status?: number | null
+            attempt?: number
+            error?: { message?: string }
+          }
+          this.watcher?.recordFault(
+            this.tab.model ?? this.sessionModel,
+            r.error_status ?? null,
+            r.error?.message ?? `Reintento ${r.attempt ?? 1} tras error de API`
+          )
         } else if (msg.type === 'system' && msg.subtype === 'init') {
           this.updateSession((msg as { session_id?: string }).session_id)
           const initModel = (msg as { model?: string }).model
@@ -478,6 +499,16 @@ class ChatSession {
             errorText: msg.subtype !== 'success' ? msg.subtype : undefined
           }
           this.send('chat:result', meta)
+          // Un turno cerrado en error de modelo/API confirma el fallo; uno que
+          // termina bien limpia los fallos previos de ese modelo, para que un
+          // pico corto no deje el aviso encendido diez minutos.
+          const razon = (msg as unknown as { terminal_reason?: string }).terminal_reason
+          const modeloTurno = this.tab.model ?? this.sessionModel
+          if (razon === 'model_error' || razon === 'api_error') {
+            this.watcher?.recordFault(modeloTurno, null, `El turno terminó en ${razon}`)
+          } else if (!msg.is_error) {
+            this.watcher?.recordSuccess(modeloTurno)
+          }
           this.costUsd = 'total_cost_usd' in msg ? msg.total_cost_usd : this.costUsd
           this.numTurns = msg.num_turns
           this.sendHealth()
@@ -612,7 +643,13 @@ class ChatSession {
     try {
       const models = await this.q?.supportedModels()
       if (models?.length) {
-        this.models = models.map((m) => ({ value: m.value, displayName: m.displayName }))
+        this.models = models.map((m) => ({
+          value: m.value,
+          displayName: m.displayName,
+          ...(m.resolvedModel ? { resolvedModel: m.resolvedModel } : {}),
+          ...(m.description ? { description: m.description } : {}),
+          ...(m.supportedEffortLevels ? { supportedEffortLevels: m.supportedEffortLevels } : {})
+        }))
         this.send('chat:models', { tabId: this.tab.id, models: this.models })
         return
       }
@@ -627,6 +664,11 @@ class ChatSession {
   async setModel(model: string | undefined): Promise<void> {
     this.tab.model = model
     this.store.updateTab(this.tab.id, { model })
+    // Cambiar de modelo en caliente cambia la ventana disponible. Sin esto, el
+    // auto-compact seguiría midiendo contra la ventana del modelo anterior
+    // hasta el siguiente arranque: al pasar de 1M a 200K, comprimiría tarde.
+    this.ctxWindow = contextWindowFor(model ?? this.sessionModel)
+    this.sendHealth()
     try {
       await this.q?.setModel(model)
     } catch (err) {
@@ -785,12 +827,13 @@ export class ChatSessionManager {
 
   constructor(
     private store: Store,
-    private getWindow: () => BrowserWindow | null
+    private getWindow: () => BrowserWindow | null,
+    private watcher?: StatusWatcher
   ) {}
 
   start(tab: TabState): void {
     this.stop(tab.id)
-    const session = new ChatSession(tab, this.store, this.getWindow)
+    const session = new ChatSession(tab, this.store, this.getWindow, this.watcher)
     this.sessions.set(tab.id, session)
     session.start()
   }
@@ -818,7 +861,7 @@ export class ChatSessionManager {
       },
       lastHealth: undefined
     }
-    const session = new ChatSession(fantasma, this.store, this.getWindow)
+    const session = new ChatSession(fantasma, this.store, this.getWindow, this.watcher)
     this.sessions.set(asideId, session)
     session.start()
   }
@@ -848,7 +891,28 @@ export class ChatSessionManager {
   }
 
   async setModel(tabId: string, model: string | undefined): Promise<void> {
-    await this.sessions.get(tabId)?.setModel(model)
+    const session = this.sessions.get(tabId)
+    if (session) {
+      await session.setModel(model)
+      return
+    }
+    // Sin sesión viva no hay a quién pedírselo en caliente, pero la elección
+    // debe sobrevivir igual: antes se perdía al reiniciar la app porque la
+    // persistencia vivía dentro de ChatSession.setModel.
+    const tab = this.store.tabs.find((t) => t.id === tabId)
+    if (!tab) return
+    tab.model = model
+    this.store.updateTab(tabId, { model })
+  }
+
+  /** Modelo de respaldo de la pestaña. Solo se aplica al arrancar la sesión,
+   *  así que reinicia con resume si ya estaba corriendo. */
+  setFallbackModel(tabId: string, fallbackModel: string | undefined): void {
+    const tab = this.store.tabs.find((t) => t.id === tabId)
+    if (!tab) return
+    tab.fallbackModel = fallbackModel
+    this.store.updateTab(tabId, { fallbackModel })
+    if (this.sessions.has(tabId)) this.start(tab)
   }
 
   /** Persiste los parámetros del LLM y reinicia la sesión con resume para

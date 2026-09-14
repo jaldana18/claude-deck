@@ -14,6 +14,13 @@ import type {
   WidgetState
 } from '../../../shared/types'
 import { subscribeChat } from '../chatBus'
+import {
+  MODEL_ALIASES,
+  MODEL_CATALOG,
+  MODEL_FAMILY_LABEL,
+  labelFor,
+  type ModelFamily
+} from '../../../shared/models'
 import { WidgetDock } from './WidgetDock'
 import { isImagePath, relativeToCwd } from '../../../shared/paths'
 import { appendDelta, type StreamChunk } from '../../../shared/streamBuffer'
@@ -601,11 +608,60 @@ const MessageBubble = memo(function MessageBubble(p: {
 })
 
 /** Respaldo si el SDK aún no reporta los modelos (los alias siempre funcionan) */
-const FALLBACK_MODELS: ModelOption[] = [
-  { value: 'opus', displayName: 'Opus' },
-  { value: 'sonnet', displayName: 'Sonnet' },
-  { value: 'haiku', displayName: 'Haiku' }
-]
+const FALLBACK_MODELS: ModelOption[] = MODEL_ALIASES.filter(
+  (a) => a.value !== 'default'
+).map((a) => ({ value: a.value, displayName: a.label }))
+
+/** Valor centinela del desplegable para escribir un id a mano */
+const OTRO = '__otro__'
+
+const FAMILIAS: ModelFamily[] = ['fable', 'opus', 'sonnet', 'haiku']
+
+/**
+ * Opciones del desplegable de modelo.
+ *
+ * El SDK solo reporta alias, que apuntan a lo que Anthropic considere vigente:
+ * cómodo, pero impide fijar una versión. Aquí van los alias arriba —mostrando a
+ * qué resuelven hoy— y debajo las versiones concretas, agrupadas por familia.
+ */
+function OpcionesModelo(p: { models: ModelOption[] }): React.JSX.Element {
+  const alias = p.models.length > 0 ? p.models : FALLBACK_MODELS
+  return (
+    <>
+      <optgroup label="Alias · siguen al modelo vigente">
+        {alias.map((m) => (
+          <option key={m.value} value={m.value}>
+            {m.displayName}
+            {m.resolvedModel ? ` → ${labelFor(m.resolvedModel)}` : ''}
+          </option>
+        ))}
+      </optgroup>
+      {FAMILIAS.map((f) => {
+        const items = MODEL_CATALOG.filter((c) => c.family === f)
+        if (items.length === 0) return null
+        return (
+          <optgroup key={f} label={`${MODEL_FAMILY_LABEL[f]} · versión fija`}>
+            {items.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label} · {c.context >= 1_000_000 ? '1M' : '200K'}
+                {c.deprecated ? ' · se retira' : ''}
+              </option>
+            ))}
+          </optgroup>
+        )
+      })}
+    </>
+  )
+}
+
+/** ¿El id está en alguna de las listas, o el usuario lo escribió a mano? */
+function esConocido(model: string, models: ModelOption[]): boolean {
+  if (!model) return true
+  const alias = models.length > 0 ? models : FALLBACK_MODELS
+  return (
+    alias.some((m) => m.value === model) || MODEL_CATALOG.some((c) => c.id === model)
+  )
+}
 
 /**
  * Respaldo si el SDK aún no reporta los comandos de la sesión (la lista real
@@ -686,6 +742,16 @@ export function ChatView(p: Props): React.JSX.Element {
   const [questions, setQuestions] = useState<QuestionRequestEvent[]>([])
   const [models, setModels] = useState<ModelOption[]>([])
   const [modelSel, setModelSel] = useState(p.tab.model ?? '')
+  const [fallbackSel, setFallbackSel] = useState(p.tab.fallbackModel ?? '')
+  /** id que se está escribiendo a mano; null = el desplegable normal */
+  const [idManual, setIdManual] = useState<string | null>(null)
+
+  // El modelo puede cambiar por otra vía (resurrección de la pestaña, otro
+  // panel): sin resincronizar, el desplegable enseñaría el anterior.
+  useEffect(() => {
+    setModelSel(p.tab.model ?? '')
+    setFallbackSel(p.tab.fallbackModel ?? '')
+  }, [p.tab.model, p.tab.fallbackModel])
   const [autoModel, setAutoModel] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -1510,6 +1576,11 @@ export function ChatView(p: Props): React.JSX.Element {
           }}
           onChange={(e) => {
             const model = e.target.value
+            if (model === OTRO) {
+              setIdManual(modelSel)
+              return
+            }
+            setIdManual(null)
             setModelSel(model)
             p.tab.model = model || undefined
             void window.deck.chatSetModel(tabId, model || undefined)
@@ -1517,11 +1588,48 @@ export function ChatView(p: Props): React.JSX.Element {
           title="Modelo de esta sesión (cambia en vivo)"
         >
           <option value="">Modelo: auto{autoModel ? ` (${autoModel})` : ''}</option>
-          {(models.length > 0 ? models : FALLBACK_MODELS).map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.displayName}
-            </option>
-          ))}
+          <OpcionesModelo models={models} />
+          {/* un id escrito a mano no está en ninguna lista: sin esto, el
+              desplegable no podría mostrar lo que está realmente activo */}
+          {!esConocido(modelSel, models) && (
+            <optgroup label="Escrito a mano">
+              <option value={modelSel}>{modelSel}</option>
+            </optgroup>
+          )}
+          <option value={OTRO}>Otro id…</option>
+        </select>
+        {idManual !== null && (
+          <input
+            className="mode-input"
+            autoFocus
+            defaultValue={idManual}
+            placeholder="claude-opus-4-6"
+            title="Id exacto del modelo; viaja tal cual al CLI"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setIdManual(null)
+              if (e.key !== 'Enter') return
+              const v = (e.target as HTMLInputElement).value.trim()
+              setIdManual(null)
+              setModelSel(v)
+              p.tab.model = v || undefined
+              void window.deck.chatSetModel(tabId, v || undefined)
+            }}
+            onBlur={() => setIdManual(null)}
+          />
+        )}
+        <select
+          className="mode-select"
+          value={fallbackSel}
+          onChange={(e) => {
+            const model = e.target.value
+            setFallbackSel(model)
+            p.tab.fallbackModel = model || undefined
+            void window.deck.chatSetFallbackModel(tabId, model || undefined)
+          }}
+          title="Modelo de respaldo: entra si el principal está sobrecargado. El principal se reintenta en cada turno, así que una caída pasajera no degrada la sesión. Cambiarlo reinicia la sesión conservando la conversación."
+        >
+          <option value="">Sin respaldo</option>
+          <OpcionesModelo models={models} />
         </select>
         <span className="params-anchor">
           <button

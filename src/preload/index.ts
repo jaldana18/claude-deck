@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
+  StatusReport,
   ArtifactDraft,
   AzureListItem,
   BoardData,
@@ -192,6 +193,9 @@ const api = {
   pathForFile: (file: File): string => webUtils.getPathForFile(file),
   chatSetModel: (tabId: string, model?: string): Promise<void> =>
     ipcRenderer.invoke('chat:setModel', { tabId, model }),
+  /** Modelo de respaldo de la pestaña; reinicia la sesión con resume */
+  chatSetFallbackModel: (tabId: string, model?: string): Promise<void> =>
+    ipcRenderer.invoke('chat:setFallbackModel', { tabId, model }),
   onChatModels: (cb: (p: { tabId: string; models: ModelOption[] }) => void) =>
     on('chat:models', cb),
   onChatInitModel: (cb: (p: { tabId: string; model: string }) => void) =>
@@ -289,6 +293,10 @@ const api = {
 
   // app / actualización automática
   appVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  // estado del servicio: informe cacheado, comprobación forzada y avisos push
+  statusGet: (): Promise<StatusReport> => ipcRenderer.invoke('status:get'),
+  statusCheck: (): Promise<StatusReport> => ipcRenderer.invoke('status:check'),
+  onStatusChanged: (cb: (p: StatusReport) => void) => on('status:changed', cb),
   updateCheck: (): Promise<{ version: string; installerPath?: string; url?: string } | null> =>
     ipcRenderer.invoke('update:check'),
   updateGetDir: (): Promise<string> => ipcRenderer.invoke('update:getDir'),

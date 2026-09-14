@@ -44,6 +44,7 @@ import {
 import { ChatSessionManager } from './chatSession'
 import { loadChatHistory } from './transcript'
 import { Updater, type UpdateInfo } from './updater'
+import { StatusWatcher } from './status'
 import {
   addMcpServer,
   importAgents,
@@ -64,7 +65,8 @@ const store = new Store()
 const ptys = new PtyManager(getWindow)
 const tracker = new SessionTracker(store, getWindow)
 const hookServer = new HookServer(tracker, getWindow)
-const chatSessions = new ChatSessionManager(store, getWindow)
+const statusWatcher = new StatusWatcher(getWindow, store)
+const chatSessions = new ChatSessionManager(store, getWindow, statusWatcher)
 const updater = new Updater(getWindow, store)
 
 /** Arranca los procesos de una pestaña según su modo (todos sus paneles) */
@@ -218,7 +220,10 @@ function createWindow(): void {
     win = null
     ptys.detachAll()
   })
-  win.on('focus', () => updater.onWindowFocus())
+  win.on('focus', () => {
+    updater.onWindowFocus()
+    statusWatcher.onWindowFocus()
+  })
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
@@ -663,6 +668,11 @@ ipcMain.handle('store:plugin', (_e, a: { args: string[]; cwd: string }) =>
 ipcMain.handle('chat:setModel', (_e, args: { tabId: string; model?: string }) =>
   chatSessions.setModel(args.tabId, args.model)
 )
+ipcMain.handle(
+  'chat:setFallbackModel',
+  (_e, args: { tabId: string; model?: string }) =>
+    chatSessions.setFallbackModel(args.tabId, args.model)
+)
 
 /** Sesiones pasadas del proyecto (historial lateral) */
 ipcMain.handle('chat:sessions', async (_e, cwd: string) => {
@@ -758,6 +768,8 @@ ipcMain.handle('settings:get', () => store.globalSettings)
 ipcMain.handle('settings:set', (_e, settings: GlobalSettings) => {
   store.setGlobalSettings(settings)
   syncTray()
+  // Si acaban de activar la vigilancia, que no haya que esperar al próximo ciclo
+  if (settings.statusAlerts !== false) void statusWatcher.check(true)
 })
 
 /** El renderer necesita saberlo para ofrecer «Salir» de verdad desde la UI. */
@@ -825,6 +837,13 @@ ipcMain.handle('update:install', (_e, info: UpdateInfo) => updater.install(info)
 ipcMain.handle('update:getDir', () => updater.getDir())
 ipcMain.handle('update:setDir', (_e, dir: string) => updater.setDir(dir))
 
+// ---------- IPC: estado del servicio ----------
+
+/** Informe cacheado, sin salir a la red: lo pide el renderer al montar */
+ipcMain.handle('status:get', () => statusWatcher.report())
+/** Comprobación forzada, saltándose los frenos: es el botón «Comprobar» */
+ipcMain.handle('status:check', () => statusWatcher.check(true))
+
 /** Abre un resultado de búsqueda: pestaña de chat nueva reanudando esa sesión */
 ipcMain.handle('chats:open', (_e, args: { cwd: string; sessionId: string }) => {
   const prefs = store.getProjectPrefs(args.cwd)
@@ -868,6 +887,7 @@ if (!gotLock) {
     syncTray()
     hookServer.start()
     updater.startAutoCheck()
+    statusWatcher.startAutoCheck()
     // Resurrección: relanzar cada pestaña guardada (chat con resume, terminal con --resume)
     for (const tab of store.tabs) startTab(tab)
     app.on('activate', () => {

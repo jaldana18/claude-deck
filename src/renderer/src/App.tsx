@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PaneLayout, TabState, TabStatus } from '../../shared/types'
+import type { PaneLayout, StatusReport, TabState, TabStatus } from '../../shared/types'
+import { resumirEstado } from '../../shared/status'
 import { PANE_COUNT, paneTabId } from '../../shared/types'
 import { TabBar } from './components/TabBar'
 import { ChatTabView } from './components/ChatTabView'
@@ -169,6 +170,9 @@ export default function App(): React.JSX.Element {
   const [updateErr, setUpdateErr] = useState('')
   const [appVersion, setAppVersion] = useState('')
   const [upToDate, setUpToDate] = useState(false)
+  const [estado, setEstado] = useState<StatusReport | null>(null)
+  /** firma del aviso que el usuario descartó, para no reabrirlo en cada sondeo */
+  const [estadoOculto, setEstadoOculto] = useState('')
   /** División del área de trabajo: 1, 2 o 4 chats a la vez (cada uno con su terminal) */
   const [wsLayout, setWsLayout] = useState<PaneLayout>('single')
   const [cells, setCells] = useState<(string | null)[]>([null, null, null, null])
@@ -185,9 +189,13 @@ export default function App(): React.JSX.Element {
     void window.deck.appVersion().then(setAppVersion)
     const off = window.deck.onUpdateAvailable(setUpdate)
     const offProgress = window.deck.onUpdateProgress(({ percent }) => setDlPct(percent))
+    // Informe cacheado al montar; después llegan por push solo los cambios
+    void window.deck.statusGet().then(setEstado)
+    const offStatus = window.deck.onStatusChanged(setEstado)
     return () => {
       off()
       offProgress()
+      offStatus()
     }
   }, [])
 
@@ -411,8 +419,41 @@ export default function App(): React.JSX.Element {
 
   const split = wsLayout !== 'single'
 
+  const aviso = resumirEstado(estado)
+
   return (
     <div className="app">
+      {aviso && aviso.firma !== estadoOculto && (
+        <div className={`update-banner status-banner status-banner--${aviso.tono}`}>
+          <span>
+            {aviso.tono === 'grave' ? '🔴' : '🟠'} {aviso.texto}
+            {aviso.url && (
+              <>
+                {' '}
+                <a href={aviso.url} target="_blank" rel="noreferrer">
+                  Ver el parte oficial
+                </a>
+              </>
+            )}
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="iconbtn"
+              onClick={() => void window.deck.statusCheck().then(setEstado)}
+              title="Vuelve a consultar el status oficial ahora mismo"
+            >
+              Comprobar
+            </button>
+            <button
+              className="iconbtn"
+              onClick={() => setEstadoOculto(aviso.firma)}
+              title="Oculta este aviso; volverá a salir si la situación cambia"
+            >
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
       {update && (
         <div className="update-banner">
           <span>

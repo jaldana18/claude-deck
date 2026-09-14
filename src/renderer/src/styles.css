@@ -4061,3 +4061,33 @@ kbd {
   border-color: color-mix(in srgb, #3fb950 45%, transparent);
   color: #3fb950;
 }
+
+/* ============ aviso de estado del servicio ============ */
+
+/* Hereda la maquetación del banner de actualización y solo cambia el color:
+   son el mismo objeto visual con distinta urgencia. */
+.status-banner--aviso {
+  background: color-mix(in srgb, var(--yellow) 14%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--yellow) 45%, transparent);
+}
+.status-banner--grave {
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--red) 50%, transparent);
+}
+.status-banner a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Campo para escribir un id de modelo a mano, al lado del desplegable */
+.mode-input {
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-s);
+  padding: 4px 8px;
+  font-size: 12px;
+  width: 190px;
+  font-family: var(--mono, monospace);
+}

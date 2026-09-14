@@ -1,3 +1,5 @@
+import type { ModelFamily } from './models'
+
 // Tipos compartidos entre main, preload y renderer.
 
 export type TabProfile = 'claude' | 'shell'
@@ -54,6 +56,10 @@ export interface TabState {
   permissionMode?: PermissionModeId
   /** Modelo elegido para la sesión (vacío = el default de la cuenta) */
   model?: string
+  /** Modelo al que caer si el principal está sobrecargado. El SDK reintenta el
+   *  principal al inicio de cada turno, así que una caída pasajera no degrada
+   *  la sesión de forma permanente. Vacío = sin respaldo. */
+  fallbackModel?: string
   /** Distribución de los paneles de terminal; ausente = un solo panel */
   paneLayout?: PaneLayout
   /** Parámetros del LLM de esta pestaña (effort, thinking, límites…) */
@@ -67,9 +73,18 @@ export interface TabState {
   createdAt: number
 }
 
+/** Niveles de esfuerzo de razonamiento que admite el SDK */
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
 export interface ModelOption {
   value: string
   displayName: string
+  /** id canónico al que resuelve un alias ('opus' → 'claude-opus-5'); lo manda
+   *  el SDK y sirve para enseñar a qué apunta hoy cada alias */
+  resolvedModel?: string
+  description?: string
+  /** niveles de effort admitidos; ausente = el modelo no admite effort */
+  supportedEffortLevels?: EffortLevel[]
 }
 
 export type ShellId = 'powershell' | 'cmd' | 'bash'
@@ -200,7 +215,7 @@ export interface WidgetState {
  */
 export interface LlmParams {
   /** Esfuerzo de razonamiento (default del CLI: high) */
-  effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+  effort?: EffortLevel
   /** Thinking: undefined = adaptativo (default), 0 = desactivado, >0 = presupuesto fijo en tokens */
   thinkingBudget?: number
   /** Máximo de turnos por consulta (vacío = sin límite) */
@@ -232,6 +247,12 @@ export interface GlobalSettings {
   /** El globo que explica dónde quedó la ventana se muestra una sola vez;
    *  repetirlo en cada cierre sería ruido. */
   trayHintShown?: boolean
+  /** Vigilar el estado del servicio y avisar de caídas (por defecto: sí) */
+  statusAlerts?: boolean
+  /** Cuántos fallos de API contra el mismo modelo, dentro de la ventana de
+   *  observación, hacen falta para darlo por degradado. Uno solo puede ser
+   *  mala suerte; el valor por defecto es 3. */
+  statusFaultThreshold?: number
 }
 
 /** Resultado genérico de las acciones de la tienda */
@@ -553,4 +574,63 @@ export interface PermissionResponse {
 export interface GlobalAgentInfo {
   name: string
   description: string
+}
+
+
+// ---------- Estado del servicio y alertas de caída ----------
+
+/** Severidad normalizada; el status oficial usa etiquetas propias por componente */
+export type ServiceLevel =
+  | 'operational'
+  | 'degraded'
+  | 'partial'
+  | 'major'
+  | 'maintenance'
+  | 'unknown'
+
+export interface ServiceComponent {
+  name: string
+  level: ServiceLevel
+}
+
+export interface StatusIncident {
+  id: string
+  name: string
+  /** investigating | identified | monitoring | resolved | postmortem */
+  stage: string
+  impact: 'none' | 'minor' | 'major' | 'critical'
+  url: string
+  startedAt: string
+  /** Familias de modelo nombradas en el título o en el último parte. El status
+   *  oficial no tiene componentes por modelo, así que esto se deduce del texto
+   *  y es orientativo, no autoritativo. */
+  families: ModelFamily[]
+}
+
+/**
+ * Fallo de API observado en esta máquina. Es la señal que de verdad importa:
+ * el status oficial puede decir «todo operativo» mientras un modelo concreto
+ * te devuelve 529 una y otra vez.
+ */
+export interface ModelFault {
+  /** modelo que se pidió cuando falló */
+  model: string
+  family?: ModelFamily
+  /** código HTTP; null = error de conexión sin respuesta */
+  status: number | null
+  message: string
+  at: number
+}
+
+export interface StatusReport {
+  checkedAt: number
+  /** null = no se pudo consultar el status oficial (sin red, caído, etc.) */
+  level: ServiceLevel | null
+  summary: string
+  components: ServiceComponent[]
+  incidents: StatusIncident[]
+  /** fallos locales dentro de la ventana de observación, del más reciente al más viejo */
+  faults: ModelFault[]
+  /** modelos que superaron el umbral de fallos locales */
+  degraded: string[]
 }

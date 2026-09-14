@@ -28,6 +28,8 @@ function fmt(n: number): string {
 export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
   const [tokens, setTokens] = useState(150_000)
   const [closeToTray, setCloseToTray] = useState(false)
+  const [statusAlerts, setStatusAlerts] = useState(true)
+  const [umbral, setUmbral] = useState(3)
   const [loaded, setLoaded] = useState(false)
   const [saved, setSaved] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -36,6 +38,8 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
     void window.deck.getGlobalSettings().then((s: GlobalSettings) => {
       setTokens(s.autoCompactTokens ?? 0)
       setCloseToTray(s.closeToTray === true)
+      setStatusAlerts(s.statusAlerts !== false)
+      setUmbral(s.statusFaultThreshold ?? 3)
       setLoaded(true)
     })
   }, [])
@@ -46,7 +50,12 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
   }
 
   const save = async (): Promise<void> => {
-    await window.deck.setGlobalSettings({ autoCompactTokens: tokens, closeToTray })
+    await window.deck.setGlobalSettings({
+      autoCompactTokens: tokens,
+      closeToTray,
+      statusAlerts,
+      statusFaultThreshold: umbral
+    })
     setSaved(true)
     setTimeout(close, 500)
   }
@@ -116,6 +125,49 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
             <b>3 compactaciones automáticas</b> sin que escribas nada; a partir de ahí avisa y se
             detiene, en vez de seguir compactando y reanudando sola.
           </p>
+
+          <hr className="cd-sep" />
+
+          <label className="cd-label">Avisos de caída del servicio</label>
+          <div className="cd-switchrow">
+            <label className="switch" title="Vigilar el estado de Claude y avisar con un banner">
+              <input
+                type="checkbox"
+                checked={statusAlerts}
+                onChange={(e) => setStatusAlerts(e.target.checked)}
+              />
+              <span className="slider" />
+            </label>
+            <span className="cd-switchrow__text">
+              {statusAlerts ? 'Vigilar y avisar con un banner' : 'No vigilar'}
+            </span>
+          </div>
+          <p className="cd-help">
+            Se combinan dos fuentes. El <b>status oficial</b> de Anthropic se consulta cada cinco
+            minutos, pero solo informa de servicios enteros —API, Claude Code— y nunca de modelos
+            concretos, así que llega tarde y en grueso. La segunda fuente son los <b>errores de API
+            que ocurren en este equipo</b>: el SDK avisa de cada reintento, y eso sí sabe qué
+            modelo estabas usando. Ninguna de las dos gasta cuota de tu suscripción.
+          </p>
+          {statusAlerts && (
+            <>
+              <label className="cd-label">Errores para dar un modelo por caído</label>
+              <input
+                className="cd-input"
+                type="number"
+                min={1}
+                max={20}
+                value={umbral}
+                onChange={(e) => setUmbral(Number(e.target.value) || 1)}
+              />
+              <p className="cd-help">
+                Cuántos fallos contra el mismo modelo, en una ventana de diez minutos, hacen falta
+                antes de avisar. Uno solo suele ser mala suerte. Un turno que termina bien borra
+                los fallos anteriores de ese modelo, para que un pico corto no deje el aviso
+                encendido.
+              </p>
+            </>
+          )}
 
           <hr className="cd-sep" />
 
