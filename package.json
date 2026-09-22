@@ -1,6 +1,6 @@
 {
   "name": "claude-deck",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "description": "Terminal multi-pestaña para sesiones de Claude Code con resurrección tras reinicio y gestión visual de agentes, skills, hooks y MCP",
   "main": "out/main/index.js",
   "author": "Juan Danilo Aldana Tibabisco",
@@ -68,7 +68,7 @@
     }
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.227",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.280",
     "@anthropic-ai/sdk": "^0.116.0",
     "@lydell/node-pty": "1.2.0-beta.15",
     "@modelcontextprotocol/sdk": "^1.30.0",

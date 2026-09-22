@@ -45,8 +45,10 @@ const K200 = 200_000
  * defecto la cuenta.
  */
 export const MODEL_CATALOG: CatalogModel[] = [
+  { id: 'claude-fable-5-1', label: 'Fable 5.1', family: 'fable', context: M },
   { id: 'claude-fable-5', label: 'Fable 5', family: 'fable', context: M },
 
+  { id: 'claude-opus-5-5', label: 'Opus 5.5', family: 'opus', context: M },
   { id: 'claude-opus-5', label: 'Opus 5', family: 'opus', context: M },
   { id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'opus', context: M },
   { id: 'claude-opus-4-7', label: 'Opus 4.7', family: 'opus', context: M },

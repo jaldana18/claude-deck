@@ -66,3 +66,24 @@ describe('MODEL_CATALOG', () => {
     for (const c of MODEL_CATALOG) expect(familyOf(c.id)).toBe(c.family)
   })
 })
+
+describe('modelos nuevos en el catálogo', () => {
+  it('Opus 5.5 y Fable 5.1 están presentes y encabezan su familia', () => {
+    const opus = MODEL_CATALOG.filter((m) => m.family === 'opus')
+    const fable = MODEL_CATALOG.filter((m) => m.family === 'fable')
+    expect(opus[0].id).toBe('claude-opus-5-5')
+    expect(fable[0].id).toBe('claude-fable-5-1')
+  })
+
+  it('se etiquetan por catálogo y no por el fallback de id crudo', () => {
+    expect(labelFor('claude-opus-5-5')).toBe('Opus 5.5')
+    expect(labelFor('claude-opus-5-5[1m]')).toBe('Opus 5.5 · 1M')
+    expect(labelFor('claude-fable-5-1')).toBe('Fable 5.1')
+  })
+
+  it('cuentan como versión fijada, no como alias', () => {
+    expect(isPinned('claude-opus-5-5')).toBe(true)
+    expect(familyOf('claude-opus-5-5')).toBe('opus')
+    expect(familyOf('claude-fable-5-1')).toBe('fable')
+  })
+})

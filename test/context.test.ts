@@ -19,11 +19,13 @@ describe('contextWindowFor', () => {
     // antes todos estos caían en 200k y disparaban el auto-compact con el 80%
     // de la ventana todavía libre
     expect(contextWindowFor('claude-opus-5')).toBe(1_000_000)
+    expect(contextWindowFor('claude-opus-5-5')).toBe(1_000_000)
     expect(contextWindowFor('claude-opus-4-8')).toBe(1_000_000)
     expect(contextWindowFor('claude-opus-4-7')).toBe(1_000_000)
     expect(contextWindowFor('claude-opus-4-6')).toBe(1_000_000)
     expect(contextWindowFor('claude-sonnet-5')).toBe(1_000_000)
     expect(contextWindowFor('claude-sonnet-4-6')).toBe(1_000_000)
+    expect(contextWindowFor('claude-fable-5-1')).toBe(1_000_000)
     expect(contextWindowFor('claude-fable-5')).toBe(1_000_000)
   })
 
