@@ -25,7 +25,8 @@ import type {
 export interface ChatPayloads {
   streamStart: { tabId: string; messageId: string }
   delta: { tabId: string; messageId: string; text: string }
-  message: { tabId: string; message: ChatMessage }
+  /** `echo`: mensaje que acaba de enviar una persona, reflejado por el main */
+  message: { tabId: string; message: ChatMessage; echo?: boolean }
   toolResult: { tabId: string; toolUseId: string; result: string; isError: boolean }
   result: ChatResultMeta
   error: { tabId: string; message: string }

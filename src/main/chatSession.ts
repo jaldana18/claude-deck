@@ -730,7 +730,18 @@ export class ChatSession {
     }
   }
 
-  sendUserText(text: string, attachments?: ChatAttachment[]): void {
+  /**
+   * `origen` decide si el mensaje se refleja a los clientes. Lo que escribe una
+   * persona tiene que verse en los dos dispositivos en el momento del envío, no
+   * cuando el turno cierra y se relee el transcript. Lo que envía la app sola
+   * (auto-continuación, /compact y su reanudación) no se refleja: nadie lo
+   * escribió y ensuciaría la conversación.
+   */
+  sendUserText(
+    text: string,
+    attachments?: ChatAttachment[],
+    origen: 'usuario' | 'sistema' = 'sistema'
+  ): void {
     const content =
       attachments && attachments.length > 0
         ? [
@@ -748,6 +759,20 @@ export class ChatSession {
     })
     this.waiters.splice(0).forEach((w) => w())
     this.turnoEnCurso = true
+    // /clear no es un mensaje: es el borrón, y la vista ya lo refleja vaciándose
+    if (origen === 'usuario' && text.trim() !== '/clear') {
+      const eco: ChatMessage = {
+        id: `usuario-${randomUUID()}`,
+        role: 'user',
+        text,
+        toolUses: [],
+        timestamp: new Date().toISOString(),
+        ...(attachments?.length
+          ? { images: attachments.map((a) => `data:${a.mediaType};base64,${a.dataBase64}`) }
+          : {})
+      }
+      this.send('chat:message', { tabId: this.tab.id, message: eco, replacesStreaming: false, echo: true })
+    }
     this.status('working')
   }
 
@@ -930,7 +955,7 @@ export class ChatSessionManager {
     session.resetAutoCompacts()
     // /compact escrito a mano: mismo indicador de progreso que el automático
     if (text.trim().toLowerCase() === '/compact') session.markCompacting()
-    session.sendUserText(text, attachments)
+    session.sendUserText(text, attachments, 'usuario')
   }
 
   commandsFor(tabId: string): SlashCommandInfo[] {

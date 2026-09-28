@@ -238,7 +238,13 @@ const api = {
     on('chat:stream-start', cb),
   onChatDelta: (cb: (p: ChatDeltaEvent) => void) => on('chat:delta', cb),
   onChatMessage: (
-    cb: (p: { tabId: string; message: ChatMessage; replacesStreaming: boolean }) => void
+    cb: (p: {
+      tabId: string
+      message: ChatMessage
+      replacesStreaming: boolean
+      /** eco del mensaje que acaba de enviar una persona, desde el main */
+      echo?: boolean
+    }) => void
   ) => on('chat:message', cb),
   onChatToolResult: (
     cb: (p: { tabId: string; toolUseId: string; result: string; isError: boolean }) => void

@@ -218,6 +218,49 @@ describe('bucle del SDK', () => {
     sesion.stop()
   })
 
+  it('lo que escribe una persona se refleja al instante a todos los clientes', () => {
+    const { sesion, eventos } = montar()
+    sesion.sendUserText('arregla el login', undefined, 'usuario')
+
+    const eco = eventos.find(([c]) => c === 'chat:message')?.[1] as {
+      echo?: boolean
+      message: { role: string; text: string; id: string }
+    }
+    expect(eco.echo).toBe(true)
+    expect(eco.message).toMatchObject({ role: 'user', text: 'arregla el login' })
+    // id propio del main: el otro dispositivo necesita una clave estable
+    expect(eco.message.id.startsWith('usuario-')).toBe(true)
+    sesion.stop()
+  })
+
+  it('las imágenes adjuntas viajan en el eco: el otro dispositivo no las tiene', () => {
+    const { sesion, eventos } = montar()
+    sesion.sendUserText(
+      'mira esto',
+      [{ name: 'a.png', mediaType: 'image/png', dataBase64: 'AAA' }],
+      'usuario'
+    )
+    const eco = eventos.find(([c]) => c === 'chat:message')?.[1] as {
+      message: { images?: string[] }
+    }
+    expect(eco.message.images).toEqual(['data:image/png;base64,AAA'])
+    sesion.stop()
+  })
+
+  it('los envíos de la propia app no se reflejan', () => {
+    const { sesion, eventos } = montar()
+    sesion.sendUserText('continúa donde quedaste')
+    expect(eventos.some(([c]) => c === 'chat:message')).toBe(false)
+    sesion.stop()
+  })
+
+  it('/clear no se refleja como mensaje', () => {
+    const { sesion, eventos } = montar()
+    sesion.sendUserText('/clear', undefined, 'usuario')
+    expect(eventos.some(([c]) => c === 'chat:message')).toBe(false)
+    sesion.stop()
+  })
+
   it('el result actualiza la salud que verá el cliente remoto', async () => {
     const { sesion, sdk } = montar()
     sdk.emitir({

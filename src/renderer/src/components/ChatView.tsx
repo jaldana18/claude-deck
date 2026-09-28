@@ -837,11 +837,15 @@ export function ChatView(p: Props): React.JSX.Element {
         }
         setStreamText((s) => appendDelta(s, messageId, text))
       }),
-      message: (({ tabId: id, message }) => {
+      message: (({ tabId: id, message, echo }) => {
         if (id !== tabId) return
-        // el mensaje final llega completo: lo pendiente en el buffer ya sobra
-        hiddenDelta.current = null
-        setStreamText(null)
+        // El eco de un mensaje del usuario no cierra nada: si Claude está
+        // escribiendo, borrar el buffer aquí perdería lo ya recibido.
+        if (!echo) {
+          // el mensaje final llega completo: lo pendiente en el buffer ya sobra
+          hiddenDelta.current = null
+          setStreamText(null)
+        }
         setMessages((ms) =>
           ms.some((m) => m.id === message.id) ? ms : capMessages([...ms, message])
         )
@@ -1219,17 +1223,9 @@ export function ChatView(p: Props): React.JSX.Element {
         setBusy(true)
         return
       }
-      setMessages((ms) => [
-        ...ms,
-        {
-          id: `local-${Date.now()}`,
-          role: 'user',
-          text,
-          toolUses: [],
-          timestamp: new Date().toISOString(),
-          ...(atts.length ? { images: atts.map((a) => a.dataUrl) } : {})
-        }
-      ])
+      // La burbuja la pinta el eco que emite el main, no esta vista: así el
+      // mismo mensaje aparece igual aquí y en el otro dispositivo, y si el
+      // envío no llega a hacerse tampoco queda una burbuja fantasma.
       setError('')
       setBusy(true)
       stickToBottom.current = true
