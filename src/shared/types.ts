@@ -587,6 +587,19 @@ export interface SessionSnapshot {
   models: ModelOption[]
 }
 
+/**
+ * Quién tiene el control de una conversación. Los dos dispositivos ven todo en
+ * vivo; solo el dueño envía y aprueba, y el otro lo reclama de un toque.
+ * `connected` en false significa que el dueño se fue: ya no bloquea a nadie.
+ */
+export interface OwnerState {
+  tabId: string
+  clientId: string
+  label: string
+  since: number
+  connected: boolean
+}
+
 export interface PermissionResponse {
   tabId: string
   requestId: string

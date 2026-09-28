@@ -21,6 +21,7 @@ import type {
   HookItem,
   LlmParams,
   ModelOption,
+  OwnerState,
   PaneLayout,
   PluginManifest,
   PermissionModeId,
@@ -144,6 +145,11 @@ const api = {
   chatSnapshot: (tabId: string): Promise<SessionSnapshot | null> =>
     ipcRenderer.invoke('chat:snapshot', tabId),
   chatSnapshotAll: (): Promise<SessionSnapshot[]> => ipcRenderer.invoke('chat:snapshotAll'),
+  chatOwners: (): Promise<OwnerState[]> => ipcRenderer.invoke('chat:owners'),
+  /** Tomar el control de una conversación que tiene otro dispositivo. */
+  chatClaim: (tabId: string): Promise<OwnerState> => ipcRenderer.invoke('chat:claim', tabId),
+  onChatOwner: (cb: (p: { tabId: string; owner: OwnerState | null }) => void) =>
+    on('chat:owner', cb),
   onChatHealth: (cb: (p: ChatHealth) => void) => on('chat:health', cb),
   onChatAutoContinue: (cb: (p: { tabId: string; count: number }) => void) =>
     on('chat:auto-continue', cb),

@@ -54,6 +54,7 @@ import {
   runPluginCommand
 } from './marketplace'
 import { Bus } from './bus'
+import { CLIENTE_LOCAL, Ownership } from './ownership'
 
 let win: BrowserWindow | null = null
 const getWindow = (): BrowserWindow | null => win
@@ -70,6 +71,7 @@ const hookServer = new HookServer(tracker, bus)
 const statusWatcher = new StatusWatcher(bus, store)
 const chatSessions = new ChatSessionManager(store, bus, statusWatcher)
 const updater = new Updater(bus, store)
+const ownership = new Ownership(bus)
 
 /** Arranca los procesos de una pestaña según su modo (todos sus paneles) */
 function startTab(tab: TabState): void {
@@ -286,6 +288,7 @@ ipcMain.handle('tabs:close', (_e, tabId: string) => {
   ptys.killTabPanes(tabId)
   tracker.stopTracking(tabId)
   chatSessions.stop(tabId)
+  ownership.forget(tabId)
   for (const paneId of paneIdsFor(tabId, tab?.paneLayout)) store.removeScrollback(paneId)
   store.removeTab(tabId)
   refreshTray()
@@ -621,12 +624,19 @@ ipcMain.handle('chats:search', (_e, query: string) => searchChats(query))
 
 // ---------- IPC: chat (v2, Agent SDK) ----------
 
+// El control de la conversación se comprueba en el borde: aquí el cliente es
+// siempre el PC, y el gateway remoto hará lo mismo con el id de su dispositivo.
+// Con un solo cliente `puedeActuar` nunca dice no.
 ipcMain.on(
   'chat:send',
   (_e, args: { tabId: string; text: string; attachments?: ChatAttachment[] }) => {
+    if (!ownership.puedeActuar(args.tabId, CLIENTE_LOCAL)) return
     chatSessions.send(args.tabId, args.text, args.attachments)
   }
 )
+
+ipcMain.handle('chat:owners', () => ownership.list())
+ipcMain.handle('chat:claim', (_e, tabId: string) => ownership.claim(tabId, CLIENTE_LOCAL))
 
 ipcMain.handle('chat:commands', (_e, tabId: string) => chatSessions.commandsFor(tabId))
 ipcMain.handle('chat:models', (_e, tabId: string) => chatSessions.modelsFor(tabId))
@@ -710,6 +720,7 @@ ipcMain.handle('chat:interrupt', (_e, tabId: string) => chatSessions.interrupt(t
 ipcMain.on(
   'chat:permission-response',
   (_e, args: { tabId: string; requestId: string; decision: 'allow' | 'always' | 'deny' }) => {
+    if (!ownership.puedeActuar(args.tabId, CLIENTE_LOCAL)) return
     chatSessions.resolvePermission(args.tabId, args.requestId, args.decision)
   }
 )
@@ -717,6 +728,7 @@ ipcMain.on(
 ipcMain.on(
   'chat:question-response',
   (_e, args: { tabId: string; requestId: string; answers: Record<string, string> | null }) => {
+    if (!ownership.puedeActuar(args.tabId, CLIENTE_LOCAL)) return
     chatSessions.resolveQuestion(args.tabId, args.requestId, args.answers)
   }
 )
