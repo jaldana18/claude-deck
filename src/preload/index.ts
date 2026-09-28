@@ -102,6 +102,10 @@ const api = {
   // sesiones / estado
   onTabSession: (cb: (p: { tabId: string; sessionId: string }) => void) => on('tab:session', cb),
   onTabStatus: (cb: (p: TabStatusEvent) => void) => on('tab:status', cb),
+  /** Cambios de una pestaña hechos desde cualquier dispositivo */
+  onTabState: (cb: (p: { tabId: string; patch: Partial<TabState> }) => void) =>
+    on('tab:state', cb),
+  onTabList: (cb: (p: { tabs: TabState[] }) => void) => on('tab:list', cb),
 
   // config
   scanConfig: (cwd: string): Promise<ProjectConfig> => ipcRenderer.invoke('config:scan', cwd),

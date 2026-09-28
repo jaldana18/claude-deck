@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFile, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { GlobalSettings, ProjectPrefs, Snippet, TabState, WidgetState } from '../shared/types'
+import type { Emitter } from './bus'
 
 interface DeckState {
   tabs: TabState[]
@@ -103,6 +104,17 @@ export class Store {
     }
   }
 
+  /**
+   * Los cambios de pestaña se anuncian para que un segundo dispositivo los vea.
+   * Se asigna después de construir, porque el bus se crea con la ventana y la
+   * ventana necesita el estado ya cargado.
+   */
+  private bus: Emitter | null = null
+
+  setEmitter(bus: Emitter): void {
+    this.bus = bus
+  }
+
   get tabs(): TabState[] {
     return this.state.tabs
   }
@@ -120,6 +132,7 @@ export class Store {
     this.state.tabs.push(tab)
     this.state.activeTabId = tab.id
     this.scheduleSave()
+    this.bus?.send('tab:list', { tabs: this.state.tabs })
   }
 
   updateTab(id: string, patch: Partial<TabState>): TabState | undefined {
@@ -127,6 +140,12 @@ export class Store {
     if (!tab) return undefined
     Object.assign(tab, patch)
     this.scheduleSave()
+    // La salud tiene su propio canal y llega en cada turno: reenviarla aquí
+    // sería duplicar el evento más frecuente de todos.
+    const { lastHealth: _omitida, ...anunciable } = patch
+    if (Object.keys(anunciable).length > 0) {
+      this.bus?.send('tab:state', { tabId: id, patch: anunciable })
+    }
     return tab
   }
 
@@ -142,6 +161,7 @@ export class Store {
       /* ignore */
     }
     this.scheduleSave()
+    this.bus?.send('tab:list', { tabs: this.state.tabs })
   }
 
   private scrollbackFile(tabId: string): string {

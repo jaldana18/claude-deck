@@ -72,6 +72,8 @@ const statusWatcher = new StatusWatcher(bus, store)
 const chatSessions = new ChatSessionManager(store, bus, statusWatcher)
 const updater = new Updater(bus, store)
 const ownership = new Ownership(bus)
+// el estado de pestañas se anuncia: un segundo dispositivo ve los cambios
+store.setEmitter(bus)
 
 /** Arranca los procesos de una pestaña según su modo (todos sus paneles) */
 function startTab(tab: TabState): void {
