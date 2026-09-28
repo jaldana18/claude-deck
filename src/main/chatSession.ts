@@ -40,6 +40,14 @@ import type { StatusWatcher } from './status'
 import type { Emitter } from './bus'
 
 /**
+ * Lo que la sesión necesita del `query()` del SDK. Se inyecta para poder
+ * sustituirlo en pruebas: el bucle que consume los mensajes es donde viven el
+ * streaming, los permisos y el ciclo de turno, y no hay forma de ejercitarlos
+ * sin lanzar el CLI real si la dependencia está clavada al módulo.
+ */
+export type QueryFn = (args: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => Query
+
+/**
  * Ruta al CLI de Claude Code. El binario que el SDK trae embebido (~278 MB)
  * se excluye del instalador para no inflarlo, así que en producción se usa el
  * claude ya instalado en el PC (npm global o instalador nativo).
@@ -153,7 +161,8 @@ export class ChatSession {
     private store: Store,
     private bus: Emitter,
     /** vigilante de estado: recibe los fallos de API para detectar caídas */
-    private watcher?: StatusWatcher
+    private watcher?: StatusWatcher,
+    private queryFn: QueryFn = query
   ) {
     // sembrar la salud desde lo persistido: sobrevive al reinicio de la app
     const lh = tab.lastHealth
@@ -339,7 +348,7 @@ export class ChatSession {
       }
     }
 
-    this.q = query({ prompt: this.input(), options })
+    this.q = this.queryFn({ prompt: this.input(), options })
     void this.run()
   }
 
