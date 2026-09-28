@@ -25,6 +25,7 @@ import type {
   PluginManifest,
   PermissionModeId,
   PermissionRequestEvent,
+  SessionSnapshot,
   ProjectConfig,
   GlobalSettings,
   ProjectPrefs,
@@ -140,6 +141,9 @@ const api = {
   chatModels: (tabId: string): Promise<ModelOption[]> => ipcRenderer.invoke('chat:models', tabId),
   chatHealth: (tabId: string): Promise<ChatHealth | null> =>
     ipcRenderer.invoke('chat:health', tabId),
+  chatSnapshot: (tabId: string): Promise<SessionSnapshot | null> =>
+    ipcRenderer.invoke('chat:snapshot', tabId),
+  chatSnapshotAll: (): Promise<SessionSnapshot[]> => ipcRenderer.invoke('chat:snapshotAll'),
   onChatHealth: (cb: (p: ChatHealth) => void) => on('chat:health', cb),
   onChatAutoContinue: (cb: (p: { tabId: string; count: number }) => void) =>
     on('chat:auto-continue', cb),

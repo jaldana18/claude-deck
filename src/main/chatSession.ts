@@ -19,6 +19,9 @@ import type {
   RateLimitUsage,
   ModelOption,
   PermissionModeId,
+  PermissionRequestEvent,
+  QuestionRequestEvent,
+  SessionSnapshot,
   SlashCommandInfo,
   TabState,
   TodoItem
@@ -73,6 +76,14 @@ interface PendingPermission {
   }) => void
   input: Record<string, unknown>
   suggestions?: PermissionUpdate[]
+  /** El evento tal cual se emitió: el snapshot lo reentrega sin recalcularlo */
+  event: PermissionRequestEvent
+}
+
+interface PendingQuestion {
+  resolve: PendingPermission['resolve']
+  input: Record<string, unknown>
+  event: QuestionRequestEvent
 }
 
 /**
@@ -80,18 +91,25 @@ interface PendingPermission {
  * streaming input (AsyncGenerator) porque es el único que soporta interrupt()
  * y setPermissionMode() en vivo.
  */
-class ChatSession {
+export class ChatSession {
   private queue: SDKUserMessage[] = []
   private waiters: (() => void)[] = []
   private closed = false
   private q: Query | null = null
   private abort = new AbortController()
   private pendingPermissions = new Map<string, PendingPermission>()
-  private pendingQuestions = new Map<string, PendingPermission>()
+  private pendingQuestions = new Map<string, PendingQuestion>()
   /** id del mensaje assistant en streaming actual (solo hilo principal) */
   private streamingId: string | null = null
   /** buffer de deltas: se agrupan y envían cada ~100ms para no ahogar la UI */
   private deltaBuf = ''
+  /**
+   * Texto completo del mensaje en curso. `deltaBuf` se vacía en cada flush, así
+   * que no sirve para que un cliente que llega tarde vea lo ya escrito.
+   */
+  private streamingText = ''
+  /** Turno en vuelo: desde que se encola texto del usuario hasta el result */
+  private turnoEnCurso = false
   private deltaTimer: NodeJS.Timeout | null = null
   /** buffer de mensajes de subagentes: se agrupan cada ~150ms */
   private subagentBuf = new Map<string, ChatMessage[]>()
@@ -271,10 +289,16 @@ class ChatSession {
         // Preguntas de opción múltiple: UI dedicada; la respuesta del usuario
         // viaja de vuelta en updatedInput.answers (así funciona el tool).
         if (toolName === 'AskUserQuestion') {
+          const evPregunta: QuestionRequestEvent = {
+            tabId: this.tab.id,
+            requestId,
+            questions: ((input as { questions?: unknown }).questions ?? []) as QuestionRequestEvent['questions']
+          }
           return await new Promise((resolve) => {
             this.pendingQuestions.set(requestId, {
               resolve: resolve as PendingPermission['resolve'],
-              input
+              input,
+              event: evPregunta
             })
             opts.signal.addEventListener('abort', () => {
               if (this.pendingQuestions.delete(requestId)) {
@@ -283,18 +307,25 @@ class ChatSession {
               }
             })
             this.status('attention', 'Claude te hizo una pregunta')
-            this.send('chat:question', {
-              tabId: this.tab.id,
-              requestId,
-              questions: (input as { questions?: unknown }).questions ?? []
-            })
+            this.send('chat:question', evPregunta)
           })
+        }
+        const evPermiso: PermissionRequestEvent = {
+          tabId: this.tab.id,
+          requestId,
+          toolName,
+          title: opts.title,
+          description: opts.description,
+          inputPreview: safeJson(input, 1600),
+          input: trimStrings(input, 40_000) as Record<string, unknown>,
+          canAlwaysAllow: Boolean(opts.suggestions?.length)
         }
         return await new Promise((resolve) => {
           this.pendingPermissions.set(requestId, {
             resolve: resolve as PendingPermission['resolve'],
             input,
-            suggestions: opts.suggestions
+            suggestions: opts.suggestions,
+            event: evPermiso
           })
           opts.signal.addEventListener('abort', () => {
             if (this.pendingPermissions.delete(requestId)) {
@@ -303,16 +334,7 @@ class ChatSession {
             }
           })
           this.status('attention', `Claude pide permiso para ${toolName}`)
-          this.send('chat:permission-request', {
-            tabId: this.tab.id,
-            requestId,
-            toolName,
-            title: opts.title,
-            description: opts.description,
-            inputPreview: safeJson(input, 1600),
-            input: trimStrings(input, 40_000) as Record<string, unknown>,
-            canAlwaysAllow: Boolean(opts.suggestions?.length)
-          })
+          this.send('chat:permission-request', evPermiso)
         })
       }
     }
@@ -345,6 +367,7 @@ class ChatSession {
           const ev = msg.event as { type: string; delta?: { type?: string; text?: string } }
           if (ev.type === 'message_start') {
             this.streamingId = randomUUID()
+            this.streamingText = ''
             this.send('chat:stream-start', { tabId: this.tab.id, messageId: this.streamingId })
           } else if (
             ev.type === 'content_block_delta' &&
@@ -353,6 +376,7 @@ class ChatSession {
             this.streamingId
           ) {
             this.deltaBuf += ev.delta.text
+            this.streamingText += ev.delta.text
             if (!this.deltaTimer) {
               this.deltaTimer = setTimeout(() => this.flushDelta(), 100)
             }
@@ -411,6 +435,7 @@ class ChatSession {
           }
           this.streamingId = null
           this.deltaBuf = ''
+          this.streamingText = ''
         } else if (msg.type === 'user') {
           // tool_results del turno (el SDK re-emite el user message sintético)
           const content = (msg.message as { content?: unknown }).content
@@ -497,6 +522,7 @@ class ChatSession {
             isError: msg.is_error,
             errorText: msg.subtype !== 'success' ? msg.subtype : undefined
           }
+          this.turnoEnCurso = false
           this.send('chat:result', meta)
           // Un turno cerrado en error de modelo/API confirma el fallo; uno que
           // termina bien limpia los fallos previos de ese modelo, para que un
@@ -675,6 +701,26 @@ class ChatSession {
     }
   }
 
+  /**
+   * Estado completo para un cliente que se incorpora a mitad de conversación.
+   * El historial no va aquí: se lee del transcript en disco con `chat:history`.
+   */
+  snapshot(): SessionSnapshot {
+    return {
+      tabId: this.tab.id,
+      busy: this.turnoEnCurso,
+      streaming: this.streamingId
+        ? { messageId: this.streamingId, text: this.streamingText }
+        : null,
+      permissions: [...this.pendingPermissions.values()].map((p) => p.event),
+      questions: [...this.pendingQuestions.values()].map((q) => q.event),
+      todos: this.tasks.list(),
+      health: this.health(),
+      commands: this.commands,
+      models: this.models
+    }
+  }
+
   sendUserText(text: string, attachments?: ChatAttachment[]): void {
     const content =
       attachments && attachments.length > 0
@@ -692,6 +738,7 @@ class ChatSession {
       parent_tool_use_id: null
     })
     this.waiters.splice(0).forEach((w) => w())
+    this.turnoEnCurso = true
     this.status('working')
   }
 
@@ -887,6 +934,15 @@ export class ChatSessionManager {
 
   healthFor(tabId: string): ChatHealth | null {
     return this.sessions.get(tabId)?.health() ?? null
+  }
+
+  snapshotFor(tabId: string): SessionSnapshot | null {
+    return this.sessions.get(tabId)?.snapshot() ?? null
+  }
+
+  /** Snapshot de cada sesión viva: alimenta el panel de actividad. */
+  snapshotAll(): SessionSnapshot[] {
+    return [...this.sessions.values()].map((s) => s.snapshot())
   }
 
   async setModel(tabId: string, model: string | undefined): Promise<void> {

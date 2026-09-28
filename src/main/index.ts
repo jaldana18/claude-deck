@@ -631,6 +631,8 @@ ipcMain.on(
 ipcMain.handle('chat:commands', (_e, tabId: string) => chatSessions.commandsFor(tabId))
 ipcMain.handle('chat:models', (_e, tabId: string) => chatSessions.modelsFor(tabId))
 ipcMain.handle('chat:health', (_e, tabId: string) => chatSessions.healthFor(tabId))
+ipcMain.handle('chat:snapshot', (_e, tabId: string) => chatSessions.snapshotFor(tabId))
+ipcMain.handle('chat:snapshotAll', () => chatSessions.snapshotAll())
 ipcMain.handle('chat:setLlmParams', (_e, a: { tabId: string; params: LlmParams }) =>
   chatSessions.setLlmParams(a.tabId, a.params)
 )

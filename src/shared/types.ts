@@ -565,6 +565,28 @@ export interface PermissionRequestEvent {
   canAlwaysAllow: boolean
 }
 
+/**
+ * Todo lo que un cliente necesita para incorporarse a una conversación en
+ * marcha sin haber visto los eventos anteriores.
+ *
+ * Existe porque los permisos y preguntas pendientes solo se emiten una vez, en
+ * push: un cliente que se conecta después nunca vería la tarjeta y la sesión
+ * quedaría bloqueada esperando una respuesta que nadie puede dar.
+ */
+export interface SessionSnapshot {
+  tabId: string
+  /** Hay un turno en curso: el compositor debe mostrarse ocupado */
+  busy: boolean
+  /** Mensaje del asistente a medio escribir, con lo acumulado hasta ahora */
+  streaming: { messageId: string; text: string } | null
+  permissions: PermissionRequestEvent[]
+  questions: QuestionRequestEvent[]
+  todos: TodoItem[]
+  health: ChatHealth
+  commands: SlashCommandInfo[]
+  models: ModelOption[]
+}
+
 export interface PermissionResponse {
   tabId: string
   requestId: string
