@@ -1,4 +1,3 @@
-import type { BrowserWindow } from 'electron'
 import type {
   ModelFault,
   ServiceComponent,
@@ -16,6 +15,7 @@ import {
   UMBRAL_FALLOS
 } from '../shared/status'
 import type { Store } from './store'
+import type { Emitter } from './bus'
 
 /** Statuspage público de Anthropic. Sin auth y sin rate limit relevante. */
 const STATUS_URL = 'https://status.anthropic.com/api/v2/summary.json'
@@ -66,7 +66,7 @@ export class StatusWatcher {
   private avisado = ''
 
   constructor(
-    private getWindow: () => BrowserWindow | null,
+    private bus: Emitter,
     private store: Store
   ) {}
 
@@ -204,8 +204,7 @@ export class StatusWatcher {
     if (firma === this.avisado) return
     this.avisado = firma
     try {
-      const win = this.getWindow()
-      if (win && !win.isDestroyed()) win.webContents.send('status:changed', rep)
+      this.bus.send('status:changed', rep)
     } catch {
       /* ventana cerrándose */
     }

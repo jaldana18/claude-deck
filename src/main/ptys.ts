@@ -1,6 +1,6 @@
 import { spawn, type IPty } from '@lydell/node-pty'
-import type { BrowserWindow } from 'electron'
 import type { TabState } from '../shared/types'
+import type { Emitter } from './bus'
 
 const BUFFER_CAP = 300_000
 
@@ -16,7 +16,7 @@ export class PtyManager {
   private buffers = new Map<string, string>()
   private attached = new Set<string>()
 
-  constructor(private getWindow: () => BrowserWindow | null) {}
+  constructor(private bus: Emitter) {}
 
   /** Comando del panel principal: la TUI del CLI de agente de la pestaña.
    *  claude conserva la resurrección con --resume; codex/gemini/custom
@@ -155,8 +155,7 @@ export class PtyManager {
 
   private send(channel: string, payload: unknown): void {
     try {
-      const win = this.getWindow()
-      if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
+      this.bus.send(channel, payload)
     } catch {
       /* ventana cerrándose */
     }

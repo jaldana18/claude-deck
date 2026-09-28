@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { BrowserWindow } from 'electron'
 import {
   query,
   type Options,
@@ -35,6 +34,7 @@ import {
 } from '../shared/context'
 import type { Store } from './store'
 import type { StatusWatcher } from './status'
+import type { Emitter } from './bus'
 
 /**
  * Ruta al CLI de Claude Code. El binario que el SDK trae embebido (~278 MB)
@@ -133,7 +133,7 @@ class ChatSession {
   constructor(
     private tab: TabState,
     private store: Store,
-    private getWindow: () => BrowserWindow | null,
+    private bus: Emitter,
     /** vigilante de estado: recibe los fallos de API para detectar caídas */
     private watcher?: StatusWatcher
   ) {
@@ -151,8 +151,7 @@ class ChatSession {
 
   private send(channel: string, payload: unknown): void {
     try {
-      const win = this.getWindow()
-      if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
+      this.bus.send(channel, payload)
     } catch {
       /* ventana cerrándose */
     }
@@ -827,13 +826,13 @@ export class ChatSessionManager {
 
   constructor(
     private store: Store,
-    private getWindow: () => BrowserWindow | null,
+    private bus: Emitter,
     private watcher?: StatusWatcher
   ) {}
 
   start(tab: TabState): void {
     this.stop(tab.id)
-    const session = new ChatSession(tab, this.store, this.getWindow, this.watcher)
+    const session = new ChatSession(tab, this.store, this.bus, this.watcher)
     this.sessions.set(tab.id, session)
     session.start()
   }
@@ -861,7 +860,7 @@ export class ChatSessionManager {
       },
       lastHealth: undefined
     }
-    const session = new ChatSession(fantasma, this.store, this.getWindow, this.watcher)
+    const session = new ChatSession(fantasma, this.store, this.bus, this.watcher)
     this.sessions.set(asideId, session)
     session.start()
   }

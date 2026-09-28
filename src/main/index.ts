@@ -53,6 +53,7 @@ import {
   readLocalPluginManifest,
   runPluginCommand
 } from './marketplace'
+import { Bus } from './bus'
 
 let win: BrowserWindow | null = null
 const getWindow = (): BrowserWindow | null => win
@@ -62,12 +63,13 @@ let tray: Tray | null = null
 let quitting = false
 
 const store = new Store()
-const ptys = new PtyManager(getWindow)
-const tracker = new SessionTracker(store, getWindow)
-const hookServer = new HookServer(tracker, getWindow)
-const statusWatcher = new StatusWatcher(getWindow, store)
-const chatSessions = new ChatSessionManager(store, getWindow, statusWatcher)
-const updater = new Updater(getWindow, store)
+const bus = new Bus(getWindow)
+const ptys = new PtyManager(bus)
+const tracker = new SessionTracker(store, bus)
+const hookServer = new HookServer(tracker, bus)
+const statusWatcher = new StatusWatcher(bus, store)
+const chatSessions = new ChatSessionManager(store, bus, statusWatcher)
+const updater = new Updater(bus, store)
 
 /** Arranca los procesos de una pestaña según su modo (todos sus paneles) */
 function startTab(tab: TabState): void {
@@ -511,10 +513,7 @@ ipcMain.handle('logs:spawn', (_e, args: { widgetId: string; command: string; cwd
   })
   logProcesses.set(args.widgetId, child)
   const send = (data: string): void => {
-    try {
-      const w = getWindow()
-      if (w && !w.isDestroyed()) w.webContents.send('logs:data', { widgetId: args.widgetId, data })
-    } catch {}
+    bus.send('logs:data', { widgetId: args.widgetId, data })
   }
   child.stdout?.on('data', (d: Buffer) => send(d.toString()))
   child.stderr?.on('data', (d: Buffer) => send(d.toString()))

@@ -4,10 +4,10 @@ import { createWriteStream, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import type { BrowserWindow } from 'electron'
 import { UPDATE_REPO } from '../shared/constants'
 import { compareVersions as compare, parseVersion } from '../shared/version'
 import type { Store } from './store'
+import type { Emitter } from './bus'
 
 export interface UpdateInfo {
   version: string
@@ -30,7 +30,7 @@ export class Updater {
   private notified = ''
 
   constructor(
-    private getWindow: () => BrowserWindow | null,
+    private bus: Emitter,
     private store: Store
   ) {}
 
@@ -135,26 +135,14 @@ export class Updater {
   private async checkAndNotify(): Promise<void> {
     const info = await this.check()
     if (info && info.version !== this.notified) {
-      try {
-        const win = this.getWindow()
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('update:available', info)
-          // marcar como notificada solo si de verdad se pudo avisar
-          this.notified = info.version
-        }
-      } catch {
-        /* ventana cerrándose */
-      }
+      // marcar como notificada solo si de verdad se pudo avisar: en modo
+      // bandeja sin clientes conectados se reintenta en la siguiente ronda
+      if (this.bus.send('update:available', info) > 0) this.notified = info.version
     }
   }
 
   private sendProgress(percent: number): void {
-    try {
-      const win = this.getWindow()
-      if (win && !win.isDestroyed()) win.webContents.send('update:progress', { percent })
-    } catch {
-      /* ventana cerrándose */
-    }
+    this.bus.send('update:progress', { percent })
   }
 
   /**

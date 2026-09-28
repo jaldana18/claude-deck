@@ -1,10 +1,10 @@
 import { createServer, type Server } from 'node:http'
 import { join } from 'node:path'
-import type { BrowserWindow } from 'electron'
 import type { TabStatus } from '../shared/types'
 import type { SessionTracker } from './sessionTracker'
 import { DECK_HOOK_MARKER, DECK_PORT } from '../shared/constants'
 import { backup, readJsonOr, writeJson } from './jsonEdit'
+import type { Emitter } from './bus'
 
 /**
  * Servidor HTTP local al que reportan los hooks Stop / Notification /
@@ -16,7 +16,7 @@ export class HookServer {
 
   constructor(
     private tracker: SessionTracker,
-    private getWindow: () => BrowserWindow | null
+    private bus: Emitter
   ) {}
 
   start(): void {
@@ -71,7 +71,7 @@ export class HookServer {
       status = 'working'
     }
     if (!status) return
-    this.getWindow()?.webContents.send('tab:status', { tabId, status, detail })
+    this.bus.send('tab:status', { tabId, status, detail })
   }
 }
 

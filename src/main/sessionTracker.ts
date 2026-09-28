@@ -1,8 +1,8 @@
 import { homedir } from 'node:os'
 import { join, basename } from 'node:path'
 import { readdirSync, statSync } from 'node:fs'
-import type { BrowserWindow } from 'electron'
 import type { Store } from './store'
+import type { Emitter } from './bus'
 
 /**
  * Claude Code guarda cada sesión como
@@ -38,7 +38,7 @@ export class SessionTracker {
 
   constructor(
     private store: Store,
-    private getWindow: () => BrowserWindow | null
+    private bus: Emitter
   ) {}
 
   startTracking(tabId: string, cwd: string): void {
@@ -92,7 +92,7 @@ export class SessionTracker {
     if (prev) this.claims.delete(prev)
     this.claims.set(sessionId, tabId)
     this.store.updateTab(tabId, { claudeSessionId: sessionId })
-    this.getWindow()?.webContents.send('tab:session', { tabId, sessionId })
+    this.bus.send('tab:session', { tabId, sessionId })
   }
 
   private ensureTimer(): void {
