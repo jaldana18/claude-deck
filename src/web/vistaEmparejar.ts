@@ -1,5 +1,6 @@
 import * as api from './api'
 import { boton, el } from './dom'
+import { instalada } from './invitacion'
 import { arranque, arrancarSesion, pedirNotificaciones } from './sesion'
 import { ir, type Vista } from './vistas'
 
@@ -54,6 +55,18 @@ export function vistaEmparejar(): Vista {
       'El código sale en el panel «Acceso remoto» del Deck, en tu PC, y caduca a los pocos minutos. Si escaneaste el QR, esto se hace solo.'
     )
   )
+
+  // En iPhone la app instalada guarda sus datos aparte del navegador: vincular
+  // aquí no vincula la app, y el código se pediría otra vez.
+  if (!instalada()) {
+    caja.append(
+      el(
+        'p',
+        'pista',
+        'Estás en el navegador. Instala antes la app —menú del navegador, «Añadir a pantalla de inicio»— y vincula desde dentro: así no te volverá a pedir el código.'
+      )
+    )
+  }
   nodo.append(caja)
   actualizarBoton()
 

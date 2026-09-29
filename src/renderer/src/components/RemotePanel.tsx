@@ -27,6 +27,7 @@ export function RemotePanel(p: { onClose: () => void }): React.JSX.Element {
   const [estado, setEstado] = useState<RemoteStatus | null>(null)
   const [ajustes, setAjustes] = useState<RemoteSettings | null>(null)
   const [qr, setQr] = useState<string | null>(null)
+  const [qrApp, setQrApp] = useState<string | null>(null)
   const [pairing, setPairing] = useState<PairingInfo | null>(null)
   const [error, setError] = useState('')
   const [raices, setRaices] = useState<string[]>([])
@@ -59,6 +60,21 @@ export function RemotePanel(p: { onClose: () => void }): React.JSX.Element {
       color: { dark: '#000000', light: '#ffffff' }
     }).then(setQr)
   }, [pairing])
+
+  // El QR de la dirección a secas es el de instalar: no lleva código, así que no
+  // caduca, no se gasta y vale para cualquier dispositivo.
+  useEffect(() => {
+    const url = estado?.url
+    if (!url) {
+      setQrApp(null)
+      return
+    }
+    void QRCode.toDataURL(url, {
+      width: 200,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' }
+    }).then(setQrApp)
+  }, [estado?.url])
 
   const aplicar = async (patch: Partial<RemoteSettings>): Promise<void> => {
     setOcupado(true)
@@ -238,31 +254,72 @@ export function RemotePanel(p: { onClose: () => void }): React.JSX.Element {
 
           <hr className="cd-sep" />
 
-          <label className="cd-label">Emparejar un dispositivo</label>
+          <label className="cd-label">Añadir un dispositivo</label>
           <p className="cd-help">
-            El código vale una sola vez y caduca en cinco minutos. Escanea el QR con la cámara del
-            móvil: se abre la app, se empareja y queda instalable desde el menú del navegador.
+            Dos pasos y en este orden: primero se instala la app en el móvil, y desde la app
+            instalada se vincula con el código. Al revés funciona en Android, pero en iPhone la app
+            añadida a la pantalla de inicio guarda sus datos aparte del navegador y volvería a
+            pedir el código.
           </p>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <button className="cd-chip" disabled={!estado.enabled} onClick={() => void emparejar()}>
-              Generar código
-            </button>
-            {pairing && (
-              <div>
-                <div style={{ fontFamily: 'var(--cd-mono, monospace)', fontSize: 20, letterSpacing: 3 }}>
-                  {pairing.codigo.slice(0, 4)} {pairing.codigo.slice(4)}
-                </div>
-                <div className="cd-help" style={{ margin: 0 }}>
-                  caduca en {minutos(pairing.expira - Date.now())}
-                </div>
-              </div>
-            )}
-          </div>
-          {qr && (
-            <div style={{ marginTop: 12, background: '#fff', padding: 8, width: 'fit-content', borderRadius: 8 }}>
-              <img src={qr} alt="Código QR de emparejamiento" width={232} height={232} />
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 220px' }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>1 · Instalar la app</div>
+              {qrApp ? (
+                <>
+                  <div style={{ background: '#fff', padding: 8, width: 'fit-content', borderRadius: 8 }}>
+                    <img src={qrApp} alt="QR de la dirección para instalar la app" width={200} height={200} />
+                  </div>
+                  <p className="cd-help">
+                    Escanea, abre la dirección y elige «Añadir a pantalla de inicio». Este QR no
+                    lleva código: no caduca y sirve para todos los dispositivos.
+                  </p>
+                </>
+              ) : (
+                <p className="cd-help">Enciende el acceso remoto para tener una dirección.</p>
+              )}
             </div>
-          )}
+
+            <div style={{ flex: '1 1 220px' }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>2 · Vincular con el código</div>
+              {pairing ? (
+                <>
+                  <div
+                    style={{
+                      fontFamily: 'var(--cd-mono, monospace)',
+                      fontSize: 30,
+                      letterSpacing: 4,
+                      lineHeight: 1.1
+                    }}
+                  >
+                    {pairing.codigo.slice(0, 4)} {pairing.codigo.slice(4)}
+                  </div>
+                  <div className="cd-help" style={{ margin: '2px 0 8px' }}>
+                    vale una sola vez · caduca en {minutos(pairing.expira - Date.now())}
+                  </div>
+                  {qr && (
+                    <div style={{ background: '#fff', padding: 8, width: 'fit-content', borderRadius: 8 }}>
+                      <img src={qr} alt="QR de vinculación" width={200} height={200} />
+                    </div>
+                  )}
+                  <p className="cd-help">
+                    Teclea el código en la app que acabas de instalar. Escanear este QR también
+                    vincula, pero abre el navegador, y esa vinculación no siempre vale dentro de la
+                    app instalada.
+                  </p>
+                  <button className="cd-chip" onClick={() => void emparejar()}>
+                    Otro código
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="cd-chip" disabled={!estado.enabled} onClick={() => void emparejar()}>
+                    Generar código
+                  </button>
+                  <p className="cd-help">Lo teclearás en el móvil, dentro de la app instalada.</p>
+                </>
+              )}
+            </div>
+          </div>
 
           <hr className="cd-sep" />
 

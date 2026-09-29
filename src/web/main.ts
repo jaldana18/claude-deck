@@ -1,19 +1,18 @@
 import * as api from './api'
 import { el } from './dom'
 import { TEMA_CONEXION, tienda } from './estado'
+import { hayCodigo, invitacion } from './invitacion'
 import { arranque, arrancarSesion, conectarNotificaciones, pararSesion, reintentarAhora } from './sesion'
 import { arrancarRuteo, ir, pintar } from './vistas'
 
 const raiz = document.getElementById('app')
 if (!raiz) throw new Error('Falta el contenedor de la app')
 
-// El código de invitación viaja en el fragmento de la URL: el navegador no lo
-// manda al servidor, así que no aparece en ningún registro ni en el túnel. Se
-// lee una vez y se borra de la barra para que no quede a la vista ni en el
-// historial del navegador.
-const traeCodigo = /(?:^#|[#&?])c=([A-Za-z0-9]{4,16})/.exec(location.hash)
-if (traeCodigo) {
-  arranque.codigo = traeCodigo[1].toUpperCase()
+// El código de invitación se lee una vez y se borra de la barra para que no
+// quede a la vista ni en el historial. Si este dispositivo ya está vinculado no
+// se usa: ver `invitacion`.
+if (hayCodigo(location.hash)) {
+  arranque.codigo = invitacion(location.hash, api.sesion() !== null)
   history.replaceState(null, '', location.pathname + location.search)
 }
 
