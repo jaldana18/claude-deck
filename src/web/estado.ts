@@ -35,6 +35,9 @@ export interface EstadoChat {
   cargado: boolean
 }
 
+/** Versión con la que se compiló este cliente. */
+export const VERSION = __VERSION__
+
 export const TEMA_CONEXION = 'conexion'
 export const TEMA_TABS = 'tabs'
 export function temaChat(tabId: string): string {
@@ -61,8 +64,13 @@ function snapshotVacio(tabId: string): SessionSnapshot {
 
 class Tienda {
   conectado = false
-  /** Versión del PC cuando no coincide con la de este cliente: hay que recargar. */
-  versionNueva: string | null = null
+  /** Versión que dice tener el PC, la misma o no. */
+  versionPC: string | null = null
+
+  /** La del PC cuando no es la de este cliente: hay que recargar para igualarla. */
+  get versionNueva(): string | null {
+    return this.versionPC && this.versionPC !== VERSION ? this.versionPC : null
+  }
   /** Último seq recibido: es lo que se pide al reconectar. */
   ultimoSeq = 0
   miClientId = api.sesion()?.clientId ?? ''

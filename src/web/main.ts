@@ -30,10 +30,8 @@ banda.hidden = true
 // recarga a mano. Nunca sola: recargar sin avisar borraría lo que se esté
 // escribiendo.
 const bandaVersion = el('div', 'banda nueva')
-bandaVersion.append(
-  el('span', '', 'Hay una versión nueva'),
-  boton('Actualizar', 'chip', () => void actualizarCliente())
-)
+const textoVersion = el('span', '', 'Versión nueva: actualizando…')
+bandaVersion.append(textoVersion, boton('Ahora', 'chip', () => void actualizarCliente()))
 bandaVersion.hidden = true
 
 const contenedor = el('div', 'vista')
@@ -43,6 +41,7 @@ tienda.escuchar((temas) => {
   if (!temas.has(TEMA_CONEXION)) return
   banda.hidden = tienda.conectado || !api.sesion()
   bandaVersion.hidden = !tienda.versionNueva
+  if (tienda.versionNueva) textoVersion.textContent = `Versión ${tienda.versionNueva}: actualizando…`
 })
 
 api.cuandoExpire(() => {

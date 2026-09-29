@@ -9,7 +9,7 @@ vi.mock('../src/web/api', () => ({
 }))
 
 import * as api from '../src/web/api'
-import { tienda } from '../src/web/estado'
+import { tienda, VERSION } from '../src/web/estado'
 
 function tab(id: string): TabState {
   return { id, title: id, cwd: 'C:\\proyectos', mode: 'chat' } as TabState
@@ -48,5 +48,24 @@ describe('cargarBase', () => {
   it('si lo que falla son las pestañas, el fallo sube: hay que avisar', async () => {
     vi.mocked(api.pedirPestanas).mockRejectedValue(new Error('401'))
     await expect(tienda.cargarBase()).rejects.toThrow('401')
+  })
+})
+
+describe('versión del PC', () => {
+  it('la misma versión no pide nada', () => {
+    tienda.versionPC = VERSION
+    expect(tienda.versionNueva).toBeNull()
+  })
+
+  it('otra versión es una actualización pendiente', () => {
+    tienda.versionPC = '99.0.0'
+    expect(tienda.versionNueva).toBe('99.0.0')
+  })
+
+  // Un PC anterior a la 0.33.2 no manda versión: callar es mejor que anunciar
+  // una actualización que no se sabe si existe.
+  it('sin versión del PC no se anuncia nada', () => {
+    tienda.versionPC = null
+    expect(tienda.versionNueva).toBeNull()
   })
 })

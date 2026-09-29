@@ -27,10 +27,10 @@ export function arrancarSesion(): void {
       // el contador se los saltaría si la conexión se cortara otra vez.
       if (tienda.ultimoSeq === 0 || linea.hueco) tienda.ultimoSeq = linea.seq
       tienda.miClientId = linea.clientId
-      // El PC dice su versión al saludar: si no es la de este cliente, el móvil
-      // está corriendo un cliente viejo servido desde la caché.
-      tienda.versionNueva =
-        linea.version && linea.version !== __VERSION__ ? linea.version : null
+      // El PC dice su versión: si no es la de este cliente, el móvil corre un
+      // cliente viejo servido desde su caché y se recarga solo.
+      tienda.versionPC = linea.version ?? null
+      if (tienda.versionNueva) programarActualizacion()
       tienda.marcar(TEMA_CONEXION)
       void rehidratar(linea.hueco)
     },
@@ -83,6 +83,27 @@ async function rehidratar(hueco: boolean): Promise<void> {
   } catch {
     /* si esto falla, la banda de desconectado ya lo está diciendo */
   }
+}
+
+let actualizacionEnMarcha = false
+
+/**
+ * Se actualiza sin que haya que pedirlo. Recargar no pierde nada —el borrador de
+ * cada conversación se guarda en el dispositivo a cada tecla—, pero no se hace
+ * mientras hay un campo en uso: al usuario se le movería el suelo.
+ */
+function programarActualizacion(): void {
+  if (actualizacionEnMarcha) return
+  actualizacionEnMarcha = true
+  const intentar = (): void => {
+    const foco = document.activeElement
+    if (foco instanceof HTMLTextAreaElement || foco instanceof HTMLInputElement) {
+      window.setTimeout(intentar, 3000)
+      return
+    }
+    void actualizarCliente()
+  }
+  window.setTimeout(intentar, 1500)
 }
 
 /**

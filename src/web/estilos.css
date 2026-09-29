@@ -851,3 +851,16 @@ button.tarjeta {
   border-color: var(--accent);
   color: var(--accent-strong);
 }
+
+.linea-version {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+
+.linea-version .chip {
+  color: var(--text-faint);
+  border-color: var(--border-soft);
+  background: transparent;
+  font-size: 12px;
+}

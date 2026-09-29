@@ -1,6 +1,7 @@
 import { boton, el, fila, recorta } from './dom'
 import {
   atencionPendiente,
+  VERSION,
   carpetaCorta,
   pctContexto,
   TEMA_CONEXION,
@@ -10,6 +11,7 @@ import {
   type EntradaTab
 } from './estado'
 import { reintentarAhora } from './sesion'
+import { actualizarCliente } from './sesion'
 import { ir, type Vista } from './vistas'
 
 /** Panel de actividad: todas las conversaciones y qué está esperando a quién. */
@@ -22,7 +24,12 @@ export function vistaPanel(): Vista {
 
   const tarjetas = el('div', 'tarjetas')
   const pie = el('p', 'pista')
-  const cuerpo = fila('cuerpo', tarjetas, pie)
+  // Tocar la versión recarga el cliente. Es la salida de un cliente viejo que no
+  // puede enterarse solo de que hay uno nuevo: la app instalada, si el móvil la
+  // reanuda en vez de abrirla, no vuelve a pedir el HTML.
+  const pieVersion = boton('', 'chip', () => void actualizarCliente())
+  pieVersion.title = 'Recargar el cliente'
+  const cuerpo = fila('cuerpo', tarjetas, pie, fila('linea-version', pieVersion))
   nodo.append(barra, cuerpo)
 
   function pintarLista(): void {
@@ -35,6 +42,12 @@ export function vistaPanel(): Vista {
     // Lo que espera respuesta va primero: es lo único que no puede esperar.
     for (const e of [...pendientes, ...resto]) hijos.push(tarjeta(e))
     tarjetas.replaceChildren(...hijos)
+
+    pieVersion.textContent = tienda.versionPC
+      ? tienda.versionPC === VERSION
+        ? `App ${VERSION} · al día con el PC`
+        : `App ${VERSION} · el PC tiene la ${tienda.versionPC}`
+      : `App ${VERSION}`
 
     const terminales = tienda.terminales()
     pie.textContent = terminales
