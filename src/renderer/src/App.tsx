@@ -680,7 +680,7 @@ export default function App(): React.JSX.Element {
           onClose={() => setShowSearch(false)}
           onOpen={async (cwd, sessionId) => {
             const tab = await window.deck.openChat(cwd, sessionId)
-            setTabs((ts) => [...ts, tab])
+            setTabs((ts) => (ts.some((t) => t.id === tab.id) ? ts : [...ts, tab]))
             activate(tab.id)
             setShowSearch(false)
           }}
@@ -691,7 +691,7 @@ export default function App(): React.JSX.Element {
         <NewTabDialog
           onClose={() => setShowNewTab(false)}
           onCreated={(tab) => {
-            setTabs((ts) => [...ts, tab])
+            setTabs((ts) => (ts.some((t) => t.id === tab.id) ? ts : [...ts, tab]))
             activate(tab.id)
             setShowNewTab(false)
           }}
