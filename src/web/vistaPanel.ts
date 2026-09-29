@@ -17,7 +17,8 @@ export function vistaPanel(): Vista {
   const nodo = el('div', 'pantalla')
   const titulo = el('div', 'titulo-barra', 'Conversaciones')
   const nuevo = boton('+ Nuevo chat', 'chip accion', () => ir('#/nuevo'))
-  const barra = fila('barra', titulo, nuevo)
+  const historial = boton('Historial', 'chip', () => ir('#/historial'))
+  const barra = fila('barra', titulo, historial, nuevo)
 
   const tarjetas = el('div', 'tarjetas')
   const pie = el('p', 'pista')

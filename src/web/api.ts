@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ModelOption,
   OwnerState,
+  SessionListItem,
   SessionSnapshot,
   TabState
 } from '../shared/types'
@@ -159,6 +160,13 @@ export const pedirHistorial = (tabId: string): Promise<ChatMessage[]> =>
 
 export const pedirRaices = (): Promise<string[]> => accion<string[]>('remote:raices')
 
+export const pedirSesiones = (cwd: string): Promise<SessionListItem[]> =>
+  accion<SessionListItem[]>('chat:sessions', cwd)
+
+/** Historial de una sesión pasada. Leerla no la reanuda. */
+export const pedirTranscripcion = (cwd: string, sessionId: string): Promise<ChatMessage[]> =>
+  accion<ChatMessage[]>('chats:transcript', { cwd, sessionId })
+
 export const pedirCarpetas = (dir: string): Promise<NodoFs[]> =>
   accion<NodoFs[]>('fs:tree', { dir, depth: 1 })
 
@@ -169,6 +177,10 @@ export const reclamar = (tabId: string): Promise<OwnerState> =>
 
 export const crearPestana = (cwd: string, title?: string): Promise<TabState> =>
   accion<TabState>('tabs:create', { cwd, mode: 'chat', title })
+
+/** Reanuda una conversación guardada en una pestaña nueva del PC. */
+export const abrirSesion = (cwd: string, sessionId: string): Promise<TabState> =>
+  accion<TabState>('chats:open', { cwd, sessionId })
 
 export const enviar = (tabId: string, text: string, attachments?: ChatAttachment[]): Promise<void> =>
   accion<void>('chat:send', { tabId, text, attachments })

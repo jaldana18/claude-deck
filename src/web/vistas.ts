@@ -2,6 +2,7 @@ import * as api from './api'
 import { vistaCarpetas } from './vistaCarpetas'
 import { vistaChat } from './vistaChat'
 import { vistaEmparejar } from './vistaEmparejar'
+import { vistaSesiones, vistaTranscripcion } from './vistaHistorial'
 import { vistaPanel } from './vistaPanel'
 
 export interface Vista {
@@ -10,6 +11,7 @@ export interface Vista {
 }
 
 const PREFIJO_CHAT = '#/chat/'
+const PREFIJO_HISTORIAL = '#/historial/'
 
 let contenedor: HTMLElement | null = null
 let actual: Vista | null = null
@@ -46,6 +48,12 @@ function construir(firma: string): Vista {
   if (firma.startsWith(PREFIJO_CHAT)) {
     return vistaChat(decodeURIComponent(firma.slice(PREFIJO_CHAT.length)))
   }
-  if (firma === '#/nuevo') return vistaCarpetas()
+  if (firma === '#/nuevo') return vistaCarpetas('nuevo')
+  if (firma === '#/historial') return vistaCarpetas('historial')
+  if (firma.startsWith(PREFIJO_HISTORIAL)) {
+    const [carpeta, sesion] = firma.slice(PREFIJO_HISTORIAL.length).split('/')
+    const cwd = decodeURIComponent(carpeta)
+    return sesion ? vistaTranscripcion(cwd, decodeURIComponent(sesion)) : vistaSesiones(cwd)
+  }
   return vistaPanel()
 }

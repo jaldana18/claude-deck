@@ -19,6 +19,9 @@ export type Restriccion =
   | 'confinar-raiz'
   /** El modo se fuerza a chat: el terminal remoto está fuera de alcance. */
   | 'forzar-chat'
+  /** El id de sesión tiene que ser un identificador, no una ruta disfrazada:
+   *  con él se compone el nombre de un archivo del disco. */
+  | 'id-sesion'
 
 export interface AccionRemota {
   /** Canal IPC que atiende la petición. */
@@ -53,6 +56,11 @@ export const ACCIONES_REMOTAS: readonly AccionRemota[] = [
   { canal: 'fs:tree', control: false, restricciones: ['confinar-raiz'] },
   // Por dónde puede empezar a navegar: sin esto el móvil no sabría qué pedir.
   { canal: 'remote:raices', control: false },
+  // Historiales: la ruta se confina igual que el listado de carpetas, así que
+  // desde fuera solo se ven las conversaciones de las carpetas ya visibles.
+  { canal: 'chat:sessions', control: false, restricciones: ['confinar-raiz'] },
+  { canal: 'chats:transcript', control: false, restricciones: ['confinar-raiz', 'id-sesion'] },
+  { canal: 'chats:open', control: false, restricciones: ['confinar-raiz', 'id-sesion'] },
   // Avisos con la app cerrada: el dispositivo pide la clave y entrega su
   // suscripción. No expone nada del PC.
   { canal: 'remote:pushKey', control: false, interna: true },

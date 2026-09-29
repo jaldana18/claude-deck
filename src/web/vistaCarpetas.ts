@@ -4,18 +4,24 @@ import { tienda } from './estado'
 import { ir, type Vista } from './vistas'
 
 /**
- * Nuevo chat: navegador de carpetas. Sustituye al diálogo nativo del PC, que
- * desde fuera abriría una ventana delante de nadie.
+ * Navegador de carpetas, en dos usos: abrir un chat nuevo donde se elija, o ver
+ * el historial de esa carpeta. Sustituye al diálogo nativo del PC, que desde
+ * fuera abriría una ventana delante de nadie.
  */
-export function vistaCarpetas(): Vista {
+export function vistaCarpetas(modo: 'nuevo' | 'historial' = 'nuevo'): Vista {
+  const historial = modo === 'historial'
   const nodo = el('div', 'pantalla')
   const atras = boton('←', 'icono', () => subir())
-  const titulo = el('div', 'titulo-barra', 'Nuevo chat')
+  const titulo = el('div', 'titulo-barra', historial ? 'Historial' : 'Nuevo chat')
   const barra = fila('barra', atras, titulo)
   const ruta = el('div', 'ruta-actual')
   const lista = el('div', 'tarjetas')
   const zonaAviso = el('div', 'zona-aviso')
-  const abrir = boton('Abrir chat aquí', 'boton principal', () => void crear())
+  const abrir = boton(
+    historial ? 'Ver historial de esta carpeta' : 'Abrir chat aquí',
+    'boton principal',
+    () => void elegir()
+  )
   const pieAbrir = fila('pie-fijo', abrir)
   const cuerpo = fila('cuerpo', ruta, zonaAviso, lista)
   nodo.append(barra, cuerpo, pieAbrir)
@@ -60,9 +66,13 @@ export function vistaCarpetas(): Vista {
     }
   }
 
-  async function crear(): Promise<void> {
+  async function elegir(): Promise<void> {
     const dir = dirActual()
     if (!dir) return
+    if (historial) {
+      ir(`#/historial/${encodeURIComponent(dir)}`)
+      return
+    }
     abrir.disabled = true
     abrir.textContent = 'Abriendo…'
     try {

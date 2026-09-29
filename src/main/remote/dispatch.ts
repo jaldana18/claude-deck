@@ -29,6 +29,13 @@ export interface DispatchDeps {
   raices: () => string[]
 }
 
+/**
+ * Un id de sesión es un uuid. Se comprueba porque con él se compone el nombre
+ * del .jsonl que se va a leer: sin esto, un `..` dentro del id sacaría la
+ * lectura de la carpeta del proyecto.
+ */
+const ID_SESION = /^[A-Za-z0-9-]{8,64}$/
+
 /** Claves de los argumentos que llevan una ruta del disco. */
 const CLAVES_RUTA = ['dir', 'cwd', 'rootPath', 'path'] as const
 
@@ -88,6 +95,13 @@ export class Dispatcher {
           motivo: 'ruta-fuera',
           error: 'Esa carpeta no está disponible para el acceso remoto'
         }
+      }
+    }
+
+    if (restr.includes('id-sesion')) {
+      const id = (args as { sessionId?: unknown } | null)?.sessionId
+      if (typeof id !== 'string' || !ID_SESION.test(id)) {
+        return { ok: false, motivo: 'fallo', error: 'Identificador de conversación no válido' }
       }
     }
 

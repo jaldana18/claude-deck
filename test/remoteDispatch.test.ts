@@ -123,6 +123,50 @@ describe('Dispatcher', () => {
     expect(llamadas).toHaveLength(1)
   })
 
+  it('el historial se confina aunque la ruta venga como argumento suelto', async () => {
+    const { d, llamadas } = montar()
+    const r = await d.atender('chat:sessions', 'C:\\Users\\jaldana', 'movil')
+    expect(r).toMatchObject({ ok: false, motivo: 'ruta-fuera' })
+    await expect(d.atender('chat:sessions', 'C:\\proyectos\\api', 'movil')).resolves.toMatchObject({
+      ok: true
+    })
+    expect(llamadas).toHaveLength(1)
+  })
+
+  it('leer o reanudar una conversación guardada también se confina', async () => {
+    const { d } = montar()
+    for (const canal of ['chats:transcript', 'chats:open']) {
+      const r = await d.atender(
+        canal,
+        { cwd: 'C:\\Windows', sessionId: '6f1a2b3c-0000-4444-8888-aaaabbbbcccc' },
+        'movil'
+      )
+      expect(r).toMatchObject({ ok: false, motivo: 'ruta-fuera' })
+    }
+  })
+
+  // El id acaba siendo el nombre de un archivo: un `..` dentro sacaría la
+  // lectura de la carpeta del proyecto, ya validada.
+  it('un id de conversación que no es un id no llega al disco', async () => {
+    const { d, llamadas } = montar()
+    for (const id of ['../../../otro-proyecto/sesion', 'a', '']) {
+      const r = await d.atender(
+        'chats:transcript',
+        { cwd: 'C:\\proyectos\\api', sessionId: id },
+        'movil'
+      )
+      expect(r.ok).toBe(false)
+    }
+    await expect(
+      d.atender(
+        'chats:transcript',
+        { cwd: 'C:\\proyectos\\api', sessionId: '6f1a2b3c-0000-4444-8888-aaaabbbbcccc' },
+        'movil'
+      )
+    ).resolves.toMatchObject({ ok: true })
+    expect(llamadas).toHaveLength(1)
+  })
+
   it('el cwd de una pestaña nueva también se confina', async () => {
     const { d } = montar()
     await expect(

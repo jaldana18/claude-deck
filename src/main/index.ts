@@ -762,7 +762,7 @@ ipcMain.handle(
 )
 
 /** Sesiones pasadas del proyecto (historial lateral) */
-ipcMain.handle('chat:sessions', async (_e, cwd: string) => {
+manejar('chat:sessions', async (cwd: string) => {
   try {
     const sessions = await listSessions({ dir: cwd })
     return sessions
@@ -778,6 +778,15 @@ ipcMain.handle('chat:sessions', async (_e, cwd: string) => {
     console.error('chat:sessions:', err)
     return []
   }
+})
+
+/**
+ * Historial de una sesión pasada sin reanudarla: leerla no arranca ningún
+ * proceso ni la toca, y es lo que hace falta para consultarla desde el móvil.
+ */
+manejar('chats:transcript', async (args: { cwd: string; sessionId: string }) => {
+  if (!args?.cwd || !args?.sessionId) return []
+  return loadChatHistory(args.sessionId, args.cwd)
 })
 
 /** Restaura una sesión pasada en la pestaña actual (equivalente a /resume) */
@@ -930,7 +939,7 @@ ipcMain.handle('status:get', () => statusWatcher.report())
 ipcMain.handle('status:check', () => statusWatcher.check(true))
 
 /** Abre un resultado de búsqueda: pestaña de chat nueva reanudando esa sesión */
-ipcMain.handle('chats:open', (_e, args: { cwd: string; sessionId: string }) => {
+manejar('chats:open', (args: { cwd: string; sessionId: string }) => {
   const prefs = store.getProjectPrefs(args.cwd)
   const tab: TabState = {
     id: randomUUID(),
