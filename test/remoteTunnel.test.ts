@@ -14,6 +14,7 @@ interface ProcesoFalso {
   out: (s: string) => void
   err: (s: string) => void
   exit: (code: number | null) => void
+  fallo: (e: Error) => void
   muertes: number
 }
 
@@ -21,13 +22,15 @@ function procesoFalso(): ProcesoFalso {
   const oyentes = {
     out: [] as ((c: Buffer | string) => void)[],
     err: [] as ((c: Buffer | string) => void)[],
-    exit: [] as ((code: number | null) => void)[]
+    exit: [] as ((code: number | null) => void)[],
+    fallo: [] as ((e: Error) => void)[]
   }
   const f: ProcesoFalso = {
     muertes: 0,
     out: (s) => oyentes.out.forEach((cb) => cb(s)),
     err: (s) => oyentes.err.forEach((cb) => cb(s)),
     exit: (code) => oyentes.exit.forEach((cb) => cb(code)),
+    fallo: (e) => oyentes.fallo.forEach((cb) => cb(e)),
     proc: {
       stdout: {
         on: (_ev, cb) => {
@@ -42,12 +45,22 @@ function procesoFalso(): ProcesoFalso {
       on: (_ev, cb) => {
         oyentes.exit.push(cb)
       },
+      onError: (cb) => {
+        oyentes.fallo.push(cb)
+      },
       kill: () => {
         f.muertes += 1
       }
     }
   }
   return f
+}
+
+/** Error con `code`, como los que emite child_process cuando spawn no arranca */
+function errorSpawn(code: string): Error {
+  const e = new Error(`spawn cloudflared ${code}`) as NodeJS.ErrnoException
+  e.code = code
+  return e
 }
 
 interface Programado {
@@ -212,6 +225,43 @@ describe('modo quick', () => {
     expect(() => b.t.arrancar({ modo: 'quick', puerto: 43120 })).not.toThrow()
     expect(b.t.estado.fase).toBe('caido')
     expect(b.t.estado.detalle).toContain('ENOENT')
+  })
+
+  // Bug real (v0.34): en Windows «spawn cloudflared ENOENT» no es una
+  // excepción del spawn sino el evento `error` del hijo; sin handler tumbaba
+  // el main process con el diálogo de Electron, y el reintento lo repetía
+  // a cada rato.
+  it('cloudflared no instalado (evento error ENOENT): cae con instrucción y SIN reintentos', () => {
+    const b = montar()
+    b.t.arrancar({ modo: 'quick', puerto: 43120 })
+    b.ultimo().fallo(errorSpawn('ENOENT'))
+    expect(b.t.estado.fase).toBe('caido')
+    expect(b.t.estado.detalle).toContain('winget install Cloudflare.cloudflared')
+    // no queda ni vigilancia ni reintento programado: reintentar no lo instala
+    expect(b.vivos()).toEqual([])
+    expect(b.lanzamientos.length).toBe(1)
+  })
+
+  it('otro error de arranque (EACCES) sí cae y reintenta como un fallo normal', () => {
+    const b = montar()
+    b.t.arrancar({ modo: 'quick', puerto: 43120 })
+    b.ultimo().fallo(errorSpawn('EACCES'))
+    expect(b.t.estado.fase).toBe('caido')
+    expect(b.t.estado.detalle).toContain('EACCES')
+    expect(b.vivos().length).toBe(1)
+    b.disparar(5_000)
+    expect(b.lanzamientos.length).toBe(2)
+  })
+
+  it('un exit tardío tras el evento error no vuelve a mover el estado', () => {
+    const b = montar()
+    b.t.arrancar({ modo: 'quick', puerto: 43120 })
+    const p = b.ultimo()
+    p.fallo(errorSpawn('ENOENT'))
+    const detalle = b.t.estado.detalle
+    p.exit(1)
+    expect(b.t.estado.fase).toBe('caido')
+    expect(b.t.estado.detalle).toBe(detalle)
   })
 })
 

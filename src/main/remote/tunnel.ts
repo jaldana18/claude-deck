@@ -15,6 +15,9 @@ export interface ProcesoTunel {
   stdout: { on(ev: 'data', cb: (c: Buffer | string) => void): void }
   stderr: { on(ev: 'data', cb: (c: Buffer | string) => void): void }
   on(ev: 'exit', cb: (code: number | null) => void): void
+  /** El proceso ni siquiera arrancó (ENOENT y similares): en Node llega como
+   *  evento «error», no como excepción del spawn. */
+  onError(cb: (err: Error) => void): void
   kill(): void
 }
 
@@ -97,6 +100,11 @@ function lanzarConHijo(cmd: string, args: string[]): ProcesoTunel {
     stderr: hijo.stderr ?? FLUJO_VACIO,
     on: (_ev, cb) => {
       hijo.on('exit', (code) => cb(code))
+    },
+    // Sin este handler, un «spawn cloudflared ENOENT» era una excepción sin
+    // atrapar que tumbaba el main process con el diálogo de error de Electron.
+    onError: (cb) => {
+      hijo.on('error', cb)
     },
     kill: () => {
       hijo.kill()
@@ -207,7 +215,30 @@ export class Tunnel {
     proceso.stdout.on('data', (c) => this.alimentar(epoca, 'out', c))
     proceso.stderr.on('data', (c) => this.alimentar(epoca, 'err', c))
     proceso.on('exit', (code) => this.salio(epoca, code))
+    proceso.onError((err) => this.fallo(epoca, err))
     this.vigilancia = this.programar(() => this.venceArranque(epoca), ARRANQUE_MS)
+  }
+
+  /** El proceso ni siquiera llegó a arrancar (típico: cloudflared no instalado). */
+  private fallo(epoca: number, err: Error): void {
+    if (epoca !== this.epoca) return
+    // Que un `exit` tardío del mismo intento no vuelva a mover el estado
+    this.epoca += 1
+    this.proceso = null
+    this.vigilancia?.cancelar()
+    this.vigilancia = null
+    if (this.detenido) return
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      // Reintentar no instala el binario: es configuración, como el token ausente
+      this.detenido = true
+      this.emitir(
+        'caido',
+        null,
+        'No se encontró cloudflared en este PC. Instálalo con «winget install Cloudflare.cloudflared» y vuelve a activar el acceso remoto.'
+      )
+      return
+    }
+    this.caer(`No se pudo lanzar cloudflared: ${err.message}`)
   }
 
   private alimentar(epoca: number, flujo: 'out' | 'err', crudo: Buffer | string): void {
