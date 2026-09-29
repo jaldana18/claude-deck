@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   LlmParams,
   ModelOption,
+  OwnerState,
   PermissionModeId,
   PermissionRequestEvent,
   QuestionRequestEvent,
@@ -714,6 +715,15 @@ export function ChatView(p: Props): React.JSX.Element {
   const [streamText, setStreamText] = useState<{ id: string; text: string } | null>(null)
   const [permissions, setPermissions] = useState<PermissionRequestEvent[]>([])
   const [busy, setBusy] = useState(false)
+  /**
+   * Quién manda en esta conversación. Con un solo cliente siempre es este PC;
+   * en cuanto hay un móvil emparejado, el mando es de uno a la vez.
+   */
+  const [owner, setOwner] = useState<OwnerState | null>(null)
+  const ajeno = owner !== null && owner.clientId !== 'local' && owner.connected
+  // Los callbacks estables lo leen del ref para no recrearse en cada relevo.
+  const ajenoRef = useRef(false)
+  ajenoRef.current = ajeno
   // Cola de mensajes escritos mientras Claude responde. Vive solo en memoria:
   // no se persiste a propósito, porque reabrir la app y ver salir solos unos
   // mensajes escritos ayer, sin nadie mirando, es peor que perderlos.
@@ -819,6 +829,9 @@ export function ChatView(p: Props): React.JSX.Element {
     void loadHistory()
     void window.deck.chatCommands(tabId).then(setCommands)
     void window.deck.chatModels(tabId).then(setModels)
+    void window.deck
+      .chatOwners()
+      .then((os) => setOwner(os.find((o) => o.tabId === tabId) ?? null))
   }, [tabId, loadHistory])
 
   // Suscripciones al stream de la sesión. Un ÚNICO listener IPC por canal
@@ -836,6 +849,9 @@ export function ChatView(p: Props): React.JSX.Element {
           return
         }
         setStreamText((s) => appendDelta(s, messageId, text))
+      }),
+      owner: (({ tabId: id, owner: o }) => {
+        if (id === tabId) setOwner(o)
       }),
       message: (({ tabId: id, message, echo }) => {
         if (id !== tabId) return
@@ -1211,6 +1227,7 @@ export function ChatView(p: Props): React.JSX.Element {
     (raw: string, atts: Attachment[] = []): void => {
       const text = raw.trim()
       if (!text && atts.length === 0) return
+      if (ajenoRef.current) return
       if (text === '/clear') {
         // limpia el contexto en el SDK y también la vista
         setMessages([])
@@ -1346,6 +1363,9 @@ export function ChatView(p: Props): React.JSX.Element {
   }, [tabId, addProjectFile])
 
   const answerPermission = (req: PermissionRequestEvent, decision: 'allow' | 'always' | 'deny'): void => {
+    // El main lo rechazaría igual; frenarlo aquí evita que la tarjeta desaparezca
+    // de la pantalla como si se hubiera respondido.
+    if (ajenoRef.current) return
     window.deck.chatPermissionResponse(tabId, req.requestId, decision)
     setPermissions((ps) => ps.filter((x) => x.requestId !== req.requestId))
   }
@@ -1822,6 +1842,7 @@ export function ChatView(p: Props): React.JSX.Element {
               key={req.requestId}
               questions={req.questions}
               onAnswer={(answers) => {
+                if (ajenoRef.current) return
                 window.deck.chatQuestionResponse(tabId, req.requestId, answers)
                 setQuestions((qs) => qs.filter((x) => x.requestId !== req.requestId))
               }}
@@ -1922,10 +1943,22 @@ export function ChatView(p: Props): React.JSX.Element {
             </div>
           </div>
         )}
+        {ajeno && owner && (
+          <div className="owner-bar">
+            <span>
+              El control lo tiene <b>{owner.label}</b>. Ves todo en vivo, pero envía y aprueba ese
+              dispositivo.
+            </span>
+            <button className="cd-chip" onClick={() => void window.deck.chatClaim(tabId)}>
+              Tomar el control
+            </button>
+          </div>
+        )}
         <div className="composer">
           {compacting && <CompactBar startedAt={compacting} />}
           <textarea
             ref={inputRef}
+            disabled={ajeno}
             value={input}
             placeholder="Escribe un mensaje… «/» comandos · Enter envía · Shift+Enter salto"
             rows={1}

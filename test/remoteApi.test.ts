@@ -8,11 +8,15 @@ import {
   eventoRemoto
 } from '../src/main/remote/api'
 
-/** Canales IPC realmente registrados en el main. */
-function canalesRegistrados(): Set<string> {
+/**
+ * Canales registrados con `manejar`/`manejarEnvio`, que son los que quedan
+ * invocables desde el acceso remoto. Uno permitido pero registrado con
+ * `ipcMain` a secas compilaría igual y fallaría solo al usarlo desde el móvil.
+ */
+function canalesInvocables(): Set<string> {
   const src = readFileSync('src/main/index.ts', 'utf8')
   const found = new Set<string>()
-  for (const m of src.matchAll(/ipcMain\.(?:handle|on)\(\s*'([^']+)'/g)) found.add(m[1])
+  for (const m of src.matchAll(/manejar(?:Envio)?\(\s*'([^']+)'/g)) found.add(m[1])
   return found
 }
 
@@ -42,10 +46,15 @@ describe('superficie remota', () => {
     for (const c of ['update:available', 'update:progress']) expect(eventoRemoto(c)).toBe(false)
   })
 
-  it('cada acción permitida existe de verdad en el main', () => {
-    const reales = canalesRegistrados()
+  it('cada acción permitida está registrada como invocable en el main', () => {
+    const reales = canalesInvocables()
     const fantasmas = ACCIONES_REMOTAS.map((a) => a.canal).filter((c) => !reales.has(c))
     expect(fantasmas).toEqual([])
+  })
+
+  it('no hay canales invocables que nadie haya autorizado', () => {
+    const sobrantes = [...canalesInvocables()].filter((c) => !accionRemota(c))
+    expect(sobrantes).toEqual([])
   })
 
   it('cada evento permitido lo emite alguien', () => {

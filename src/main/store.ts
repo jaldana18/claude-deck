@@ -1,7 +1,15 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFile, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import type { GlobalSettings, ProjectPrefs, Snippet, TabState, WidgetState } from '../shared/types'
+import type {
+  GlobalSettings,
+  ProjectPrefs,
+  RemoteDevice,
+  RemoteSettings,
+  Snippet,
+  TabState,
+  WidgetState
+} from '../shared/types'
 import type { Emitter } from './bus'
 
 interface DeckState {
@@ -21,6 +29,10 @@ interface DeckState {
   defaultCliCommand?: string
   /** Ajustes globales de la app (auto-compact por defecto, etc.) */
   globalSettings?: GlobalSettings
+  /** Acceso remoto: ajustes, dispositivos emparejados y hash de cada token */
+  remote?: RemoteSettings
+  remoteDevices?: RemoteDevice[]
+  remoteHashes?: Record<string, string>
 }
 
 const DEFAULT_WIDGETS: WidgetState[] = [
@@ -70,7 +82,10 @@ export class Store {
           updateDir: parsed.updateDir,
           defaultCli: parsed.defaultCli,
           defaultCliCommand: parsed.defaultCliCommand,
-          globalSettings: parsed.globalSettings
+          globalSettings: parsed.globalSettings,
+          remote: parsed.remote,
+          remoteDevices: parsed.remoteDevices,
+          remoteHashes: parsed.remoteHashes
         }
       }
     } catch (err) {
@@ -235,6 +250,40 @@ export class Store {
   setGlobalSettings(settings: GlobalSettings): void {
     this.state.globalSettings = { ...this.state.globalSettings, ...settings }
     this.scheduleSave()
+  }
+
+  /**
+   * El acceso remoto llega apagado. Se enciende a mano y se apaga solo si se
+   * configuró así: nadie debería descubrir que su PC estaba publicado.
+   */
+  get remote(): RemoteSettings {
+    return { enabled: false, puerto: 43118, tunel: 'quick', ...this.state.remote }
+  }
+
+  setRemote(patch: Partial<RemoteSettings>): RemoteSettings {
+    this.state.remote = { ...this.remote, ...patch }
+    this.scheduleSave()
+    return this.state.remote
+  }
+
+  get remoteDevices(): RemoteDevice[] {
+    return this.state.remoteDevices ?? []
+  }
+
+  setRemoteDevices(ds: RemoteDevice[]): void {
+    this.state.remoteDevices = ds
+    this.scheduleSave()
+  }
+
+  get remoteHashes(): Record<string, string> {
+    return this.state.remoteHashes ?? {}
+  }
+
+  setRemoteHashes(h: Record<string, string>): void {
+    this.state.remoteHashes = h
+    // Sin esperar el debounce: revocar un dispositivo tiene que sobrevivir a un
+    // cierre inmediato de la app.
+    this.flush()
   }
 
   get defaultCli(): { cli?: string; command?: string } {

@@ -12,6 +12,7 @@ import { NewTabDialog } from './components/NewTabDialog'
 import { SessionsPanel } from './components/SessionsPanel'
 import { StoreModal } from './components/StoreModal'
 import { SettingsModal } from './components/SettingsModal'
+import { RemotePanel } from './components/RemotePanel'
 import type { WidgetKind, WidgetState } from '../../shared/types'
 
 export default function App(): React.JSX.Element {
@@ -26,6 +27,7 @@ export default function App(): React.JSX.Element {
   const [showSessions, setShowSessions] = useState(false)
   const [showStore, setShowStore] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showRemote, setShowRemote] = useState(false)
 
   /** Snap de pestañas (mockup 2b): zona candidata mientras se arrastra una pestaña */
   const [snapDrag, setSnapDrag] = useState(false)
@@ -233,6 +235,12 @@ export default function App(): React.JSX.Element {
     const offSession = window.deck.onTabSession(({ tabId, sessionId }) => {
       setTabs((ts) => ts.map((t) => (t.id === tabId ? { ...t, claudeSessionId: sessionId } : t)))
     })
+    // Cambios hechos desde otro dispositivo: sin esto, cambiar el modelo desde el
+    // móvil no se vería aquí hasta reiniciar la app.
+    const offTabState = window.deck.onTabState(({ tabId, patch }) => {
+      setTabs((ts) => ts.map((t) => (t.id === tabId ? { ...t, ...patch } : t)))
+    })
+    const offTabList = window.deck.onTabList(({ tabs: lista }) => setTabs(lista))
     const offExit = window.deck.onPtyExit(({ paneId }) => {
       setExitedPanes((e) => ({ ...e, [paneId]: true }))
       const tabId = paneTabId(paneId)
@@ -244,6 +252,8 @@ export default function App(): React.JSX.Element {
     return () => {
       offStatus()
       offSession()
+      offTabState()
+      offTabList()
       offExit()
     }
   }, [])
@@ -499,6 +509,7 @@ export default function App(): React.JSX.Element {
         onAddWidget={addWidget}
         onToggleStore={() => setShowStore(true)}
         onToggleSettings={() => setShowSettings(true)}
+        onToggleRemote={() => setShowRemote(true)}
       />
       <div className="body">
         {showSessions && activeTab && (
@@ -632,6 +643,7 @@ export default function App(): React.JSX.Element {
         />
       )}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showRemote && <RemotePanel onClose={() => setShowRemote(false)} />}
       {/* Snap de pestañas (2b): vista previa de la zona + selector de layouts */}
       {snapZone && (
         <div

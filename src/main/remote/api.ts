@@ -38,7 +38,7 @@ export const ACCIONES_REMOTAS: readonly AccionRemota[] = [
   { canal: 'chat:snapshot', control: false },
   { canal: 'chat:snapshotAll', control: false },
   { canal: 'chat:history', control: false },
-  { canal: 'chat:sessions', control: false },
+  { canal: 'chat:sessions', control: false, restricciones: ['confinar-raiz'] },
   { canal: 'chats:search', control: false },
   { canal: 'chat:commands', control: false },
   { canal: 'chat:models', control: false },
@@ -49,6 +49,8 @@ export const ACCIONES_REMOTAS: readonly AccionRemota[] = [
   // Listado de carpetas para elegir dónde abrir un chat. El diálogo nativo no
   // sirve desde fuera: abriría una ventana en un PC donde no hay nadie.
   { canal: 'fs:tree', control: false, restricciones: ['confinar-raiz'] },
+  // Por dónde puede empezar a navegar: sin esto el móvil no sabría qué pedir.
+  { canal: 'remote:raices', control: false },
 
   // ----- actuar -----
   // Reclamar el control nunca puede exigir tenerlo: es el relevo.

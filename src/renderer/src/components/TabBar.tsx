@@ -46,6 +46,7 @@ interface Props {
   onAddWidget: (kind: WidgetKind, side?: WidgetSide) => void
   onToggleStore: () => void
   onToggleSettings: () => void
+  onToggleRemote: () => void
 }
 
 /** Galería de widgets del botón «+ Widget» (rediseño 2a) */
@@ -362,6 +363,15 @@ export function TabBar(p: Props): React.JSX.Element {
                   }}
                 >
                   <IconTune size={13} /> Ajustes de la app
+                </div>
+                <div
+                  className="menu-item"
+                  onClick={() => {
+                    p.onToggleRemote()
+                    closeMenus()
+                  }}
+                >
+                  <IconTune size={13} /> Acceso remoto
                 </div>
                 <div className="menu-sep" />
                 <div

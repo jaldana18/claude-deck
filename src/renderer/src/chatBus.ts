@@ -17,6 +17,7 @@ import type {
   ModelOption,
   PermissionRequestEvent,
   QuestionRequestEvent,
+  OwnerState,
   SlashCommandInfo,
   TodoItem
 } from '../../shared/types'
@@ -52,6 +53,7 @@ export interface ChatPayloads {
   subagentBatch: { tabId: string; batches: { parentId: string; messages: ChatMessage[] }[] }
   agentDone: { tabId: string; toolUseId: string; status?: string }
   switched: { tabId: string }
+  owner: { tabId: string; owner: OwnerState | null }
 }
 
 export type ChatChannel = keyof ChatPayloads
@@ -62,6 +64,7 @@ const REGISTER: Record<ChatChannel, (cb: (p: never) => void) => () => void> = {
   streamStart: (cb) => window.deck.onChatStreamStart(cb as never),
   delta: (cb) => window.deck.onChatDelta(cb as never),
   message: (cb) => window.deck.onChatMessage(cb as never),
+  owner: (cb) => window.deck.onChatOwner(cb as never),
   toolResult: (cb) => window.deck.onChatToolResult(cb as never),
   result: (cb) => window.deck.onChatResult(cb as never),
   error: (cb) => window.deck.onChatError(cb as never),

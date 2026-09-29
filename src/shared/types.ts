@@ -587,6 +587,70 @@ export interface SessionSnapshot {
   models: ModelOption[]
 }
 
+/** Un dispositivo emparejado. El token no se guarda: solo su hash. */
+export interface RemoteDevice {
+  clientId: string
+  nombre: string
+  creado: number
+  ultimoVisto?: number
+}
+
+export interface RemoteSettings {
+  /** Interruptor maestro. Apagado, el servidor no escucha en ningún puerto. */
+  enabled: boolean
+  puerto: number
+  /**
+   * `quick` = túnel efímero de Cloudflare, URL nueva en cada arranque.
+   * `dominio` = túnel con nombre sobre un dominio propio, URL estable.
+   * `ninguno` = solo red local (útil para probar sin salir a internet).
+   */
+  tunel: 'quick' | 'dominio' | 'ninguno'
+  /** Solo con `dominio`: el nombre público que apunta al túnel. */
+  hostname?: string
+  /**
+   * Solo con `dominio`: token del túnel gestionado desde el panel de Cloudflare.
+   * Con él no hace falta ni config.yml ni credenciales en disco.
+   */
+  tunelToken?: string
+  /**
+   * Carpetas que el acceso remoto puede mirar. Vacío = las de las pestañas
+   * abiertas y su carpeta madre, para poder elegir un proyecto hermano.
+   */
+  raices?: string[]
+  /** Apagado automático del acceso remoto tras N minutos sin usarlo. */
+  apagarTrasMin?: number
+}
+
+export type TunelFase = 'apagado' | 'arrancando' | 'activo' | 'caido'
+
+export interface RemoteStatus {
+  enabled: boolean
+  /** Dirección pública por la que entra el móvil, o null si no hay túnel. */
+  url: string | null
+  tunel: TunelFase
+  detalle?: string
+  dispositivos: RemoteDevice[]
+  /** Clientes con el canal de eventos abierto ahora mismo. */
+  conectados: string[]
+  /** Autenticación cerrada por intentos fallidos, hasta este instante. */
+  bloqueadoHasta?: number
+  /** Emparejamiento abierto: mientras exista, el panel pinta el QR. */
+  pairing?: PairingInfo
+  /**
+   * Aviso para el usuario que está delante del PC. Con túnel quick la dirección
+   * cambia en cada arranque, y la app instalada en el móvil queda apuntando a
+   * una que ya no existe: hay que volver a escanear.
+   */
+  alerta?: string
+}
+
+/** Lo que se pinta en el QR: la URL de emparejamiento y su caducidad. */
+export interface PairingInfo {
+  url: string
+  codigo: string
+  expira: number
+}
+
 /**
  * Quién tiene el control de una conversación. Los dos dispositivos ven todo en
  * vivo; solo el dueño envía y aprueba, y el otro lo reclama de un toque.

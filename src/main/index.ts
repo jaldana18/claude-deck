@@ -14,6 +14,7 @@ import type {
   PermissionModeId,
   GlobalSettings,
   ProjectPrefs,
+  RemoteSettings,
   Snippet,
   TabMode,
   TabProfile,
@@ -55,6 +56,7 @@ import {
 } from './marketplace'
 import { Bus } from './bus'
 import { CLIENTE_LOCAL, Ownership } from './ownership'
+import { RemoteManager } from './remote/manager'
 
 let win: BrowserWindow | null = null
 const getWindow = (): BrowserWindow | null => win
@@ -74,6 +76,46 @@ const updater = new Updater(bus, store)
 const ownership = new Ownership(bus)
 // el estado de pestañas se anuncia: un segundo dispositivo ve los cambios
 store.setEmitter(bus)
+
+/**
+ * Canales que además puede invocar el acceso remoto.
+ *
+ * Se registran con este ayudante y no se duplican en una tabla aparte: el móvil
+ * tiene que ejecutar exactamente el mismo código que la ventana, o tarde o
+ * temprano una copia se desvía de la otra y solo falla en el dispositivo que
+ * nadie prueba.
+ */
+const remotos = new Map<string, (args: unknown) => unknown>()
+
+/** La conversación a la que apunta una petición, venga suelta o en un objeto. */
+function tabIdDe(args: unknown): string {
+  if (typeof args === 'string') return args
+  if (args && typeof args === 'object') return String((args as { tabId?: string }).tabId ?? '')
+  return ''
+}
+
+/**
+ * `control` = la acción cambia la conversación, así que exige tener el mando.
+ * La comprobación vive fuera de la función compartida a propósito: cada borde
+ * la hace con el id de SU cliente —aquí el PC, en el gateway el dispositivo— y
+ * si estuviera dentro, una petición del móvil se comprobaría como si fuera local.
+ */
+function manejar<A>(canal: string, fn: (args: A) => unknown, control = false): void {
+  remotos.set(canal, (args) => fn(args as A))
+  ipcMain.handle(canal, (_e, args: A) => {
+    if (control && !ownership.puedeActuar(tabIdDe(args), CLIENTE_LOCAL)) return undefined
+    return fn(args)
+  })
+}
+
+/** Igual, para los canales de ida sin respuesta. */
+function manejarEnvio<A>(canal: string, fn: (args: A) => void): void {
+  remotos.set(canal, (args) => fn(args as A))
+  ipcMain.on(canal, (_e, args: A) => {
+    if (!ownership.puedeActuar(tabIdDe(args), CLIENTE_LOCAL)) return
+    fn(args)
+  })
+}
 
 /** Arranca los procesos de una pestaña según su modo (todos sus paneles) */
 function startTab(tab: TabState): void {
@@ -243,16 +285,15 @@ function createWindow(): void {
 
 // ---------- IPC: pestañas ----------
 
-ipcMain.handle('tabs:list', () => ({
+manejar('tabs:list', () => ({
   tabs: store.tabs,
   activeTabId: store.activeTabId,
   running: store.tabs.map((t) => ({ id: t.id, running: ptys.isRunning(t.id) }))
 }))
 
-ipcMain.handle(
+manejar(
   'tabs:create',
   (
-    _e,
     args: {
       cwd: string
       mode: TabMode
@@ -408,7 +449,7 @@ ipcMain.handle('ci:builds', (_e, cwd: string) => getBuilds(cwd))
 ipcMain.handle('ci:prs', (_e, cwd: string) => getPullRequests(cwd))
 
 /** Árbol de archivos de un directorio (primer nivel + expansión bajo demanda) */
-ipcMain.handle('fs:tree', async (_e, args: { dir: string; depth?: number }) => {
+manejar('fs:tree', async (args: { dir: string; depth?: number }) => {
   const { readdirSync, statSync } = await import('node:fs')
   const { join, relative } = await import('node:path')
   interface FsNode { name: string; path: string; isDir: boolean; children?: FsNode[]; gitStatus?: string }
@@ -622,29 +663,24 @@ ipcMain.handle('snippets:delete', (_e, id: string) => {
   return store.snippets
 })
 
-ipcMain.handle('chats:search', (_e, query: string) => searchChats(query))
+manejar('chats:search', (query: string) => searchChats(query))
 
 // ---------- IPC: chat (v2, Agent SDK) ----------
 
-// El control de la conversación se comprueba en el borde: aquí el cliente es
-// siempre el PC, y el gateway remoto hará lo mismo con el id de su dispositivo.
-// Con un solo cliente `puedeActuar` nunca dice no.
-ipcMain.on(
+manejarEnvio(
   'chat:send',
-  (_e, args: { tabId: string; text: string; attachments?: ChatAttachment[] }) => {
-    if (!ownership.puedeActuar(args.tabId, CLIENTE_LOCAL)) return
+  (args: { tabId: string; text: string; attachments?: ChatAttachment[] }) =>
     chatSessions.send(args.tabId, args.text, args.attachments)
-  }
 )
 
-ipcMain.handle('chat:owners', () => ownership.list())
-ipcMain.handle('chat:claim', (_e, tabId: string) => ownership.claim(tabId, CLIENTE_LOCAL))
+manejar('chat:owners', () => ownership.list())
+manejar('chat:claim', (tabId: string) => ownership.claim(tabId, CLIENTE_LOCAL))
 
-ipcMain.handle('chat:commands', (_e, tabId: string) => chatSessions.commandsFor(tabId))
-ipcMain.handle('chat:models', (_e, tabId: string) => chatSessions.modelsFor(tabId))
-ipcMain.handle('chat:health', (_e, tabId: string) => chatSessions.healthFor(tabId))
-ipcMain.handle('chat:snapshot', (_e, tabId: string) => chatSessions.snapshotFor(tabId))
-ipcMain.handle('chat:snapshotAll', () => chatSessions.snapshotAll())
+manejar('chat:commands', (tabId: string) => chatSessions.commandsFor(tabId))
+manejar('chat:models', (tabId: string) => chatSessions.modelsFor(tabId))
+manejar('chat:health', (tabId: string) => chatSessions.healthFor(tabId))
+manejar('chat:snapshot', (tabId: string) => chatSessions.snapshotFor(tabId))
+manejar('chat:snapshotAll', () => chatSessions.snapshotAll())
 ipcMain.handle('chat:setLlmParams', (_e, a: { tabId: string; params: LlmParams }) =>
   chatSessions.setLlmParams(a.tabId, a.params)
 )
@@ -678,8 +714,10 @@ ipcMain.handle(
 ipcMain.handle('store:plugin', (_e, a: { args: string[]; cwd: string }) =>
   runPluginCommand(a.args, a.cwd)
 )
-ipcMain.handle('chat:setModel', (_e, args: { tabId: string; model?: string }) =>
-  chatSessions.setModel(args.tabId, args.model)
+manejar(
+  'chat:setModel',
+  (args: { tabId: string; model?: string }) => chatSessions.setModel(args.tabId, args.model),
+  true
 )
 ipcMain.handle(
   'chat:setFallbackModel',
@@ -688,7 +726,7 @@ ipcMain.handle(
 )
 
 /** Sesiones pasadas del proyecto (historial lateral) */
-ipcMain.handle('chat:sessions', async (_e, cwd: string) => {
+manejar('chat:sessions', async (cwd: string) => {
   try {
     const sessions = await listSessions({ dir: cwd })
     return sessions
@@ -717,22 +755,18 @@ ipcMain.handle('chat:resumeSession', (_e, args: { tabId: string; sessionId: stri
   win?.webContents.send('chat:switched', { tabId: tab.id })
 })
 
-ipcMain.handle('chat:interrupt', (_e, tabId: string) => chatSessions.interrupt(tabId))
+manejar('chat:interrupt', (tabId: string) => chatSessions.interrupt(tabId), true)
 
-ipcMain.on(
+manejarEnvio(
   'chat:permission-response',
-  (_e, args: { tabId: string; requestId: string; decision: 'allow' | 'always' | 'deny' }) => {
-    if (!ownership.puedeActuar(args.tabId, CLIENTE_LOCAL)) return
+  (args: { tabId: string; requestId: string; decision: 'allow' | 'always' | 'deny' }) =>
     chatSessions.resolvePermission(args.tabId, args.requestId, args.decision)
-  }
 )
 
-ipcMain.on(
+manejarEnvio(
   'chat:question-response',
-  (_e, args: { tabId: string; requestId: string; answers: Record<string, string> | null }) => {
-    if (!ownership.puedeActuar(args.tabId, CLIENTE_LOCAL)) return
+  (args: { tabId: string; requestId: string; answers: Record<string, string> | null }) =>
     chatSessions.resolveQuestion(args.tabId, args.requestId, args.answers)
-  }
 )
 
 ipcMain.handle(
@@ -741,7 +775,7 @@ ipcMain.handle(
     chatSessions.setPermissionMode(args.tabId, args.mode)
 )
 
-ipcMain.handle('chat:history', async (_e, tabId: string) => {
+manejar('chat:history', async (tabId: string) => {
   const tab = store.tabs.find((t) => t.id === tabId)
   if (!tab?.claudeSessionId) return []
   return loadChatHistory(tab.claudeSessionId, tab.cwd)
@@ -846,7 +880,7 @@ ipcMain.handle('aparte:stop', (_e, asideId: string) => {
 
 // ---------- IPC: actualización / app ----------
 
-ipcMain.handle('app:version', () => app.getVersion())
+manejar('app:version', () => app.getVersion())
 ipcMain.handle('update:check', () => updater.check(true))
 ipcMain.handle('update:install', (_e, info: UpdateInfo) => updater.install(info))
 ipcMain.handle('update:getDir', () => updater.getDir())
@@ -855,12 +889,12 @@ ipcMain.handle('update:setDir', (_e, dir: string) => updater.setDir(dir))
 // ---------- IPC: estado del servicio ----------
 
 /** Informe cacheado, sin salir a la red: lo pide el renderer al montar */
-ipcMain.handle('status:get', () => statusWatcher.report())
+manejar('status:get', () => statusWatcher.report())
 /** Comprobación forzada, saltándose los frenos: es el botón «Comprobar» */
 ipcMain.handle('status:check', () => statusWatcher.check(true))
 
 /** Abre un resultado de búsqueda: pestaña de chat nueva reanudando esa sesión */
-ipcMain.handle('chats:open', (_e, args: { cwd: string; sessionId: string }) => {
+manejar('chats:open', (args: { cwd: string; sessionId: string }) => {
   const prefs = store.getProjectPrefs(args.cwd)
   const tab: TabState = {
     id: randomUUID(),
@@ -885,6 +919,31 @@ ipcMain.handle('dialog:pickFolder', async () => {
   return res.canceled ? null : res.filePaths[0]
 })
 
+// ---------- Acceso remoto ----------
+
+const remote = new RemoteManager({
+  store,
+  bus,
+  ownership,
+  // El móvil ejecuta el mismo handler que la ventana; si el canal no está en la
+  // superficie remota, el dispatcher no llega hasta aquí.
+  invocar: (canal, args) => {
+    const fn = remotos.get(canal)
+    if (!fn) throw new Error(`Canal no disponible: ${canal}`)
+    return fn(args)
+  },
+  webDir: join(app.getAppPath(), 'out', 'web')
+})
+
+manejar('remote:raices', () => remote.raices())
+
+ipcMain.handle('remote:get', () => remote.estado())
+ipcMain.handle('remote:settings', () => remote.ajustes)
+ipcMain.handle('remote:set', (_e, patch: Partial<RemoteSettings>) => remote.aplicar(patch))
+ipcMain.handle('remote:pair', () => remote.emparejar())
+ipcMain.handle('remote:revoke', (_e, clientId: string) => remote.revocar(clientId))
+ipcMain.handle('remote:revokeAll', () => remote.revocarTodos())
+
 // ---------- Ciclo de vida ----------
 
 const gotLock = app.requestSingleInstanceLock()
@@ -901,6 +960,7 @@ if (!gotLock) {
     createWindow()
     syncTray()
     hookServer.start()
+    void remote.restaurar()
     updater.startAutoCheck()
     statusWatcher.startAutoCheck()
     // Resurrección: relanzar cada pestaña guardada (chat con resume, terminal con --resume)
@@ -925,6 +985,7 @@ if (!gotLock) {
     ptys.killAll()
     chatSessions.stopAll()
     hookServer.stop()
+    void remote.apagar()
     void closeBoardClient()
   })
 }

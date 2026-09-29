@@ -22,6 +22,7 @@ import type {
   LlmParams,
   ModelOption,
   OwnerState,
+  PairingInfo,
   PaneLayout,
   PluginManifest,
   PermissionModeId,
@@ -30,6 +31,8 @@ import type {
   ProjectConfig,
   GlobalSettings,
   ProjectPrefs,
+  RemoteSettings,
+  RemoteStatus,
   QuestionRequestEvent,
   SessionListItem,
   SlashCommandInfo,
@@ -154,6 +157,19 @@ const api = {
   chatClaim: (tabId: string): Promise<OwnerState> => ipcRenderer.invoke('chat:claim', tabId),
   onChatOwner: (cb: (p: { tabId: string; owner: OwnerState | null }) => void) =>
     on('chat:owner', cb),
+
+  // acceso remoto
+  remoteGet: (): Promise<RemoteStatus> => ipcRenderer.invoke('remote:get'),
+  remoteSettings: (): Promise<RemoteSettings> => ipcRenderer.invoke('remote:settings'),
+  remoteSet: (patch: Partial<RemoteSettings>): Promise<RemoteStatus> =>
+    ipcRenderer.invoke('remote:set', patch),
+  remotePair: (): Promise<{ pairing?: PairingInfo; error?: string }> =>
+    ipcRenderer.invoke('remote:pair'),
+  remoteRevoke: (clientId: string): Promise<RemoteStatus> =>
+    ipcRenderer.invoke('remote:revoke', clientId),
+  remoteRevokeAll: (): Promise<RemoteStatus> => ipcRenderer.invoke('remote:revokeAll'),
+  remoteRaices: (): Promise<string[]> => ipcRenderer.invoke('remote:raices'),
+  onRemoteStatus: (cb: (s: RemoteStatus) => void) => on('remote:status', cb),
   onChatHealth: (cb: (p: ChatHealth) => void) => on('chat:health', cb),
   onChatAutoContinue: (cb: (p: { tabId: string; count: number }) => void) =>
     on('chat:auto-continue', cb),
