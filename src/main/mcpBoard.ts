@@ -77,6 +77,12 @@ function readAzureMcpConfig(cwd: string): McpServerConfig | null {
 
 let client: Client | null = null
 let clientKey = ''
+/** Conexión en vuelo: los widgets que lleguen mientras tanto la comparten en
+ *  vez de lanzar cada uno su propio server npx (al arrancar la app todos los
+ *  widgets de todas las pestañas piden a la vez y se pisaban entre sí,
+ *  dejando procesos huérfanos y conexiones cerradas a mitad de uso). */
+let conectando: Promise<Client> | null = null
+let conectandoKey = ''
 
 /** Caché de la config MCP por carpeta (TTL 60 s): antes se leían y parseaban
  *  .mcp.json y ~/.claude.json —que puede pesar decenas de MB— en cada llamada
@@ -99,7 +105,19 @@ async function getClient(cwd: string): Promise<Client> {
   }
   const key = JSON.stringify(cfg)
   if (client && clientKey === key) return client
+  // una sola conexión en vuelo: si falla, todos los que esperaban reciben el
+  // mismo error y el próximo refresco reintenta desde cero
+  if (!conectando || conectandoKey !== key) {
+    conectandoKey = key
+    conectando = conectar(cfg, key).finally(() => {
+      conectando = null
+      conectandoKey = ''
+    })
+  }
+  return conectando
+}
 
+async function conectar(cfg: McpServerConfig, key: string): Promise<Client> {
   await closeClient()
   // En Windows, npx/npm son .cmd: hay que lanzarlos a través de cmd /c
   const isCmdShim = ['npx', 'npm', 'pnpm', 'yarn'].includes(cfg.command)
@@ -109,10 +127,38 @@ async function getClient(cwd: string): Promise<Client> {
     env: { ...(process.env as Record<string, string>), ...(cfg.env ?? {}) }
   })
   const c = new Client({ name: 'claude-deck', version: '1.0.0' })
-  await c.connect(transport)
+  try {
+    await c.connect(transport)
+  } catch (err) {
+    // no dejar huérfano el proceso npx si el handshake falló
+    await transport.close().catch(() => {})
+    throw err
+  }
   client = c
   clientKey = key
   return c
+}
+
+/** Errores que significan «la conexión murió» (server caído, PC dormido,
+ *  transporte cerrado): amerita reconectar, no propagar sin más. */
+const RE_CONEXION_MUERTA = /closed|not connected|disconnect|EPIPE|ECONNRESET|ERR_STREAM/i
+
+/**
+ * Única puerta de salida hacia el MCP: consigue el cliente compartido, llama
+ * la tool y, si la conexión estaba muerta, reconecta y reintenta UNA vez
+ * (solo pasan por aquí lecturas, el reintento es seguro). Antes cada error
+ * cerraba el cliente compartido y tumbaba a los demás widgets en cascada.
+ */
+async function llamada(cwd: string, name: string, args: Record<string, unknown>): Promise<unknown> {
+  const c = await getClient(cwd)
+  try {
+    return parseToolResult(await c.callTool({ name, arguments: args }))
+  } catch (err) {
+    if (!RE_CONEXION_MUERTA.test(String(err))) throw err
+    if (client === c) await closeClient()
+    const c2 = await getClient(cwd)
+    return parseToolResult(await c2.callTool({ name, arguments: args }))
+  }
 }
 
 export async function closeClient(): Promise<void> {
@@ -203,13 +249,11 @@ export async function callAzureTool(
   name: string,
   args: Record<string, unknown>
 ): Promise<unknown> {
-  const c = await getClient(cwd)
-  return parseToolResult(await c.callTool({ name, arguments: args }))
+  return llamada(cwd, name, args)
 }
 
 export async function listProjects(cwd: string): Promise<{ id?: string; name: string }[]> {
-  const c = await getClient(cwd)
-  const res = parseToolResult(await c.callTool({ name: 'core_list_projects', arguments: {} }))
+  const res = await llamada(cwd, 'core_list_projects', {})
   return asRows(res)
     .map((r) => ({ id: r.id as string | undefined, name: String(r.name ?? '') }))
     .filter((p) => p.name)
@@ -218,10 +262,7 @@ export async function listProjects(cwd: string): Promise<{ id?: string; name: st
 
 /** Equipos de un proyecto */
 export async function listTeams(cwd: string, project: string): Promise<{ name: string }[]> {
-  const c = await getClient(cwd)
-  const res = parseToolResult(
-    await c.callTool({ name: 'core_list_project_teams', arguments: { project } })
-  )
+  const res = await llamada(cwd, 'core_list_project_teams', { project })
   return asRows(res)
     .map((r) => ({ name: String(r.name ?? '') }))
     .filter((t) => t.name)
@@ -234,10 +275,7 @@ export async function listIterations(
   project: string,
   team: string
 ): Promise<{ id: string; name: string; timeFrame?: string }[]> {
-  const c = await getClient(cwd)
-  const res = parseToolResult(
-    await c.callTool({ name: 'work', arguments: { action: 'list_team_iterations', project, team } })
-  )
+  const res = await llamada(cwd, 'work', { action: 'list_team_iterations', project, team })
   return asRows(res)
     .map((r) => {
       const attrs = r.attributes as { timeFrame?: string } | undefined
@@ -257,8 +295,6 @@ export async function getSprintBoard(
   iterationId?: string
 ): Promise<BoardData> {
   try {
-    const c = await getClient(cwd)
-
     // 1. Iteración: la elegida en el widget, o la actual del equipo
     let current: {
       id?: string
@@ -271,12 +307,12 @@ export async function getSprintBoard(
       const found = all.find((i) => i.id === iterationId)
       if (found) current.name = found.name
     } else {
-      const iterRes = parseToolResult(
-        await c.callTool({
-          name: 'work',
-          arguments: { action: 'list_team_iterations', project, team, timeframe: 'current' }
-        })
-      )
+      const iterRes = await llamada(cwd, 'work', {
+        action: 'list_team_iterations',
+        project,
+        team,
+        timeframe: 'current'
+      })
       current = (asRows(iterRes)[0] ?? {}) as typeof current
       if (!current?.id) {
         // fallback: listar todas y elegir la marcada como actual
@@ -297,12 +333,12 @@ export async function getSprintBoard(
     }
 
     // 2. Work items de la iteración
-    const listRes = parseToolResult(
-      await c.callTool({
-        name: 'wit_work_item',
-        arguments: { action: 'list_for_iteration', project, team, iterationId: current.id }
-      })
-    )
+    const listRes = await llamada(cwd, 'wit_work_item', {
+      action: 'list_for_iteration',
+      project,
+      team,
+      iterationId: current.id
+    })
     const ids = collectWorkItemIds(listRes)
     if (ids.length === 0) {
       return {
@@ -317,24 +353,19 @@ export async function getSprintBoard(
     //    get_batch falla con sprints grandes (el tope de la API es 200)
     const rows: Record<string, unknown>[] = []
     for (let i = 0; i < ids.length; i += 100) {
-      const batchRes = parseToolResult(
-        await c.callTool({
-          name: 'wit_work_item',
-          arguments: {
-            action: 'get_batch',
-            project,
-            ids: ids.slice(i, i + 100),
-            fields: [
-              'System.Id',
-              'System.Title',
-              'System.State',
-              'System.WorkItemType',
-              'System.AssignedTo',
-              'Microsoft.VSTS.Scheduling.StoryPoints'
-            ]
-          }
-        })
-      ) as Record<string, unknown> | Record<string, unknown>[] | null
+      const batchRes = (await llamada(cwd, 'wit_work_item', {
+        action: 'get_batch',
+        project,
+        ids: ids.slice(i, i + 100),
+        fields: [
+          'System.Id',
+          'System.Title',
+          'System.State',
+          'System.WorkItemType',
+          'System.AssignedTo',
+          'Microsoft.VSTS.Scheduling.StoryPoints'
+        ]
+      })) as Record<string, unknown> | Record<string, unknown>[] | null
       rows.push(
         ...(Array.isArray(batchRes)
           ? batchRes
@@ -367,7 +398,8 @@ export async function getSprintBoard(
       items
     }
   } catch (err) {
-    await closeClient()
+    // NO cerrar el cliente compartido aquí: eso tumbaba en cascada a los demás
+    // widgets; `llamada` ya reconecta sola cuando la conexión está muerta
     return { ok: false, items: [], error: String(err).slice(0, 500) }
   }
 }

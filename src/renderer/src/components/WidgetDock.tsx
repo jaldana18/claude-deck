@@ -795,8 +795,14 @@ const BoardWidget = memo(function BoardWidget(p: {
   const load = useCallback(async () => {
     if (!cfg.project || !cfg.team) return
     setLoading(true)
-    setData(await window.deck.boardGet(p.tab.cwd, cfg.project, cfg.team, cfg.iterationId))
-    setLoading(false)
+    try {
+      setData(await window.deck.boardGet(p.tab.cwd, cfg.project, cfg.team, cfg.iterationId))
+    } catch (e) {
+      // sin esto, un rechazo del IPC dejaba el widget en «Consultando…» eterno
+      setData({ ok: false, items: [], error: String(e) })
+    } finally {
+      setLoading(false)
+    }
   }, [cfg.project, cfg.team, cfg.iterationId, p.tab.cwd])
 
   useEffect(() => {
@@ -1152,8 +1158,13 @@ const CiWidget = memo(function CiWidget(p: { tab: TabState; visible: boolean }):
 
   const load = useCallback(async () => {
     setLoading(true)
-    setData(await window.deck.ciBuilds(p.tab.cwd))
-    setLoading(false)
+    try {
+      setData(await window.deck.ciBuilds(p.tab.cwd))
+    } catch (e) {
+      setData((prev) => ({ ok: false, repo: prev?.repo ?? { provider: 'none' }, builds: [], error: String(e) }))
+    } finally {
+      setLoading(false)
+    }
   }, [p.tab.cwd])
 
   useEffect(() => {
@@ -1206,8 +1217,13 @@ const PrsWidget = memo(function PrsWidget(p: { tab: TabState; visible: boolean }
 
   const load = useCallback(async () => {
     setLoading(true)
-    setData(await window.deck.ciPrs(p.tab.cwd))
-    setLoading(false)
+    try {
+      setData(await window.deck.ciPrs(p.tab.cwd))
+    } catch (e) {
+      setData((prev) => ({ ok: false, repo: prev?.repo ?? { provider: 'none' }, prs: [], error: String(e) }))
+    } finally {
+      setLoading(false)
+    }
   }, [p.tab.cwd])
 
   useEffect(() => {
