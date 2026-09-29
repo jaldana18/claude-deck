@@ -58,6 +58,17 @@ body {
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Ningún hijo empuja el ancho más allá de la pantalla: en un móvil eso saca una
+   barra de scroll horizontal y descoloca todo. */
+.pantalla,
+.barra,
+.hilo,
+.composer,
+.cuerpo {
+  max-width: 100%;
 }
 
 .vista {
@@ -102,8 +113,9 @@ body {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 10px;
+  flex-wrap: wrap;
   padding-top: max(8px, env(safe-area-inset-top));
   background: var(--bg-tabbar);
   border-bottom: 1px solid var(--border-soft);
@@ -739,6 +751,7 @@ button.tarjeta {
 
 .composer-campo {
   flex: 1;
+  min-width: 0;
   min-height: var(--toque);
   max-height: 35vh;
   padding: 11px 12px;
@@ -863,4 +876,30 @@ button.tarjeta {
   border-color: var(--border-soft);
   background: transparent;
   font-size: 12px;
+}
+
+/* ---------- pantallas estrechas ---------- */
+
+@media (max-width: 380px) {
+  html,
+  body {
+    font-size: 15px;
+  }
+
+  .hilo {
+    padding: 10px 8px;
+    gap: 8px;
+  }
+
+  .burbuja.user {
+    max-width: 96%;
+  }
+
+  .composer {
+    padding: 8px;
+  }
+
+  .selector {
+    max-width: 28vw;
+  }
 }
