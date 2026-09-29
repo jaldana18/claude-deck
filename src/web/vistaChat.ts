@@ -3,6 +3,7 @@ import * as api from './api'
 import { burbuja, firmaMensaje } from './burbujas'
 import { avisoError, boton, el, fila, recorta } from './dom'
 import { carpetaCorta, pctContexto, TEMA_CONEXION, TEMA_TABS, temaChat, tienda } from './estado'
+import { abrirMenuChats } from './menuChats'
 import { ir, type Vista } from './vistas'
 
 const CLAVE_BORRADOR = 'deck.borrador.'
@@ -12,6 +13,9 @@ export function vistaChat(tabId: string): Vista {
   const nodo = el('div', 'pantalla chat')
 
   const atras = boton('←', 'icono', () => ir('#/'))
+  const menu = boton('☰', 'icono', () => abrirMenuChats(tabId))
+  menu.title = 'Cambiar de conversación'
+  menu.setAttribute('aria-label', 'Cambiar de conversación')
   const titulo = el('div', 'titulo-chat')
   const nombre = el('div', 'nombre')
   const ruta = el('div', 'ruta')
@@ -20,7 +24,7 @@ export function vistaChat(tabId: string): Vista {
   selModelo.setAttribute('aria-label', 'Modelo')
   selModelo.addEventListener('change', () => void cambiarModelo(selModelo.value))
   const detener = boton('Detener', 'chip peligro', () => void detenerTurno())
-  const barra = fila('barra', atras, titulo, selModelo, detener)
+  const barra = fila('barra', atras, menu, titulo, selModelo, detener)
 
   const bandaDueno = el('div', 'banda-dueno')
   const hilo = el('div', 'hilo')
