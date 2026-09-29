@@ -50,9 +50,15 @@ permitidos se registran en `index.ts` con el ayudante `manejar`/`manejarEnvio`, 
 los deja invocables desde fuera; `test/remoteApi.test.ts` comprueba las dos direcciones
 leyendo el propio `index.ts`. `auth.ts` (emparejamiento por código + token hasheado +
 cierre por intentos), `dispatch.ts` (permisos, control y confinado de rutas), `gateway.ts`
-(HTTP + eventos en streaming NDJSON, sirve `out/web`), `tunnel.ts` (cloudflared) y
+(HTTP + eventos por **sondeo largo**, sirve `out/web`), `tunnel.ts` (cloudflared) y
 `manager.ts` (coordina todo y persiste en el Store). El cliente web vive en `src/web/` y se
 compila aparte con `vite.web.config.ts`.
+
+Los eventos van por sondeo largo (`GET /api/eventos?sondeo=1`), no por un flujo
+abierto: el túnel de Cloudflare retiene el cuerpo de una respuesta que no termina
+—comprobado con relleno, como SSE y con cabeceras anti-buffer— y el móvil se
+quedaba sin recibir nada. El flujo NDJSON sigue ahí para clientes viejos, pero
+solo funciona dentro de la red local.
 
 El control de una conversación lo lleva `ownership.ts`: dueño blando con relevo, un mando a
 la vez, y la comprobación va en cada borde con el id de SU cliente — dentro de la función

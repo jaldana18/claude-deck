@@ -220,7 +220,15 @@ export interface LineaEvento {
   payload: unknown
 }
 
-export type LineaFlujo = LineaHola | LineaEvento | { tipo: 'latido' }
+/** Respuesta de un sondeo: el saludo y el lote de eventos que haya. */
+interface Sondeo {
+  tipo: 'sondeo'
+  seq: number
+  hueco: boolean
+  clientId: string
+  version?: string
+  eventos: Array<{ seq: number; channel: string; payload: unknown }>
+}
 
 export interface ManejadoresFlujo {
   alHola: (linea: LineaHola) => void
@@ -228,18 +236,27 @@ export interface ManejadoresFlujo {
   alLatido: () => void
   alCortar: () => void
   ultimoSeq: () => number
+  /** Hasta dónde ha contado el PC, contando los eventos que no se reenvían. */
+  alAvance: (seq: number) => void
 }
 
 const ESPERAS = [1000, 2000, 4000, 8000, 15000]
 
 /**
- * Canal de eventos con reconexión. No se usa EventSource porque no admite
- * cabeceras, y el token no puede viajar en la URL: acabaría en los registros
- * del túnel y de cualquier proxy intermedio.
+ * Canal de eventos por sondeo largo: cada petición se queda esperando en el PC
+ * hasta que hay algo que contar (o hasta que vence), contesta y se cierra.
+ *
+ * No es un flujo abierto y no por gusto: el túnel de Cloudflare retiene el
+ * cuerpo de una respuesta que no termina —probado con relleno, como SSE y con
+ * cabeceras anti-buffer, y no llega una sola línea—, así que un flujo abierto
+ * deja al móvil sincronizando a mano y sin poder escribir. Tampoco se usa
+ * EventSource: no admite cabeceras, y el token no puede ir en la URL porque
+ * acabaría en los registros del túnel.
  */
 export function abrirFlujo(m: ManejadoresFlujo): () => void {
   let cancelado = false
   let intento = 0
+  let primera = true
   let control: AbortController | null = null
   let espera: number | null = null
 
@@ -252,18 +269,38 @@ export function abrirFlujo(m: ManejadoresFlujo): () => void {
       }
       control = new AbortController()
       try {
-        const res = await fetch(`/api/eventos?desde=${m.ultimoSeq()}`, {
-          headers: { Authorization: `Bearer ${s.token}` },
-          cache: 'no-store',
-          signal: control.signal
-        })
+        const res = await fetch(
+          `/api/eventos?sondeo=1&desde=${m.ultimoSeq()}${primera ? '&nuevo=1' : ''}`,
+          {
+            headers: { Authorization: `Bearer ${s.token}` },
+            cache: 'no-store',
+            signal: control.signal
+          }
+        )
         if (res.status === 401) {
           expirar()
           return
         }
         if (!res.ok) throw new Error(`estado ${res.status}`)
+        const datos = (await res.json()) as Sondeo
         intento = 0
-        await leerLineas(res, m)
+        if (primera || datos.hueco) {
+          primera = false
+          m.alHola({
+            tipo: 'hola',
+            seq: datos.seq,
+            hueco: datos.hueco,
+            clientId: datos.clientId,
+            ...(datos.version ? { version: datos.version } : {})
+          })
+        } else {
+          m.alLatido()
+        }
+        for (const ev of datos.eventos ?? []) m.alEvento({ tipo: 'evento', ...ev })
+        // El seq del PC avanza también con eventos que no se reenvían: si no se
+        // adoptara, cada sondeo volvería a arrastrar el mismo tramo.
+        m.alAvance(datos.seq)
+        continue
       } catch {
         /* cualquier corte se trata igual: se reintenta */
       }
@@ -283,36 +320,4 @@ export function abrirFlujo(m: ManejadoresFlujo): () => void {
     control?.abort()
     if (espera !== null) window.clearTimeout(espera)
   }
-}
-
-async function leerLineas(res: Response, m: ManejadoresFlujo): Promise<void> {
-  const cuerpo = res.body
-  if (!cuerpo) throw new Error('sin cuerpo')
-  const lector = cuerpo.getReader()
-  const deco = new TextDecoder()
-  let resto = ''
-  for (;;) {
-    const trozo = await lector.read()
-    if (trozo.done) return
-    resto += deco.decode(trozo.value, { stream: true })
-    let corte = resto.indexOf('\n')
-    while (corte >= 0) {
-      const linea = resto.slice(0, corte).trim()
-      resto = resto.slice(corte + 1)
-      if (linea) despachar(linea, m)
-      corte = resto.indexOf('\n')
-    }
-  }
-}
-
-function despachar(linea: string, m: ManejadoresFlujo): void {
-  let dato: LineaFlujo
-  try {
-    dato = JSON.parse(linea) as LineaFlujo
-  } catch {
-    return
-  }
-  if (dato.tipo === 'hola') m.alHola(dato)
-  else if (dato.tipo === 'evento') m.alEvento(dato)
-  else m.alLatido()
 }

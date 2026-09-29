@@ -58,6 +58,7 @@ beforeEach(async () => {
     ownership,
     webDir: raiz,
     version: '9.9.9',
+    esperaSondeoMs: 300,
     dispatcher: new Dispatcher({
       invocar: (canal, args) => {
         pedidos.push([canal, args])
@@ -83,6 +84,24 @@ async function emparejar(): Promise<string> {
   })
   const { token } = (await res.json()) as { token: string }
   return token
+}
+
+interface Sondeo {
+  tipo: string
+  seq: number
+  hueco: boolean
+  clientId: string
+  version?: string
+  eventos: { seq: number; channel: string; payload: unknown }[]
+}
+
+async function sondear(token: string, desde: number, primera = false): Promise<Sondeo> {
+  const marca = primera ? '&nuevo=1' : ''
+  const res = await fetch(`${base}/api/eventos?sondeo=1&desde=${desde}${marca}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  expect(res.status).toBe(200)
+  return (await res.json()) as Sondeo
 }
 
 /** Lee `n` líneas del canal de eventos y corta la conexión. */
@@ -323,6 +342,71 @@ describe('Gateway: canal de eventos', () => {
   it('el servidor dice su versión: así el móvil sabe si su cliente se quedó viejo', async () => {
     const res = await fetch(`${base}/api/deck`)
     expect(await res.json()).toEqual({ deck: true, version: '9.9.9' })
+  })
+
+  // El túnel retiene el cuerpo de una respuesta que no termina, así que el
+  // transporte de verdad es este: una respuesta por lote, y se cierra.
+  it('el primer sondeo contesta en el acto, con la versión y sin arrastrar el pasado', async () => {
+    const token = await emparejar()
+    bus.send('chat:message', { tabId: 'tab-1' })
+    const r = await sondear(token, 0, true)
+
+    expect(r).toMatchObject({ tipo: 'sondeo', hueco: false, version: '9.9.9' })
+    expect(r.eventos).toEqual([])
+    expect(r.seq).toBeGreaterThan(0)
+    expect(r.clientId).toBeTruthy()
+  })
+
+  it('un sondeo se queda esperando y trae el evento que pase', async () => {
+    const token = await emparejar()
+    const desde = (await sondear(token, 0, true)).seq
+    setTimeout(() => bus.send('chat:delta', { tabId: 'tab-1', text: 'hola' }), 30)
+    const r = await sondear(token, desde)
+
+    expect(r.eventos.map((e) => e.channel)).toEqual(['chat:delta'])
+  })
+
+  it('lo que pasó entre dos sondeos no se pierde', async () => {
+    const token = await emparejar()
+    const desde = (await sondear(token, 0, true)).seq
+    bus.send('chat:message', { tabId: 'tab-1' })
+    bus.send('chat:result', { tabId: 'tab-1' })
+    const r = await sondear(token, desde)
+
+    expect(r.eventos.map((e) => e.channel)).toEqual(['chat:message', 'chat:result'])
+  })
+
+  it('sin novedades contesta vacío en vez de quedarse colgado', async () => {
+    const token = await emparejar()
+    const desde = (await sondear(token, 0, true)).seq
+    const t0 = Date.now()
+    const r = await sondear(token, desde)
+
+    expect(r.eventos).toEqual([])
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(250)
+  })
+
+  it('no reenvía por sondeo lo que no es de la superficie remota', async () => {
+    const token = await emparejar()
+    const desde = (await sondear(token, 0, true)).seq
+    bus.send('pty:data', { paneId: 'p', data: 'secreto' })
+    bus.send('chat:message', { tabId: 'tab-1' })
+    const r = await sondear(token, desde)
+
+    expect(r.eventos.map((e) => e.channel)).toEqual(['chat:message'])
+  })
+
+  it('quien sondea cuenta como conectado y tiene el control registrado', async () => {
+    const token = await emparejar()
+    const r = await sondear(token, 0, true)
+
+    expect(gateway.conectados).toEqual([r.clientId])
+    expect(ownership.claim('tab-1', r.clientId).connected).toBe(true)
+  })
+
+  it('un sondeo sin token no pasa', async () => {
+    const res = await fetch(`${base}/api/eventos?sondeo=1&desde=0`)
+    expect(res.status).toBe(401)
   })
 
   it('detener cierra el servidor', async () => {

@@ -43,6 +43,9 @@ export function arrancarSesion(): void {
       tienda.conectado = true
       tienda.marcar(TEMA_CONEXION)
     },
+    alAvance: (seq) => {
+      tienda.ultimoSeq = Math.max(tienda.ultimoSeq, seq)
+    },
     alCortar: () => {
       tienda.conectado = false
       tienda.marcar(TEMA_CONEXION)

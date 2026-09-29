@@ -21,6 +21,13 @@ import type { Dispatcher } from './dispatch'
  */
 
 const LATIDO_MS = 20_000
+/**
+ * Cuánto se retiene un sondeo sin novedades antes de contestar vacío. Tiene que
+ * quedar por debajo del corte de inactividad de cualquier proxy del camino.
+ */
+const SONDEO_MS = 25_000
+/** Sin sondeos ni flujo durante este tiempo, el dispositivo se da por ido. */
+const PRESENCIA_MS = 60_000
 /** Adjuntos desde el móvil: una foto de cámara pasa del megabyte. */
 const CUERPO_MAX = 8 * 1024 * 1024
 /** Un cliente que no lee se desengancha en vez de hinchar la memoria del main. */
@@ -45,6 +52,16 @@ interface Flujo {
   latido: NodeJS.Timeout
 }
 
+/** Sondeo retenido: espera a que pase algo o a que se le acabe el tiempo. */
+interface Espera {
+  clientId: string
+  res: ServerResponse
+  desde: number
+  /** Primera vuelta de este cliente: se contesta al instante y sin pasado. */
+  primera: boolean
+  timer: NodeJS.Timeout
+}
+
 export interface GatewayDeps {
   bus: Bus
   auth: Auth
@@ -57,11 +74,17 @@ export interface GatewayDeps {
    * corriendo se quedó viejo: el suyo se compiló con esta misma versión.
    */
   version?: string
+  /** Espera del sondeo largo. Las pruebas la bajan para no tardar 25 s. */
+  esperaSondeoMs?: number
 }
 
 export class Gateway {
   private server: Server | null = null
   private flujos = new Set<Flujo>()
+  private esperas = new Set<Espera>()
+  /** Último sondeo de cada dispositivo: con sondeo largo no hay conexión abierta. */
+  private vistos = new Map<string, number>()
+  private barrido: NodeJS.Timeout | null = null
   private desuscribir: (() => void) | null = null
 
   constructor(private deps: GatewayDeps) {}
@@ -70,9 +93,18 @@ export class Gateway {
     return this.server !== null
   }
 
-  /** Dispositivos con el canal de eventos abierto ahora mismo. */
+  /**
+   * Dispositivos escuchando ahora mismo: con flujo abierto, o sondeando. Un
+   * sondeo no deja conexión abierta entre respuesta y respuesta, así que la
+   * presencia se mide por cuándo se le vio pedir.
+   */
   get conectados(): string[] {
-    return [...new Set([...this.flujos].map((f) => f.clientId))]
+    const ahora = Date.now()
+    const ids = [...this.flujos].map((f) => f.clientId)
+    for (const [id, cuando] of this.vistos) {
+      if (ahora - cuando < PRESENCIA_MS) ids.push(id)
+    }
+    return [...new Set(ids)]
   }
 
   arrancar(puerto: number, abrirALaRed = false): Promise<number> {
@@ -89,6 +121,7 @@ export class Gateway {
           if (!eventoRemoto(ev.channel)) return
           this.repartir(ev)
         })
+        this.barrido = setInterval(() => this.olvidarIdos(), 15_000)
         cumplir((server.address() as { port: number }).port)
       })
     })
@@ -97,6 +130,10 @@ export class Gateway {
   async detener(): Promise<void> {
     this.desuscribir?.()
     this.desuscribir = null
+    if (this.barrido) clearInterval(this.barrido)
+    this.barrido = null
+    for (const e of [...this.esperas]) this.contestarEspera(e)
+    this.vistos.clear()
     for (const f of [...this.flujos]) this.cerrarFlujo(f)
     const server = this.server
     this.server = null
@@ -107,6 +144,9 @@ export class Gateway {
   // ---------- reparto de eventos ----------
 
   private repartir(ev: { seq: number; channel: string; payload: unknown }): void {
+    // Los sondeos retenidos contestan en cuanto hay algo que contar.
+    for (const e of [...this.esperas]) this.contestarEspera(e)
+
     const linea = JSON.stringify({ tipo: 'evento', ...ev }) + '\n'
     for (const f of [...this.flujos]) {
       if (f.res.writableLength > ATASCO_MAX) {
@@ -132,6 +172,44 @@ export class Gateway {
     // Soltar el control solo cuando al dispositivo no le queda ninguna conexión:
     // recargar la página abre la nueva antes de morir la vieja.
     if (!this.conectados.includes(f.clientId)) this.deps.ownership.unregister(f.clientId)
+  }
+
+  /**
+   * Cierra un sondeo retenido con lo que haya: si no hay nada, el cliente vuelve
+   * a preguntar. Contestar vacío es lo que mantiene viva la sensación de
+   * conexión sin dejar una respuesta abierta.
+   */
+  private contestarEspera(e: Espera): void {
+    clearTimeout(e.timer)
+    this.esperas.delete(e)
+    // En la primera vuelta no se recupera nada: el cliente se rehidrata pidiendo
+    // el estado entero, así que arrastrarle el anillo sería contarle un pasado
+    // que ya va a pedir completo. Y no se deduce de `desde`: un PC que todavía
+    // no ha emitido nada está en cero, y con eso no se distingue de un recién
+    // llegado —el móvil se quedaría sin recibir jamás un evento—.
+    const hueco = !e.primera && this.deps.bus.hasGapSince(e.desde)
+    const eventos =
+      e.primera || hueco
+        ? []
+        : this.deps.bus.since(e.desde).filter((ev) => eventoRemoto(ev.channel))
+    this.json(e.res, 200, {
+      tipo: 'sondeo',
+      seq: this.deps.bus.lastSeq,
+      hueco,
+      clientId: e.clientId,
+      version: this.deps.version ?? '',
+      eventos
+    })
+  }
+
+  /** Suelta el control de quien dejó de dar señales. */
+  private olvidarIdos(): void {
+    const ahora = Date.now()
+    for (const [id, cuando] of [...this.vistos]) {
+      if (ahora - cuando < PRESENCIA_MS) continue
+      this.vistos.delete(id)
+      if (!this.conectados.includes(id)) this.deps.ownership.unregister(id)
+    }
   }
 
   // ---------- peticiones ----------
@@ -189,6 +267,10 @@ export class Gateway {
     if (!device) return this.json(res, 401, { error: 'No autorizado' })
 
     const desde = Number(url.searchParams.get('desde') ?? '0') || 0
+    if (url.searchParams.get('sondeo')) {
+      return this.sondear(req, res, desde, device, url.searchParams.get('nuevo') === '1')
+    }
+
     res.writeHead(200, {
       'Content-Type': 'application/x-ndjson; charset=utf-8',
       'Cache-Control': 'no-store',
@@ -228,6 +310,45 @@ export class Gateway {
     this.flujos.add(flujo)
     this.deps.ownership.register(device.clientId, device.nombre)
     req.on('close', () => this.cerrarFlujo(flujo))
+  }
+
+  /**
+   * Sondeo largo: una respuesta por lote de eventos, y se cierra.
+   *
+   * Es el transporte de verdad, no un repuesto. El túnel de Cloudflare retiene
+   * el cuerpo de una respuesta que no termina —comprobado: ni con relleno, ni
+   * como SSE, ni con cabeceras anti-buffer llega una sola línea—, así que un
+   * flujo abierto solo sirve dentro de la red local.
+   */
+  private sondear(
+    req: IncomingMessage,
+    res: ServerResponse,
+    desde: number,
+    device: { clientId: string; nombre: string },
+    primera: boolean
+  ): void {
+    this.vistos.set(device.clientId, Date.now())
+    this.deps.ownership.register(device.clientId, device.nombre)
+
+    const espera: Espera = {
+      clientId: device.clientId,
+      res,
+      desde,
+      primera,
+      timer: setTimeout(() => this.contestarEspera(espera), this.deps.esperaSondeoMs ?? SONDEO_MS)
+    }
+    this.esperas.add(espera)
+    req.on('close', () => {
+      clearTimeout(espera.timer)
+      this.esperas.delete(espera)
+    })
+
+    // La primera vuelta —y la que llega con eventos ya pendientes— se contesta
+    // en el acto: retenerla dejaría al móvil sin saber ni quién es.
+    const hayNuevo =
+      this.deps.bus.hasGapSince(desde) ||
+      this.deps.bus.since(desde).some((ev) => eventoRemoto(ev.channel))
+    if (primera || hayNuevo) this.contestarEspera(espera)
   }
 
   // ---------- cliente web ----------
