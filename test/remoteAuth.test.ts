@@ -37,7 +37,8 @@ describe('emparejamiento', () => {
     const { codigo } = auth.nuevoCodigo()
     expect(codigo).toHaveLength(8)
     expect(codigo).toMatch(/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]+$/)
-    expect(codigo).not.toMatch(/[O01ILU]/)
+    // los que de verdad se confunden al leerlos: O con 0, e I y L con 1
+    expect(codigo).not.toMatch(/[O01IL]/)
   })
 
   it('dos códigos seguidos no se repiten', () => {

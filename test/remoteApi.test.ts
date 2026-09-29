@@ -91,7 +91,6 @@ describe('superficie remota', () => {
 
   it('lo que recibe una ruta va confinado, y abrir pestaña solo abre chats', () => {
     expect(accionRemota('fs:tree')?.restricciones).toContain('confinar-raiz')
-    expect(accionRemota('chats:open')?.restricciones).toContain('confinar-raiz')
     expect(accionRemota('tabs:create')?.restricciones).toEqual(
       expect.arrayContaining(['confinar-raiz', 'forzar-chat'])
     )

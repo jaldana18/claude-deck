@@ -163,6 +163,10 @@ describe('bucle del SDK', () => {
       updatedInput: { command: 'npm test' }
     })
     expect(sesion.snapshot().permissions).toEqual([])
+    // el otro dispositivo tiene la misma tarjeta puesta: hay que avisarle
+    expect(eventos.filter(([c]) => c === 'chat:permission-cancel')).toEqual([
+      ['chat:permission-cancel', { tabId: 'tab-1', requestId: 'req-1' }]
+    ])
     sesion.stop()
   })
 
@@ -184,7 +188,7 @@ describe('bucle del SDK', () => {
   })
 
   it('una pregunta pendiente viaja en el snapshot y la respuesta vuelve en el input', async () => {
-    const { sesion, opciones } = montar()
+    const { sesion, eventos, opciones } = montar()
     const ac = new AbortController()
     const preguntas = [{ question: 'Sigo?', header: 'Rumbo', options: [], multiSelect: false }]
     const decision = opciones().canUseTool!(
@@ -197,6 +201,7 @@ describe('bucle del SDK', () => {
     expect(sesion.snapshot().questions).toMatchObject([{ requestId: 'q-1', questions: preguntas }])
 
     sesion.resolveQuestion('q-1', { 'Sigo?': 'Si' })
+    expect(eventos.some(([c]) => c === 'chat:question-cancel')).toBe(true)
     await expect(decision).resolves.toMatchObject({
       behavior: 'allow',
       updatedInput: { answers: { 'Sigo?': 'Si' } }

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Claude Deck">
+  <rect width="512" height="512" fill="#1e1c19" />
+  <!-- El trazo se queda dentro del 80% central: el recorte maskable de Android
+       come los bordes y con el dibujo a sangre se perdería media marca. -->
+  <g fill="none" stroke="#e0955f" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="128" y="132" width="256" height="248" rx="28" stroke="#4a463f" />
+    <path d="M128 192h256" stroke="#4a463f" />
+    <path d="M196 268l40 40-40 40" />
+    <path d="M272 348h64" />
+  </g>
+  <g fill="#e0955f">
+    <circle cx="164" cy="162" r="11" />
+  </g>
+</svg>

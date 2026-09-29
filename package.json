@@ -20,7 +20,7 @@
     "build:web": "vite build --config vite.web.config.ts",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "dist": "electron-vite build && electron-builder --win",
+    "dist": "npm run build && electron-builder --win",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -118,7 +118,7 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  for (const m of gestores) await m.apagar()
+  for (const m of gestores) await m.detener()
 })
 
 describe('carpetas visibles', () => {
@@ -174,6 +174,14 @@ describe('encendido', () => {
     await m.restaurar()
     expect(m.estado().enabled).toBe(false)
     expect(tunel.arranques).toBe(0)
+  })
+
+  it('cerrar la app no desactiva el acceso: al arrancar vuelve a publicarse', async () => {
+    const { m, store } = montar()
+    await m.encender()
+    await m.detener()
+    expect(store.remote.enabled).toBe(true)
+    expect(m.estado().enabled).toBe(false)
   })
 
   it('restaurar vuelve a publicar si quedó encendido', async () => {

@@ -1,0 +1,21 @@
+{
+  "name": "Claude Deck",
+  "short_name": "Deck",
+  "description": "Acceso remoto a las conversaciones de Claude Deck en tu PC",
+  "lang": "es",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1e1c19",
+  "theme_color": "#1e1c19",
+  "icons": [
+    {
+      "src": "./icono.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -124,8 +124,9 @@ aquí: el móvil ve las conversaciones y manda instrucciones, nada más.
     empieza por `eyJ…`) y se añade un *Public Hostname* apuntando a `HTTP 127.0.0.1:43118`.
     Token y subdominio se pegan en el panel.
   - *Solo red local*: sin túnel, misma wifi.
-- **Qué se expone**: 22 acciones y 25 eventos declarados a mano en `src/main/remote/api.ts`.
-  Chat, historial, permisos, preguntas, modelos y listado de carpetas. **No** se exponen el
+- **Qué se expone**: 16 acciones y 25 eventos declarados a mano en `src/main/remote/api.ts`.
+  Chat, historial, permisos, preguntas, cambio de modelo y listado de carpetas. Solo lo que
+  el cliente usa: lo que nadie pide no se publica. **No** se exponen el
   terminal, los plugins, la configuración, la instalación de actualizaciones ni el cambio de
   modo de permisos: un token robado no puede convertirse en ejecución de código.
 - **Carpetas visibles**: solo las de las pestañas abiertas y su carpeta madre (configurable).

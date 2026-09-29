@@ -838,6 +838,10 @@ export class ChatSession {
     const pending = this.pendingPermissions.get(requestId)
     if (!pending) return
     this.pendingPermissions.delete(requestId)
+    // El otro dispositivo tiene la misma tarjeta en pantalla y nadie le ha dicho
+    // que ya se respondió. El evento significa «esta petición dejó de estar
+    // pendiente», lo mismo si se canceló que si la contestó el de al lado.
+    this.send('chat:permission-cancel', { tabId: this.tab.id, requestId })
     if (decision === 'deny') {
       pending.resolve({
         behavior: 'deny',
@@ -860,6 +864,7 @@ export class ChatSession {
     const pending = this.pendingQuestions.get(requestId)
     if (!pending) return
     this.pendingQuestions.delete(requestId)
+    this.send('chat:question-cancel', { tabId: this.tab.id, requestId })
     if (!answers) {
       pending.resolve({ behavior: 'deny', message: 'El usuario cerró la pregunta sin responder' })
     } else {

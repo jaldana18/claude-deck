@@ -154,10 +154,10 @@ describe('Dispatcher', () => {
   })
 
   it('espera el resultado asíncrono del main', async () => {
-    const { d } = montar({ invocar: async () => ['una', 'sesión'] })
-    await expect(d.atender('chat:sessions', 'C:\\proyectos\\api', 'movil')).resolves.toEqual({
+    const { d } = montar({ invocar: async () => ['un', 'mensaje'] })
+    await expect(d.atender('chat:history', 'tab-1', 'movil')).resolves.toEqual({
       ok: true,
-      data: ['una', 'sesión']
+      data: ['un', 'mensaje']
     })
   })
 })

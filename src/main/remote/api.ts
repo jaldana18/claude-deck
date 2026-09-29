@@ -34,8 +34,12 @@ export interface AccionRemota {
 }
 
 /**
- * Peticiones permitidas. El `control` va aquí y no en el handler porque el
- * mismo canal lo usa el PC, que se comprueba en su propio borde.
+ * Peticiones permitidas. El `control` va aquí y no en el handler porque el mismo
+ * canal lo usa el PC, que se comprueba en su propio borde.
+ *
+ * Solo está lo que el cliente web usa de verdad. Los comandos, los modelos y la
+ * salud, por ejemplo, ya viajan dentro del snapshot: publicarlos además como
+ * acción sería superficie de ataque a cambio de nada.
  */
 export const ACCIONES_REMOTAS: readonly AccionRemota[] = [
   // ----- leer -----
@@ -43,14 +47,7 @@ export const ACCIONES_REMOTAS: readonly AccionRemota[] = [
   { canal: 'chat:snapshot', control: false },
   { canal: 'chat:snapshotAll', control: false },
   { canal: 'chat:history', control: false },
-  { canal: 'chat:sessions', control: false, restricciones: ['confinar-raiz'] },
-  { canal: 'chats:search', control: false },
-  { canal: 'chat:commands', control: false },
-  { canal: 'chat:models', control: false },
-  { canal: 'chat:health', control: false },
   { canal: 'chat:owners', control: false },
-  { canal: 'status:get', control: false },
-  { canal: 'app:version', control: false },
   // Listado de carpetas para elegir dónde abrir un chat. El diálogo nativo no
   // sirve desde fuera: abriría una ventana en un PC donde no hay nadie.
   { canal: 'fs:tree', control: false, restricciones: ['confinar-raiz'] },
@@ -65,7 +62,6 @@ export const ACCIONES_REMOTAS: readonly AccionRemota[] = [
   // Reclamar el control nunca puede exigir tenerlo: es el relevo.
   { canal: 'chat:claim', control: false },
   { canal: 'tabs:create', control: false, restricciones: ['confinar-raiz', 'forzar-chat'] },
-  { canal: 'chats:open', control: false, restricciones: ['confinar-raiz'] },
   { canal: 'chat:send', control: true },
   { canal: 'chat:permission-response', control: true },
   { canal: 'chat:question-response', control: true },

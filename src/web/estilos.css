@@ -1,0 +1,753 @@
+/* ============================================================
+   Cliente remoto de Claude Deck — misma paleta que el tema oscuro
+   del Deck (src/renderer/src/styles.css), pensada para el móvil:
+   una columna, objetivos de toque grandes y contraste alto.
+   ============================================================ */
+
+:root {
+  --bg: #1e1c19;
+  --bg-soft: #242119;
+  --bg-raised: #2a2722;
+  --bg-tabbar: #171512;
+  --bg-inset: #33302a;
+  --border: rgba(255, 255, 255, 0.16);
+  --border-soft: rgba(255, 255, 255, 0.09);
+  --text: #eeeae0;
+  --text-dim: #b3ad9f;
+  --text-faint: #8f887a;
+  --accent: #e0955f;
+  --accent-strong: #e8a878;
+  --accent-soft: rgba(224, 149, 95, 0.16);
+  --green: #7cb98a;
+  --yellow: #dcb055;
+  --red: #e07a70;
+  --code-bg: #14120f;
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 16px;
+  --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --toque: 44px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* La app oculta piezas con el atributo `hidden`, y cualquier regla de display
+   propia lo dejaría sin efecto. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.45;
+  overscroll-behavior-y: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.vista {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.pantalla {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- banda de desconectado ---------- */
+
+.banda {
+  flex: 0 0 auto;
+  background: var(--red);
+  color: #2a1512;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  padding: 8px 12px;
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+
+/* ---------- barra superior ---------- */
+
+.barra {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  background: var(--bg-tabbar);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.titulo-barra {
+  flex: 1;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.titulo-chat {
+  flex: 1;
+  min-width: 0;
+}
+
+.titulo-chat .nombre {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icono {
+  min-width: var(--toque);
+  min-height: var(--toque);
+  font-size: 22px;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius-s);
+}
+
+.icono:active {
+  background: var(--bg-raised);
+}
+
+/* ---------- piezas comunes ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+button.chip {
+  min-height: var(--toque);
+  padding: 0 14px;
+  color: var(--text);
+}
+
+.chip.accion {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.chip.peligro {
+  background: rgba(224, 122, 112, 0.14);
+  border-color: var(--red);
+  color: var(--red);
+  font-weight: 600;
+}
+
+.chip.trabajando {
+  color: var(--yellow);
+  border-color: rgba(220, 176, 85, 0.5);
+}
+
+.chip.trabajando::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--yellow);
+  animation: latido 1.2s ease-in-out infinite;
+}
+
+.chip.mio {
+  color: var(--green);
+  border-color: rgba(124, 185, 138, 0.5);
+}
+
+.chip.ajeno {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.chip.error {
+  color: var(--red);
+  border-color: rgba(224, 122, 112, 0.5);
+}
+
+@keyframes latido {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.selector {
+  min-height: var(--toque);
+  max-width: 34vw;
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-s);
+  font: inherit;
+  font-size: 13px;
+  padding: 0 6px;
+}
+
+.boton {
+  min-height: var(--toque);
+  padding: 10px 16px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+}
+
+.boton:disabled,
+.chip:disabled,
+.composer-campo:disabled {
+  opacity: 0.45;
+}
+
+.boton.principal {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #241a12;
+  width: 100%;
+}
+
+.boton.si {
+  background: rgba(124, 185, 138, 0.16);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.boton.no {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+
+.vacio {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-faint);
+}
+
+.pista {
+  margin: 8px 2px 0;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.ruta {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.aviso-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  border: 1px solid rgba(224, 122, 112, 0.6);
+  background: rgba(224, 122, 112, 0.1);
+  color: var(--red);
+  font-size: 14px;
+}
+
+/* ---------- emparejamiento ---------- */
+
+.centrada {
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.caja {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.marca {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.explica {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+}
+
+.etiqueta-campo {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.campo-codigo,
+.campo-texto {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  font: inherit;
+}
+
+.campo-codigo {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  letter-spacing: 0.22em;
+  text-align: center;
+}
+
+/* ---------- panel de actividad ---------- */
+
+.cuerpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.tarjetas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tarjeta {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+}
+
+button.tarjeta {
+  min-height: 64px;
+}
+
+.tarjeta:active {
+  background: var(--bg-inset);
+}
+
+.tarjeta.atiende {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tarjeta .linea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tarjeta .nombre {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atiende-linea {
+  margin-top: 6px;
+  color: var(--accent-strong);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tarjeta.carpeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ruta-actual {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  word-break: break-all;
+  margin-bottom: 10px;
+}
+
+.pie-fijo {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: var(--bg-tabbar);
+  border-top: 1px solid var(--border-soft);
+}
+
+/* ---------- conversación ---------- */
+
+.banda-dueno {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--accent);
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hilo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.burbuja {
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  max-width: 100%;
+}
+
+.burbuja.user {
+  background: var(--accent-soft);
+  border-color: rgba(224, 149, 95, 0.4);
+  align-self: flex-end;
+  max-width: 92%;
+}
+
+.burbuja.system {
+  background: transparent;
+  border-style: dashed;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.burbuja.escribiendo .parrafo::after {
+  content: '▍';
+  color: var(--accent);
+}
+
+.parrafo {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.parrafo + .parrafo {
+  margin-top: 8px;
+}
+
+.codigo {
+  margin: 8px 0;
+  border-radius: var(--radius-s);
+  background: var(--code-bg);
+  border: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+
+.codigo .lengua {
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.codigo pre,
+.tool-cuerpo,
+.previa {
+  margin: 0;
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.adjunto {
+  display: block;
+  max-width: 100%;
+  border-radius: var(--radius-s);
+  margin-top: 8px;
+}
+
+/* llamadas a herramientas: una línea compacta que se despliega */
+
+.tool {
+  margin-top: 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-s);
+  background: var(--bg-soft);
+}
+
+.tool-linea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--toque);
+  padding: 6px 10px;
+  font-size: 13px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.tool-linea::-webkit-details-marker {
+  display: none;
+}
+
+.tool-nombre {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.tool-arg {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-cuerpo {
+  border-top: 1px solid var(--border-soft);
+  background: var(--code-bg);
+  max-height: 45vh;
+  overflow: auto;
+}
+
+.tool-cuerpo.malo {
+  color: var(--red);
+}
+
+/* tarjetas de permiso y pregunta */
+
+.pendientes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tarjeta.permiso,
+.tarjeta.pregunta {
+  border-color: var(--accent);
+  background: var(--bg-soft);
+}
+
+.etiqueta {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.previa {
+  margin-top: 8px;
+  max-height: 34vh;
+  overflow: auto;
+  background: var(--code-bg);
+  border-radius: var(--radius-s);
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.acciones .boton {
+  flex: 1 1 auto;
+}
+
+.texto-pregunta {
+  margin: 4px 0 8px;
+  white-space: pre-wrap;
+}
+
+.opciones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.boton.opcion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.boton.opcion.elegida {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* todos y salud: presentes pero discretos */
+
+.todos {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg-soft);
+  font-size: 13px;
+}
+
+.todos summary {
+  min-height: var(--toque);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.todos-lista {
+  margin: 0;
+  padding: 0 14px 10px 28px;
+  max-height: 32vh;
+  overflow: auto;
+  color: var(--text-dim);
+}
+
+.todo.completed {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+.todo.in_progress {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.salud {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-faint);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+/* compositor */
+
+.composer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: var(--bg-tabbar);
+  border-top: 1px solid var(--border-soft);
+}
+
+.sugerencias {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.sugerencias:empty {
+  display: none;
+}
+
+.composer-fila {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.composer-campo {
+  flex: 1;
+  min-height: var(--toque);
+  max-height: 35vh;
+  padding: 11px 12px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  resize: none;
+}
+
+.boton.enviar {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #241a12;
+  min-width: 84px;
+}
+
+.zona-aviso:empty {
+  display: none;
+}

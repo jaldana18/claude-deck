@@ -699,7 +699,7 @@ ipcMain.handle('snippets:delete', (_e, id: string) => {
   return store.snippets
 })
 
-manejar('chats:search', (query: string) => searchChats(query))
+ipcMain.handle('chats:search', (_e, query: string) => searchChats(query))
 
 // ---------- IPC: chat (v2, Agent SDK) ----------
 
@@ -712,9 +712,9 @@ manejarEnvio(
 manejar('chat:owners', () => ownership.list())
 manejar('chat:claim', (tabId: string) => ownership.claim(tabId, CLIENTE_LOCAL))
 
-manejar('chat:commands', (tabId: string) => chatSessions.commandsFor(tabId))
-manejar('chat:models', (tabId: string) => chatSessions.modelsFor(tabId))
-manejar('chat:health', (tabId: string) => chatSessions.healthFor(tabId))
+ipcMain.handle('chat:commands', (_e, tabId: string) => chatSessions.commandsFor(tabId))
+ipcMain.handle('chat:models', (_e, tabId: string) => chatSessions.modelsFor(tabId))
+ipcMain.handle('chat:health', (_e, tabId: string) => chatSessions.healthFor(tabId))
 manejar('chat:snapshot', (tabId: string) => chatSessions.snapshotFor(tabId))
 manejar('chat:snapshotAll', () => chatSessions.snapshotAll())
 ipcMain.handle('chat:setLlmParams', (_e, a: { tabId: string; params: LlmParams }) =>
@@ -762,7 +762,7 @@ ipcMain.handle(
 )
 
 /** Sesiones pasadas del proyecto (historial lateral) */
-manejar('chat:sessions', async (cwd: string) => {
+ipcMain.handle('chat:sessions', async (_e, cwd: string) => {
   try {
     const sessions = await listSessions({ dir: cwd })
     return sessions
@@ -916,7 +916,7 @@ ipcMain.handle('aparte:stop', (_e, asideId: string) => {
 
 // ---------- IPC: actualización / app ----------
 
-manejar('app:version', () => app.getVersion())
+ipcMain.handle('app:version', () => app.getVersion())
 ipcMain.handle('update:check', () => updater.check(true))
 ipcMain.handle('update:install', (_e, info: UpdateInfo) => updater.install(info))
 ipcMain.handle('update:getDir', () => updater.getDir())
@@ -925,12 +925,12 @@ ipcMain.handle('update:setDir', (_e, dir: string) => updater.setDir(dir))
 // ---------- IPC: estado del servicio ----------
 
 /** Informe cacheado, sin salir a la red: lo pide el renderer al montar */
-manejar('status:get', () => statusWatcher.report())
+ipcMain.handle('status:get', () => statusWatcher.report())
 /** Comprobación forzada, saltándose los frenos: es el botón «Comprobar» */
 ipcMain.handle('status:check', () => statusWatcher.check(true))
 
 /** Abre un resultado de búsqueda: pestaña de chat nueva reanudando esa sesión */
-manejar('chats:open', (args: { cwd: string; sessionId: string }) => {
+ipcMain.handle('chats:open', (_e, args: { cwd: string; sessionId: string }) => {
   const prefs = store.getProjectPrefs(args.cwd)
   const tab: TabState = {
     id: randomUUID(),
@@ -1021,7 +1021,7 @@ if (!gotLock) {
     ptys.killAll()
     chatSessions.stopAll()
     hookServer.stop()
-    void remote.apagar()
+    void remote.detener()
     void closeBoardClient()
   })
 }

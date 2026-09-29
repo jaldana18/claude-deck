@@ -200,7 +200,9 @@ export class RemoteManager {
     if (s.tunel !== 'ninguno') {
       this.tunnel.arrancar({
         modo: s.tunel,
-        puerto: s.puerto,
+        // El real, no el pedido: con 0 lo elige el sistema y el túnel apuntaría
+        // a un puerto que no existe.
+        puerto: this.puertoReal,
         ...(s.tunelToken ? { token: s.tunelToken } : {}),
         ...(s.hostname ? { hostname: s.hostname } : {})
       })
@@ -211,7 +213,12 @@ export class RemoteManager {
     return this.estado()
   }
 
-  async apagar(): Promise<RemoteStatus> {
+  /**
+   * Baja el servidor y el túnel sin tocar el ajuste. Es lo que se hace al cerrar
+   * la app: si aquí se guardara «apagado», el acceso no volvería solo al
+   * siguiente arranque y el usuario tendría que encenderlo cada vez.
+   */
+  async detener(): Promise<void> {
     this.tunnel.detener()
     this.tunelEstado = { fase: 'apagado', url: null }
     await this.gateway.detener()
@@ -219,6 +226,11 @@ export class RemoteManager {
     this.auth.cancelarCodigo()
     if (this.revision) clearInterval(this.revision)
     this.revision = null
+  }
+
+  /** Apagado explícito: además se recuerda, para no republicar al arrancar. */
+  async apagar(): Promise<RemoteStatus> {
+    await this.detener()
     this.deps.store.setRemote({ enabled: false })
     this.anunciar()
     return this.estado()
@@ -236,7 +248,7 @@ export class RemoteManager {
     if (patch.enabled === false) return this.apagar()
     if (patch.enabled === true && !this.encendido) return this.encender()
     if (this.encendido && reinicia) {
-      await this.apagar()
+      await this.detener()
       return this.encender()
     }
     this.anunciar()
