@@ -78,6 +78,37 @@ describe('Bus', () => {
     expect(bus.hasGapSince(bus.lastSeq)).toBe(false)
   })
 
+  it('un observador del main recibe todo pero no cuenta como destinatario', () => {
+    const bus = new Bus(() => null)
+    const visto: string[] = []
+    bus.observe((ev) => visto.push(ev.channel))
+
+    // 0 destinatarios con un observador puesto: es lo que el updater necesita
+    // para reintentar el aviso cuando no hay nadie mirando.
+    expect(bus.send('update:available', {})).toBe(0)
+    expect(visto).toEqual(['update:available'])
+  })
+
+  it('un observador que lanza no impide la entrega', () => {
+    const { win, enviados } = ventana()
+    const bus = new Bus(() => win)
+    bus.observe(() => {
+      throw new Error('aviso roto')
+    })
+    expect(bus.send('tab:status', { status: 'done' })).toBe(1)
+    expect(enviados).toHaveLength(1)
+  })
+
+  it('dejar de observar deja de recibir', () => {
+    const bus = new Bus(() => null)
+    const obs = vi.fn()
+    const baja = bus.observe(obs)
+    bus.send('a', 1)
+    baja()
+    bus.send('b', 2)
+    expect(obs).toHaveBeenCalledOnce()
+  })
+
   it('sin recorte no hay hueco', () => {
     const bus = new Bus(() => null, 100)
     bus.send('a', 1)

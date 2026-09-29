@@ -12,7 +12,8 @@ Claude Deck: app Electron **solo para Windows** con sesiones de Claude Code por 
 npm run dev        # desarrollo con hot reload del renderer (electron-vite)
 npm run build      # compilar a out/
 npm start          # ejecutar la versión compilada (electron-vite preview)
-npm run typecheck  # tsc --noEmit — única verificación del proyecto (no hay tests ni linter)
+npm run typecheck  # tsc --noEmit
+npm test           # vitest (test/**/*.test.ts) — lógica pura del main y del shared
 npm run dist       # build + electron-builder → instalador NSIS en release/
 ```
 
@@ -39,6 +40,23 @@ Tres procesos Electron con aislamiento estricto (`contextIsolation`, sin `nodeIn
 - Persistencia en `userData/deck-state.json` (pestañas, snippets, prefs por proyecto) + un archivo por pane con el scrollback serializado (`store.ts`).
 - Al arrancar, `startTab()` relanza cada pestaña guardada: chat con `resume: claudeSessionId`, terminal con `claude --resume <id>`.
 - El session id de pestañas terminal se detecta por polling de `~/.claude/projects/<proyecto>/*.jsonl` (`sessionTracker.ts`) y se corrige con el primer evento de hook que llegue.
+
+### Acceso remoto (`src/main/remote/`)
+
+Servidor propio para entrar desde el móvil. `api.ts` declara a mano la superficie expuesta
+(acciones y eventos permitidos) y **es la frontera de seguridad**: el IPC interno tiene
+canales que son ejecución de código, así que nunca se reenvía por nombre. Los handlers
+permitidos se registran en `index.ts` con el ayudante `manejar`/`manejarEnvio`, que además
+los deja invocables desde fuera; `test/remoteApi.test.ts` comprueba las dos direcciones
+leyendo el propio `index.ts`. `auth.ts` (emparejamiento por código + token hasheado +
+cierre por intentos), `dispatch.ts` (permisos, control y confinado de rutas), `gateway.ts`
+(HTTP + eventos en streaming NDJSON, sirve `out/web`), `tunnel.ts` (cloudflared) y
+`manager.ts` (coordina todo y persiste en el Store). El cliente web vive en `src/web/` y se
+compila aparte con `vite.web.config.ts`.
+
+El control de una conversación lo lleva `ownership.ts`: dueño blando con relevo, un mando a
+la vez, y la comprobación va en cada borde con el id de SU cliente — dentro de la función
+compartida, una petición del móvil se comprobaría como si fuera local.
 
 ### Integración con la config de Claude Code
 

@@ -103,6 +103,38 @@ npm start          # ejecutar la versión compilada
   no abre una segunda copia.
 - Con el ajuste desactivado (por defecto) la ✕ se comporta como siempre: cierra la app.
 
+### Acceso remoto: seguir trabajando desde el móvil
+
+Publica este PC para entrar desde el navegador del teléfono. La ejecución sigue pasando
+aquí: el móvil ve las conversaciones y manda instrucciones, nada más.
+
+- **Se enciende a mano** en el menú ⋯ → *Acceso remoto*, y se puede configurar un apagado
+  automático tras N minutos sin ningún dispositivo conectado.
+- **Emparejamiento por QR**: código de 8 caracteres, de un solo uso, válido cinco minutos.
+  Viaja en el fragmento de la URL, así que no llega al servidor ni a sus registros. El
+  dispositivo recibe un token de 256 bits que va en cada petición; del token solo se guarda
+  el hash. Diez intentos fallidos cierran la autenticación cinco minutos, y cada ronda
+  siguiente dobla la espera.
+- **Tres formas de salir a internet**:
+  - *Túnel rápido* (Cloudflare): sin configurar nada. La dirección cambia en cada arranque,
+    y para el móvil una dirección nueva es un sitio nuevo: hay que volver a escanear y la
+    app instalada se reinstala. Cuando pasa, el panel avisa y deja un código preparado.
+  - *Dominio propio*: dirección estable, se configura una vez. En **Cloudflare Zero Trust →
+    Networks → Tunnels** se crea un túnel *Cloudflared*, se copia su token (la cadena que
+    empieza por `eyJ…`) y se añade un *Public Hostname* apuntando a `HTTP 127.0.0.1:43118`.
+    Token y subdominio se pegan en el panel.
+  - *Solo red local*: sin túnel, misma wifi.
+- **Qué se expone**: 22 acciones y 25 eventos declarados a mano en `src/main/remote/api.ts`.
+  Chat, historial, permisos, preguntas, modelos y listado de carpetas. **No** se exponen el
+  terminal, los plugins, la configuración, la instalación de actualizaciones ni el cambio de
+  modo de permisos: un token robado no puede convertirse en ejecución de código.
+- **Carpetas visibles**: solo las de las pestañas abiertas y su carpeta madre (configurable).
+  Las rutas se comprueban ya resueltas, así que un `..` intermedio no sirve para salirse.
+- **Un mando a la vez**: los dos dispositivos ven todo en vivo, pero solo uno envía y
+  aprueba. El otro tiene un botón de *Tomar el control* y lo reclama de un toque.
+- **Una sola persona, un solo PC**: no hay multiusuario ni multi-PC. Los dispositivos
+  emparejados se listan en el panel con su botón de revocar.
+
 ### Paleta de comandos (Ctrl+Shift+P)
 - Snippets globales o por proyecto (prompts frecuentes, `/resume`, `ultrathink`, …).
 - Enter inserta el texto en la pestaña activa; los snippets pueden auto-enviarse con ⏎.

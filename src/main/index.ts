@@ -1,4 +1,14 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  Notification,
+  shell,
+  Tray
+} from 'electron'
 import { extname, isAbsolute, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
@@ -162,6 +172,32 @@ function showWindow(): void {
   if (win.isMinimized()) win.restore()
   win.focus()
 }
+
+/**
+ * Aviso nativo cuando no hay ventana a la vista.
+ *
+ * El renderer ya notifica si la ventana está abierta y sin foco, pero en modo
+ * bandeja no hay renderer vivo — y es justo cuando el usuario no está delante y
+ * más falta hace saber que una conversación pide permiso o acabó.
+ */
+function avisarDesdeElMain(tabId: string, status: string, detail?: string): void {
+  if (status !== 'attention' && status !== 'done') return
+  if (win && !win.isDestroyed() && win.isVisible()) return
+  if (!Notification.isSupported()) return
+  const tab = store.tabs.find((t) => t.id === tabId)
+  const n = new Notification({
+    title: `Claude Deck — ${tab?.title ?? 'pestaña'}`,
+    body: detail ?? (status === 'done' ? 'Tarea terminada' : 'Requiere tu atención')
+  })
+  n.on('click', () => showWindow())
+  n.show()
+}
+
+bus.observe((ev) => {
+  if (ev.channel !== 'tab:status') return
+  const p = ev.payload as { tabId: string; status: string; detail?: string }
+  avisarDesdeElMain(p.tabId, p.status, p.detail)
+})
 
 /** Sale de verdad, saltándose la intercepción de la ✕. */
 function quitForReal(): void {

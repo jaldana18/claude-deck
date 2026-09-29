@@ -34,6 +34,7 @@ export class Bus implements Emitter {
   private seq = 0
   private ring: BusEvent[] = []
   private sinks = new Set<Sink>()
+  private observadores = new Set<Sink>()
 
   constructor(
     private getWindow: () => BrowserWindow | null,
@@ -69,12 +70,31 @@ export class Bus implements Emitter {
       }
     }
 
+    for (const obs of this.observadores) {
+      try {
+        obs(ev)
+      } catch {
+        /* un observador roto no puede impedir la entrega */
+      }
+    }
+
     return entregados
   }
 
   subscribe(sink: Sink): () => void {
     this.sinks.add(sink)
     return () => this.sinks.delete(sink)
+  }
+
+  /**
+   * Observador interno del main —avisos nativos del sistema, por ejemplo—. Ve
+   * todos los eventos pero NO cuenta como destinatario: no es nadie mirando una
+   * pantalla, y si contara, el updater daría por avisada una versión que nadie
+   * llegó a ver.
+   */
+  observe(sink: Sink): () => void {
+    this.observadores.add(sink)
+    return () => this.observadores.delete(sink)
   }
 
   /** Eventos posteriores a `seq` que siguen en el anillo. */
