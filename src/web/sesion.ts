@@ -27,6 +27,10 @@ export function arrancarSesion(): void {
       // el contador se los saltaría si la conexión se cortara otra vez.
       if (tienda.ultimoSeq === 0 || linea.hueco) tienda.ultimoSeq = linea.seq
       tienda.miClientId = linea.clientId
+      // El PC dice su versión al saludar: si no es la de este cliente, el móvil
+      // está corriendo un cliente viejo servido desde la caché.
+      tienda.versionNueva =
+        linea.version && linea.version !== __VERSION__ ? linea.version : null
       tienda.marcar(TEMA_CONEXION)
       void rehidratar(linea.hueco)
     },
@@ -76,6 +80,26 @@ async function rehidratar(hueco: boolean): Promise<void> {
   } catch {
     /* si esto falla, la banda de desconectado ya lo está diciendo */
   }
+}
+
+/**
+ * Trae el cliente nuevo: se borra la caché del armazón y se recarga. El HTML se
+ * pide a la red, así que basta con no dejar que responda la copia guardada.
+ */
+export async function actualizarCliente(): Promise<void> {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registro = await navigator.serviceWorker.getRegistration()
+      await registro?.update()
+    }
+    if ('caches' in window) {
+      const nombres = await caches.keys()
+      await Promise.all(nombres.map((n) => caches.delete(n)))
+    }
+  } catch {
+    /* recargar de todos modos: el HTML va a la red antes que a la caché */
+  }
+  location.reload()
 }
 
 // ---------- notificaciones ----------

@@ -968,7 +968,21 @@ const remote = new RemoteManager({
     if (!fn) throw new Error(`Canal no disponible: ${canal}`)
     return fn(args)
   },
-  webDir: join(app.getAppPath(), 'out', 'web')
+  webDir: join(app.getAppPath(), 'out', 'web'),
+  version: app.getVersion()
+})
+
+// Con túnel rápido la dirección cambia en cada arranque y el móvil se queda
+// apuntando a una que ya no existe. Desde el móvil eso no se distingue de un PC
+// apagado, así que el aviso tiene que salir aquí.
+bus.observe((ev) => {
+  if (ev.channel !== 'remote:reemparejar' || !Notification.isSupported()) return
+  const n = new Notification({
+    title: 'Claude Deck — acceso remoto',
+    body: 'La dirección cambió. Hay que volver a escanear el QR en el móvil.'
+  })
+  n.on('click', () => showWindow())
+  n.show()
 })
 
 manejar('remote:raices', () => remote.raices())

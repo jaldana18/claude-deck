@@ -57,6 +57,7 @@ beforeEach(async () => {
     auth,
     ownership,
     webDir: raiz,
+    version: '9.9.9',
     dispatcher: new Dispatcher({
       invocar: (canal, args) => {
         pedidos.push([canal, args])
@@ -263,7 +264,7 @@ describe('Gateway: canal de eventos', () => {
     const vistas = await lineas(token, 2, 0, () => {
       setTimeout(() => bus.send('chat:message', { tabId: 'tab-1' }), 10)
     })
-    expect(vistas[0]).toMatchObject({ tipo: 'hola', hueco: false })
+    expect(vistas[0]).toMatchObject({ tipo: 'hola', hueco: false, version: '9.9.9' })
     expect(vistas[1]).toMatchObject({ tipo: 'evento', channel: 'chat:message' })
   })
 
@@ -317,6 +318,11 @@ describe('Gateway: canal de eventos', () => {
     // cortada la conexión, el dispositivo deja de estar presente
     await new Promise((r) => setTimeout(r, 60))
     expect(gateway.conectados).toEqual([])
+  })
+
+  it('el servidor dice su versión: así el móvil sabe si su cliente se quedó viejo', async () => {
+    const res = await fetch(`${base}/api/deck`)
+    expect(await res.json()).toEqual({ deck: true, version: '9.9.9' })
   })
 
   it('detener cierra el servidor', async () => {

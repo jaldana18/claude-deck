@@ -9,6 +9,7 @@ import {
   trabajando,
   type EntradaTab
 } from './estado'
+import { reintentarAhora } from './sesion'
 import { ir, type Vista } from './vistas'
 
 /** Panel de actividad: todas las conversaciones y qué está esperando a quién. */
@@ -29,11 +30,7 @@ export function vistaPanel(): Vista {
     const resto = entradas.filter((e) => atencionPendiente(e) === 0)
 
     const hijos: HTMLElement[] = []
-    if (!entradas.length) {
-      hijos.push(
-        el('div', 'vacio', tienda.conectado ? 'No hay conversaciones abiertas en el PC.' : 'Sin datos del PC.')
-      )
-    }
+    if (!entradas.length) hijos.push(vacio())
     // Lo que espera respuesta va primero: es lo único que no puede esperar.
     for (const e of [...pendientes, ...resto]) hijos.push(tarjeta(e))
     tarjetas.replaceChildren(...hijos)
@@ -42,6 +39,24 @@ export function vistaPanel(): Vista {
     pie.textContent = terminales
       ? `${terminales} ${terminales === 1 ? 'pestaña' : 'pestañas'} de terminal: esas solo se usan desde el PC.`
       : ''
+  }
+
+  function vacio(): HTMLElement {
+    if (tienda.conectado) return el('div', 'vacio', 'No hay conversaciones abiertas en el PC.')
+    const caja = el('div', 'vacio')
+    caja.append(
+      el('div', '', 'Sin conexión con el PC.'),
+      el(
+        'p',
+        'pista',
+        'Si el PC usa túnel rápido y se reinició, esta dirección ya no existe: vuelve a escanear el QR desde el panel «Acceso remoto» del Deck.'
+      ),
+      boton('Sincronizar', 'chip accion', () => {
+        reintentarAhora()
+        void tienda.cargarBase().catch(() => undefined)
+      })
+    )
+    return caja
   }
 
   const dejarDeEscuchar = tienda.escuchar((temas) => {

@@ -197,6 +197,8 @@ export interface LineaHola {
   seq: number
   hueco: boolean
   clientId: string
+  /** Versión de la app en el PC. Falta si el PC es anterior a la 0.33.2. */
+  version?: string
 }
 
 export interface LineaEvento {

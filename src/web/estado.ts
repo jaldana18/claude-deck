@@ -61,6 +61,8 @@ function snapshotVacio(tabId: string): SessionSnapshot {
 
 class Tienda {
   conectado = false
+  /** Versión del PC cuando no coincide con la de este cliente: hay que recargar. */
+  versionNueva: string | null = null
   /** Último seq recibido: es lo que se pide al reconectar. */
   ultimoSeq = 0
   miClientId = api.sesion()?.clientId ?? ''
@@ -126,11 +128,13 @@ class Tienda {
 
   /** Todo el estado de golpe: al arrancar y cada vez que se detecta un hueco. */
   async cargarBase(): Promise<void> {
-    const [pestanas, snapshots, duenos] = await Promise.all([
-      api.pedirPestanas(),
-      api.pedirSnapshots(),
-      api.pedirDuenos()
-    ])
+    // Las pestañas se piden aparte y se esperan las tres por separado: si
+    // fallara una de las otras dos, un `Promise.all` dejaría la app sin lista de
+    // conversaciones, que es justo lo único que siempre se puede mostrar.
+    const pestanas = await api.pedirPestanas()
+    const [snaps, dues] = await Promise.allSettled([api.pedirSnapshots(), api.pedirDuenos()])
+    const snapshots = snaps.status === 'fulfilled' ? snaps.value : []
+    const duenos = dues.status === 'fulfilled' ? dues.value : []
     const previas = new Map(this.lista.map((e) => [e.tab.id, e]))
     this.lista = pestanas.tabs.map((tab) => {
       const previa = previas.get(tab.id)

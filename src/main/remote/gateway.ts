@@ -52,6 +52,11 @@ export interface GatewayDeps {
   ownership: Ownership
   /** Carpeta con el cliente web compilado. */
   webDir: string
+  /**
+   * Versión de la app. Viaja al móvil para que el cliente sepa si el que está
+   * corriendo se quedó viejo: el suyo se compiló con esta misma versión.
+   */
+  version?: string
 }
 
 export class Gateway {
@@ -137,7 +142,8 @@ export class Gateway {
     res.setHeader('Referrer-Policy', 'no-referrer')
 
     try {
-      if (url.pathname === '/api/deck') return this.json(res, 200, { deck: true })
+      if (url.pathname === '/api/deck')
+        return this.json(res, 200, { deck: true, version: this.deps.version ?? '' })
       if (url.pathname === '/api/emparejar') return await this.emparejar(req, res)
       if (url.pathname === '/api/accion') return await this.accion(req, res)
       if (url.pathname === '/api/eventos') return this.eventos(req, res, url)
@@ -191,7 +197,13 @@ export class Gateway {
 
     const hueco = this.deps.bus.hasGapSince(desde)
     res.write(
-      JSON.stringify({ tipo: 'hola', seq: this.deps.bus.lastSeq, hueco, clientId: device.clientId }) +
+      JSON.stringify({
+        tipo: 'hola',
+        seq: this.deps.bus.lastSeq,
+        hueco,
+        clientId: device.clientId,
+        version: this.deps.version ?? ''
+      }) +
         '\n'
     )
     if (!hueco && desde > 0) {

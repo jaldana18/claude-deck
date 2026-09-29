@@ -1,8 +1,15 @@
 import * as api from './api'
-import { el } from './dom'
+import { boton, el } from './dom'
 import { TEMA_CONEXION, tienda } from './estado'
 import { hayCodigo, invitacion } from './invitacion'
-import { arranque, arrancarSesion, conectarNotificaciones, pararSesion, reintentarAhora } from './sesion'
+import {
+  actualizarCliente,
+  arranque,
+  arrancarSesion,
+  conectarNotificaciones,
+  pararSesion,
+  reintentarAhora
+} from './sesion'
 import { arrancarRuteo, ir, pintar } from './vistas'
 
 const raiz = document.getElementById('app')
@@ -18,12 +25,24 @@ if (hayCodigo(location.hash)) {
 
 const banda = el('div', 'banda', 'Sin conexión con el PC · reintentando…')
 banda.hidden = true
+
+// Igual que en el escritorio: si el PC ya tiene una versión nueva, se avisa y se
+// recarga a mano. Nunca sola: recargar sin avisar borraría lo que se esté
+// escribiendo.
+const bandaVersion = el('div', 'banda nueva')
+bandaVersion.append(
+  el('span', '', 'Hay una versión nueva'),
+  boton('Actualizar', 'chip', () => void actualizarCliente())
+)
+bandaVersion.hidden = true
+
 const contenedor = el('div', 'vista')
-raiz.append(banda, contenedor)
+raiz.append(banda, bandaVersion, contenedor)
 
 tienda.escuchar((temas) => {
   if (!temas.has(TEMA_CONEXION)) return
   banda.hidden = tienda.conectado || !api.sesion()
+  bandaVersion.hidden = !tienda.versionNueva
 })
 
 api.cuandoExpire(() => {

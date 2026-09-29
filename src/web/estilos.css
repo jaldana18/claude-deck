@@ -86,6 +86,16 @@ body {
   padding-top: max(8px, env(safe-area-inset-top));
 }
 
+.banda.nueva {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-bottom: 1px solid var(--accent);
+}
+
 /* ---------- barra superior ---------- */
 
 .barra {

@@ -43,6 +43,8 @@ export interface ManagerDeps {
   invocar: (canal: string, args: unknown) => Promise<unknown> | unknown
   /** Carpeta con el cliente web compilado. */
   webDir: string
+  /** Versión de la app, para que el móvil detecte un cliente viejo. */
+  version?: string
   /** Inyectables para las pruebas. */
   crearTunel?: (onCambio: (e: EstadoTunel) => void) => Tunnel
   push?: Push
@@ -83,6 +85,7 @@ export class RemoteManager {
       auth: this.auth,
       ownership: deps.ownership,
       webDir: deps.webDir,
+      ...(deps.version ? { version: deps.version } : {}),
       dispatcher: new Dispatcher({
         invocar: (canal, args, clientId) => {
           this.ultimaActividad = this.ahora()
@@ -311,7 +314,13 @@ export class RemoteManager {
       // Con túnel quick la dirección es otra, y para el móvil eso es otro sitio:
       // la app instalada y su emparejamiento apuntaban a la anterior.
       this.alerta = 'El túnel cambió de dirección. Vuelve a escanear el QR en el móvil.'
-      if (this.auth.dispositivos().length > 0) this.auth.nuevoCodigo()
+      if (this.auth.dispositivos().length > 0) {
+        this.auth.nuevoCodigo()
+        // Aviso de una sola vez: la alerta del panel no sirve si nadie lo abre,
+        // y desde el móvil esto se ve como «sin datos del PC» sin explicación.
+        // No sale por el flujo remoto: a la dirección vieja ya no llega nadie.
+        ;(this.deps.bus as Emitter).send('remote:reemparejar', { url: e.url })
+      }
     } else if (e.fase === 'activo') {
       this.alerta = undefined
     }
