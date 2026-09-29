@@ -20,8 +20,9 @@ export interface Respuesta {
 }
 
 export interface DispatchDeps {
-  /** Ejecuta la acción ya autorizada contra el main. */
-  invocar: (canal: string, args: unknown) => Promise<unknown> | unknown
+  /** Ejecuta la acción ya autorizada. Recibe quién la pide: hay acciones que
+   *  solo tienen sentido para un dispositivo concreto. */
+  invocar: (canal: string, args: unknown, clientId: string) => Promise<unknown> | unknown
   /** ¿Este cliente puede enviar/aprobar en esta conversación? */
   puedeActuar: (tabId: string, clientId: string) => boolean
   /** Carpetas dentro de las que el acceso remoto puede mirar. */
@@ -110,7 +111,7 @@ export class Dispatcher {
     }
 
     try {
-      return { ok: true, data: await this.deps.invocar(canal, finales) }
+      return { ok: true, data: await this.deps.invocar(canal, finales, clientId) }
     } catch (err) {
       return { ok: false, motivo: 'fallo', error: String((err as Error)?.message ?? err) }
     }

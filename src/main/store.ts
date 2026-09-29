@@ -33,6 +33,8 @@ interface DeckState {
   remote?: RemoteSettings
   remoteDevices?: RemoteDevice[]
   remoteHashes?: Record<string, string>
+  remotePushKeys?: { publicKey: string; privateKey: string }
+  remotePushSubs?: Record<string, { endpoint: string; keys: { p256dh: string; auth: string } }>
 }
 
 const DEFAULT_WIDGETS: WidgetState[] = [
@@ -85,7 +87,9 @@ export class Store {
           globalSettings: parsed.globalSettings,
           remote: parsed.remote,
           remoteDevices: parsed.remoteDevices,
-          remoteHashes: parsed.remoteHashes
+          remoteHashes: parsed.remoteHashes,
+          remotePushKeys: parsed.remotePushKeys,
+          remotePushSubs: parsed.remotePushSubs
         }
       }
     } catch (err) {
@@ -284,6 +288,24 @@ export class Store {
     // Sin esperar el debounce: revocar un dispositivo tiene que sobrevivir a un
     // cierre inmediato de la app.
     this.flush()
+  }
+
+  get pushKeys(): DeckState['remotePushKeys'] {
+    return this.state.remotePushKeys
+  }
+
+  setPushKeys(k: NonNullable<DeckState['remotePushKeys']>): void {
+    this.state.remotePushKeys = k
+    this.flush()
+  }
+
+  get pushSubs(): NonNullable<DeckState['remotePushSubs']> {
+    return this.state.remotePushSubs ?? {}
+  }
+
+  setPushSubs(subs: NonNullable<DeckState['remotePushSubs']>): void {
+    this.state.remotePushSubs = subs
+    this.scheduleSave()
   }
 
   get defaultCli(): { cli?: string; command?: string } {

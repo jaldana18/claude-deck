@@ -13,6 +13,7 @@ import type { Ownership } from '../ownership'
 import { Auth } from './auth'
 import { Dispatcher } from './dispatch'
 import { Gateway } from './gateway'
+import { Push, type PushStore, type SuscripcionPush } from './push'
 import { Tunnel, type EstadoTunel } from './tunnel'
 
 /**
@@ -24,7 +25,7 @@ import { Tunnel, type EstadoTunel } from './tunnel'
  */
 
 /** Lo que el gestor necesita del Store, para poder probarlo sin electron. */
-export interface RemoteStore {
+export interface RemoteStore extends PushStore {
   readonly remote: RemoteSettings
   setRemote(patch: Partial<RemoteSettings>): RemoteSettings
   readonly remoteDevices: RemoteDevice[]
@@ -44,6 +45,7 @@ export interface ManagerDeps {
   webDir: string
   /** Inyectables para las pruebas. */
   crearTunel?: (onCambio: (e: EstadoTunel) => void) => Tunnel
+  push?: Push
   ahora?: () => number
 }
 
@@ -59,6 +61,7 @@ export class RemoteManager {
   private ultimaActividad: number
   private revision: NodeJS.Timeout | null = null
   private ahora: () => number
+  private push: Push
   /** Puerto que acabó escuchando: con 0 lo elige el sistema. */
   private puertoReal = 0
 
@@ -74,20 +77,41 @@ export class RemoteManager {
       },
       this.ahora
     )
+    this.push = deps.push ?? new Push(deps.store)
     this.gateway = new Gateway({
       bus: deps.bus,
       auth: this.auth,
       ownership: deps.ownership,
       webDir: deps.webDir,
       dispatcher: new Dispatcher({
-        invocar: (canal, args) => {
+        invocar: (canal, args, clientId) => {
           this.ultimaActividad = this.ahora()
+          // Estas dos no son canales del main: solo existen para el dispositivo
+          // que las pide, y el main no tiene nada que hacer con ellas.
+          if (canal === 'remote:pushKey') return this.push.clavePublica()
+          if (canal === 'remote:pushSubscribe') {
+            this.push.suscribir(clientId, args as SuscripcionPush)
+            return true
+          }
           return deps.invocar(canal, args)
         },
         puedeActuar: (tabId, clientId) => deps.ownership.puedeActuar(tabId, clientId),
         raices: () => this.raices()
       })
     })
+    // Lo que pide atención se empuja al móvil aunque no tenga la app abierta.
+    // Va por `observe` y no por `subscribe` porque un observador del main no es
+    // un destinatario: si contara, el updater daría avisos por entregados.
+    deps.bus.observe((ev) => {
+      if (!this.encendido) return
+      const p = ev.payload as { tabId?: string } | null
+      if (ev.channel === 'chat:permission-request') {
+        void this.avisarAusentes('Claude pide permiso', 'Una acción espera tu aprobación', p?.tabId)
+      } else if (ev.channel === 'chat:question') {
+        void this.avisarAusentes('Claude te hizo una pregunta', 'Hay una respuesta pendiente', p?.tabId)
+      }
+    })
+
     const onCambio = (e: EstadoTunel): void => this.tunelCambio(e)
     this.tunnel = deps.crearTunel
       ? deps.crearTunel(onCambio)
@@ -280,6 +304,20 @@ export class RemoteManager {
       this.alerta = undefined
     }
     this.anunciar()
+  }
+
+  /**
+   * Empuja el aviso solo a los dispositivos que no tienen el canal abierto: si
+   * lo tienen, la propia app se encarga y llegarían dos notificaciones.
+   */
+  private async avisarAusentes(titulo: string, cuerpo: string, tabId?: string): Promise<void> {
+    const conectados = new Set(this.gateway.conectados)
+    const ausentes = this.auth
+      .dispositivos()
+      .map((d) => d.clientId)
+      .filter((id) => !conectados.has(id))
+    if (ausentes.length === 0) return
+    await this.push.avisar(ausentes, { titulo, cuerpo, ...(tabId ? { tabId } : {}) })
   }
 
   private vigilarInactividad(): void {

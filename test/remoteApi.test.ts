@@ -48,13 +48,20 @@ describe('superficie remota', () => {
 
   it('cada acción permitida está registrada como invocable en el main', () => {
     const reales = canalesInvocables()
-    const fantasmas = ACCIONES_REMOTAS.map((a) => a.canal).filter((c) => !reales.has(c))
-    expect(fantasmas).toEqual([])
+    const fantasmas = ACCIONES_REMOTAS.filter((a) => !a.interna && !reales.has(a.canal))
+    expect(fantasmas.map((a) => a.canal)).toEqual([])
   })
 
   it('no hay canales invocables que nadie haya autorizado', () => {
     const sobrantes = [...canalesInvocables()].filter((c) => !accionRemota(c))
     expect(sobrantes).toEqual([])
+  })
+
+  it('las acciones internas no son canales del main: las resuelve el gateway', () => {
+    const reales = canalesInvocables()
+    for (const a of ACCIONES_REMOTAS.filter((x) => x.interna)) {
+      expect(reales.has(a.canal)).toBe(false)
+    }
   })
 
   it('cada evento permitido lo emite alguien', () => {

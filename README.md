@@ -132,6 +132,11 @@ aquí: el móvil ve las conversaciones y manda instrucciones, nada más.
   Las rutas se comprueban ya resueltas, así que un `..` intermedio no sirve para salirse.
 - **Un mando a la vez**: los dos dispositivos ven todo en vivo, pero solo uno envía y
   aprueba. El otro tiene un botón de *Tomar el control* y lo reclama de un toque.
+- **Avisos con la app cerrada**: cuando una conversación pide permiso o hace una pregunta y
+  el dispositivo no tiene la app abierta, el aviso va por Web Push (el servicio del
+  fabricante), así que llega aunque el túnel esté caído y cifrado de punta a punta. Necesita
+  dirección estable: la suscripción pertenece a un origen, y el túnel rápido lo cambia en
+  cada arranque. Si no hay ventana del Deck a la vista, el PC también avisa por su cuenta.
 - **Una sola persona, un solo PC**: no hay multiusuario ni multi-PC. Los dispositivos
   emparejados se listan en el panel con su botón de revocar.
 

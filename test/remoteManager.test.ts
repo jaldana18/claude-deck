@@ -16,6 +16,8 @@ function storeFalso(inicial: Partial<RemoteSettings> = {}, cwds: string[] = []):
   let remote: RemoteSettings = { enabled: false, puerto: 0, tunel: 'quick', ...inicial }
   let devices: RemoteDevice[] = []
   let hashes: Record<string, string> = {}
+  let claves: { publicKey: string; privateKey: string } | undefined
+  let subs: Record<string, { endpoint: string; keys: { p256dh: string; auth: string } }> = {}
   return {
     get remote() {
       return remote
@@ -38,6 +40,18 @@ function storeFalso(inicial: Partial<RemoteSettings> = {}, cwds: string[] = []):
     },
     get tabs() {
       return cwds.map((cwd, i) => ({ id: `t${i}`, cwd }) as TabState)
+    },
+    get pushKeys() {
+      return claves
+    },
+    setPushKeys(k) {
+      claves = k
+    },
+    get pushSubs() {
+      return subs
+    },
+    setPushSubs(v) {
+      subs = v
     }
   }
 }

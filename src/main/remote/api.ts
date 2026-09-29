@@ -26,6 +26,11 @@ export interface AccionRemota {
   /** Exige tener el control de la conversación (dueño blando con relevo). */
   control: boolean
   restricciones?: Restriccion[]
+  /**
+   * La resuelve el propio gateway y no existe como canal IPC: solo tiene sentido
+   * para un cliente remoto (su clave de avisos, su suscripción).
+   */
+  interna?: boolean
 }
 
 /**
@@ -51,6 +56,10 @@ export const ACCIONES_REMOTAS: readonly AccionRemota[] = [
   { canal: 'fs:tree', control: false, restricciones: ['confinar-raiz'] },
   // Por dónde puede empezar a navegar: sin esto el móvil no sabría qué pedir.
   { canal: 'remote:raices', control: false },
+  // Avisos con la app cerrada: el dispositivo pide la clave y entrega su
+  // suscripción. No expone nada del PC.
+  { canal: 'remote:pushKey', control: false, interna: true },
+  { canal: 'remote:pushSubscribe', control: false, interna: true },
 
   // ----- actuar -----
   // Reclamar el control nunca puede exigir tenerlo: es el relevo.
