@@ -204,4 +204,21 @@ describe('Dispatcher', () => {
       data: ['un', 'mensaje']
     })
   })
+
+  // Sin esto, tomar el control desde el móvil registraba al dueño como el PC:
+  // el id del dispositivo tiene que llegar hasta quien ejecuta la acción.
+  it('le pasa a invocar el id del cliente que pide la acción', async () => {
+    const vistos: string[] = []
+    const d = new Dispatcher({
+      invocar: (_canal, _args, clientId) => {
+        vistos.push(clientId)
+        return 'ok'
+      },
+      puedeActuar: () => true,
+      raices: () => ['C:\\proyectos']
+    })
+    await d.atender('chat:claim', 'tab-1', 'movil')
+    await d.atender('chat:send', { tabId: 'tab-1', text: 'hola' }, 'movil')
+    expect(vistos).toEqual(['movil', 'movil'])
+  })
 })

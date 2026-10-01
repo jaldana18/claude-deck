@@ -39,8 +39,8 @@ export interface ManagerDeps {
   store: RemoteStore
   bus: Bus
   ownership: Ownership
-  /** Invoca un canal del main ya autorizado. */
-  invocar: (canal: string, args: unknown) => Promise<unknown> | unknown
+  /** Invoca un canal del main ya autorizado, en nombre del cliente que lo pide. */
+  invocar: (canal: string, args: unknown, clientId: string) => Promise<unknown> | unknown
   /** Carpeta con el cliente web compilado. */
   webDir: string
   /** Versión de la app, para que el móvil detecte un cliente viejo. */
@@ -96,7 +96,7 @@ export class RemoteManager {
             this.push.suscribir(clientId, args as SuscripcionPush)
             return true
           }
-          return deps.invocar(canal, args)
+          return deps.invocar(canal, args, clientId)
         },
         puedeActuar: (tabId, clientId) => deps.ownership.puedeActuar(tabId, clientId),
         raices: () => this.raices()

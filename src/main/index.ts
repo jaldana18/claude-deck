@@ -12,7 +12,7 @@ import {
 import { extname, isAbsolute, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import type {
   ArtifactDraft,
   ChatAttachment,
@@ -95,7 +95,7 @@ store.setEmitter(bus)
  * temprano una copia se desvía de la otra y solo falla en el dispositivo que
  * nadie prueba.
  */
-const remotos = new Map<string, (args: unknown) => unknown>()
+const remotos = new Map<string, (args: unknown, clientId: string) => unknown>()
 
 /** La conversación a la que apunta una petición, venga suelta o en un objeto. */
 function tabIdDe(args: unknown): string {
@@ -110,20 +110,20 @@ function tabIdDe(args: unknown): string {
  * la hace con el id de SU cliente —aquí el PC, en el gateway el dispositivo— y
  * si estuviera dentro, una petición del móvil se comprobaría como si fuera local.
  */
-function manejar<A>(canal: string, fn: (args: A) => unknown, control = false): void {
-  remotos.set(canal, (args) => fn(args as A))
+function manejar<A>(canal: string, fn: (args: A, clientId: string) => unknown, control = false): void {
+  remotos.set(canal, (args, clientId) => fn(args as A, clientId))
   ipcMain.handle(canal, (_e, args: A) => {
     if (control && !ownership.puedeActuar(tabIdDe(args), CLIENTE_LOCAL)) return undefined
-    return fn(args)
+    return fn(args, CLIENTE_LOCAL)
   })
 }
 
 /** Igual, para los canales de ida sin respuesta. */
-function manejarEnvio<A>(canal: string, fn: (args: A) => void): void {
-  remotos.set(canal, (args) => fn(args as A))
+function manejarEnvio<A>(canal: string, fn: (args: A, clientId: string) => void): void {
+  remotos.set(canal, (args, clientId) => fn(args as A, clientId))
   ipcMain.on(canal, (_e, args: A) => {
     if (!ownership.puedeActuar(tabIdDe(args), CLIENTE_LOCAL)) return
-    fn(args)
+    fn(args, CLIENTE_LOCAL)
   })
 }
 
@@ -641,27 +641,90 @@ const CODE_EXTS = new Set([
   'rs', 'rb', 'php', 'lock', 'gitignore', 'editorconfig', 'prisma', 'graphql', 'tf'
 ])
 
+/** Carpetas que no se recorren al buscar un archivo referenciado. */
+const IGNORAR_BUSQUEDA = new Set([
+  'node_modules', '.git', 'dist', 'out', 'release', 'build', 'coverage',
+  '.next', '.cache', '.deck-backups', '.venv', 'venv', '__pycache__', 'target'
+])
+
+/**
+ * Busca dentro del proyecto un archivo cuya ruta relativa termine en `rel`
+ * (o cuyo nombre coincida, si `rel` es solo un nombre). El LLM suele citar
+ * rutas parciales o el nombre suelto; sin esto solo abriría la ruta completa.
+ * Acotada en número de nodos para no recorrer árboles enormes.
+ */
+function buscarEnProyecto(raiz: string, rel: string): string | null {
+  const objetivo = rel.replace(/\\/g, '/').toLowerCase()
+  const soloNombre = !objetivo.includes('/')
+  const base = objetivo.split('/').pop() ?? objetivo
+  let restantes = 12_000
+  let mejor: string | null = null
+  const visitar = (dir: string, prof: number): void => {
+    if (mejor && soloNombre) return
+    if (prof > 10 || restantes <= 0) return
+    let entradas: import('node:fs').Dirent[]
+    try {
+      entradas = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entradas) {
+      if (restantes-- <= 0) return
+      const abs = join(dir, e.name)
+      if (e.isDirectory()) {
+        if (IGNORAR_BUSQUEDA.has(e.name)) continue
+        visitar(abs, prof + 1)
+        if (mejor && soloNombre) return
+      } else if (e.name.toLowerCase() === base) {
+        const norm = abs.replace(/\\/g, '/').toLowerCase()
+        const coincide = soloNombre || norm.endsWith(objetivo)
+        // La mejor coincidencia es la de ruta más corta (más cerca de la raíz).
+        if (coincide && (!mejor || abs.length < mejor.length)) mejor = abs
+      }
+    }
+  }
+  visitar(raiz, 0)
+  return mejor
+}
+
 /**
  * Abre lo que el LLM devolvió en el chat: URL → navegador; ruta local de
  * código/texto (o carpeta) → VS Code; binarios (pdf, imágenes…) → app
  * predeterminada del sistema. Las rutas relativas se resuelven contra el cwd
- * de la pestaña.
+ * de la pestaña; si no existen ahí, se busca el archivo dentro del proyecto.
  */
 ipcMain.handle('open:target', async (_e, a: { target: string; cwd?: string }) => {
-  const t = a.target.trim()
+  let t = a.target.trim().replace(/^[`'"]+|[`'"]+$/g, '')
   if (/^https?:\/\//i.test(t)) {
     await shell.openExternal(t)
     return { ok: true }
   }
-  let file = t.replace(/^file:\/{2,3}/i, '')
-  if (!isAbsolute(file)) file = join(a.cwd ?? '', file)
-  if (!existsSync(file)) return { ok: false, message: `No existe: ${file}` }
+  t = t.replace(/^file:\/{2,3}/i, '')
+  // Sufijo de línea/columna que suele acompañar a una cita: archivo.ts:42[:8]
+  // o archivo.ts#L42. El «:» de la unidad (C:\) no queda al final, así que no
+  // se confunde con él.
+  let linea = 0
+  const mLinea = t.match(/^(.+?)(?::(\d+)(?::\d+)?|#L(\d+))$/)
+  if (mLinea) {
+    t = mLinea[1]
+    linea = Number(mLinea[2] ?? mLinea[3])
+  }
+
+  const cwd = a.cwd ?? ''
+  let file = isAbsolute(t) ? t : join(cwd, t)
+  if (!existsSync(file)) {
+    const hallado = !isAbsolute(t) && cwd ? buscarEnProyecto(cwd, t) : null
+    if (!hallado) return { ok: false, message: `No se encontró: ${a.target}` }
+    file = hallado
+  }
+
   const isDir = statSync(file).isDirectory()
   const ext = extname(file).slice(1).toLowerCase()
   if (isDir || CODE_EXTS.has(ext) || ext === '') {
     // shell:true resuelve el shim code.cmd en Windows; si VS Code no está,
     // cae a la app predeterminada del sistema
-    const child = spawn('code', [file], { shell: true, detached: true, stdio: 'ignore' })
+    const args = linea && !isDir ? ['-g', `${file}:${linea}`] : [file]
+    const child = spawn('code', args, { shell: true, detached: true, stdio: 'ignore' })
     child.on('exit', (code) => {
       if (code !== 0) void shell.openPath(file)
     })
@@ -710,7 +773,7 @@ manejarEnvio(
 )
 
 manejar('chat:owners', () => ownership.list())
-manejar('chat:claim', (tabId: string) => ownership.claim(tabId, CLIENTE_LOCAL))
+manejar('chat:claim', (tabId: string, clientId) => ownership.claim(tabId, clientId))
 
 ipcMain.handle('chat:commands', (_e, tabId: string) => chatSessions.commandsFor(tabId))
 ipcMain.handle('chat:models', (_e, tabId: string) => chatSessions.modelsFor(tabId))
@@ -972,10 +1035,10 @@ const remote = new RemoteManager({
   ownership,
   // El móvil ejecuta el mismo handler que la ventana; si el canal no está en la
   // superficie remota, el dispatcher no llega hasta aquí.
-  invocar: (canal, args) => {
+  invocar: (canal, args, clientId) => {
     const fn = remotos.get(canal)
     if (!fn) throw new Error(`Canal no disponible: ${canal}`)
-    return fn(args)
+    return fn(args, clientId)
   },
   webDir: join(app.getAppPath(), 'out', 'web'),
   version: app.getVersion()

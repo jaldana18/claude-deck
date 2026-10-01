@@ -11,11 +11,13 @@ export const MarkdownCwd = createContext('')
 /** ¿Parece una ruta local abrible? (unidad Windows, con separadores, o archivo.ext) */
 function looksLikePath(s: string): boolean {
   if (s.length > 260 || s.includes('\n')) return false
-  if (/^[a-zA-Z]:[\\/]/.test(s)) return true
   if (/^https?:\/\//i.test(s)) return true
-  if (/[\\/]/.test(s) && /\.[a-zA-Z][a-zA-Z0-9]{0,5}$/.test(s)) return true
+  // Sufijo de línea/columna al citar: archivo.ts:42, archivo.ts:42:8, archivo.ts#L42
+  const base = s.replace(/(?::\d+(?::\d+)?|#L\d+)$/, '')
+  if (/^[a-zA-Z]:[\\/]/.test(base)) return true
+  if (/[\\/]/.test(base) && /\.[a-zA-Z][a-zA-Z0-9]{0,5}$/.test(base)) return true
   // archivo suelto con extensión (package.json, README.md…)
-  return /^[\w.-]+\.[a-zA-Z][a-zA-Z0-9]{0,5}$/.test(s)
+  return /^[\w.-]+\.[a-zA-Z][a-zA-Z0-9]{0,5}$/.test(base)
 }
 
 function openTarget(target: string, cwd: string): void {
