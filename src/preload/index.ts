@@ -33,6 +33,7 @@ import type {
   ProjectPrefs,
   RemoteSettings,
   RemoteStatus,
+  RewindResult,
   QuestionRequestEvent,
   SessionListItem,
   SlashCommandInfo,
@@ -254,6 +255,10 @@ const api = {
     ipcRenderer.invoke('chat:setPermissionMode', { tabId, mode }),
   chatHistory: (tabId: string): Promise<ChatMessage[]> =>
     ipcRenderer.invoke('chat:history', tabId),
+  chatRewindFiles: (tabId: string, userMessageId: string, dryRun: boolean): Promise<RewindResult> =>
+    ipcRenderer.invoke('chat:rewindFiles', { tabId, userMessageId, dryRun }),
+  listProjectFiles: (cwd: string, query: string): Promise<string[]> =>
+    ipcRenderer.invoke('project:listFiles', { cwd, query }),
   onChatStreamStart: (cb: (p: { tabId: string; messageId: string }) => void) =>
     on('chat:stream-start', cb),
   onChatDelta: (cb: (p: ChatDeltaEvent) => void) => on('chat:delta', cb),

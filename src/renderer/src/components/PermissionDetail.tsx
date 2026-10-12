@@ -22,7 +22,7 @@ const EXT_LANG: Record<string, string> = {
   toml: 'ini', ini: 'ini', env: 'ini', dockerfile: 'dockerfile'
 }
 
-function langForPath(path: string | undefined): string | undefined {
+export function langForPath(path: string | undefined): string | undefined {
   if (!path) return undefined
   const base = path.split(/[\\/]/).at(-1)?.toLowerCase() ?? ''
   if (base === 'dockerfile') return 'dockerfile'
@@ -31,7 +31,7 @@ function langForPath(path: string | undefined): string | undefined {
   return lang && hljs.getLanguage(lang) ? lang : undefined
 }
 
-function hlBlock(code: string, lang?: string): string {
+export function hlBlock(code: string, lang?: string): string {
   try {
     return lang && hljs.getLanguage(lang)
       ? hljs.highlight(code, { language: lang }).value
@@ -42,7 +42,7 @@ function hlBlock(code: string, lang?: string): string {
 }
 
 /** Resalta línea por línea (los spans de hljs no pueden cruzar líneas del diff) */
-function hlLines(text: string, lang?: string): string[] {
+export function hlLines(text: string, lang?: string): string[] {
   return text.replace(/\n$/, '').split('\n').map((line) => hlBlock(line, lang))
 }
 

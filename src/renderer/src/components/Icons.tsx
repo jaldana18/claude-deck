@@ -287,3 +287,94 @@ export const IconAparte = (p: IconProps): React.JSX.Element => (
     <path d="M14 15h6a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-2l-2 2v-2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z" fill="rgba(217,119,87,0.25)" stroke="currentColor" />
   </Svg>
 )
+
+export const IconFilePlus = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+    <path d="M14 2v6h6M12 18v-6M9 15h6" />
+  </Svg>
+)
+
+export const IconChevronRight = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="m9 18 6-6-6-6" />
+  </Svg>
+)
+
+export const IconAlertTriangle = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+    <path d="M12 9v4M12 17h.01" />
+  </Svg>
+)
+
+export const IconAlertCircle = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 8v4M12 16h.01" />
+  </Svg>
+)
+
+export const IconInfo = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 16v-4M12 8h.01" />
+  </Svg>
+)
+
+export const IconGlobe = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+  </Svg>
+)
+
+export const IconLightbulb = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M15 14c.2-1 .7-1.7 1.5-2.5A5 5 0 1 0 7 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5" />
+    <path d="M9 18h6M10 22h4" />
+  </Svg>
+)
+
+export const IconLayers = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="m12 2 10 5-10 5L2 7Z" />
+    <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
+  </Svg>
+)
+
+export const IconCopy = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <rect x="9" y="9" width="12" height="12" rx="2" />
+    <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+  </Svg>
+)
+
+export const IconCheck = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M20 6 9 17l-5-5" />
+  </Svg>
+)
+
+export const IconPencil = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    <path d="m15 5 4 4" />
+  </Svg>
+)
+
+/** Rebobinar: flecha que vuelve sobre sí misma */
+export const IconRewind = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 8v4l3 2" />
+  </Svg>
+)
+
+export const IconList = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M8 6h13M8 12h13M8 18h13" />
+    <path d="M3 6h.01M3 12h.01M3 18h.01" />
+  </Svg>
+)

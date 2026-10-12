@@ -233,8 +233,51 @@ describe('bucle del SDK', () => {
     }
     expect(eco.echo).toBe(true)
     expect(eco.message).toMatchObject({ role: 'user', text: 'arregla el login' })
-    // id propio del main: el otro dispositivo necesita una clave estable
-    expect(eco.message.id.startsWith('usuario-')).toBe(true)
+    // el id del eco es el uuid que viaja al SDK: clave estable para el otro
+    // dispositivo, coincide con el transcript y sirve de ancla para rewindFiles
+    const cola = (sesion as unknown as { queue: { uuid?: string }[] }).queue
+    expect(eco.message.id).toBeTruthy()
+    expect(cola[0].uuid).toBe(eco.message.id)
+    sesion.stop()
+  })
+
+  it('activa el checkpointing de archivos y pide el thinking resumido', () => {
+    const { sesion, opciones } = montar()
+    expect(opciones().enableFileCheckpointing).toBe(true)
+    expect(opciones().extraArgs).toEqual({ 'thinking-display': 'summarized' })
+    sesion.stop()
+  })
+
+  it('un mensaje con solo thinking se emite y no corta el texto en vuelo', async () => {
+    const { sesion, sdk, eventos } = montar()
+    sdk.emitir({ type: 'stream_event', event: { type: 'message_start' } })
+    sdk.emitir({
+      type: 'assistant',
+      uuid: 'u-t',
+      message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'pienso', signature: 'x' }] }
+    })
+    sdk.emitir(delta('respuesta'))
+    await ceder()
+
+    const m = eventos.find(([c]) => c === 'chat:message')?.[1] as { message: { thinking?: string; text: string } }
+    expect(m.message).toMatchObject({ thinking: 'pienso', text: '' })
+    expect(sesion.snapshot().streaming?.text).toBe('respuesta')
+    sesion.stop()
+  })
+
+  it('el result trae duración, modelos y el coste del turno (total acumulado)', async () => {
+    const { sesion, sdk, eventos } = montar()
+    sdk.emitir({ ...(resultado() as object), duration_ms: 1500, modelUsage: { 'claude-x': {} } })
+    sdk.emitir({ ...(resultado() as object), total_cost_usd: 0.05 })
+    await ceder()
+
+    const metas = eventos.filter(([c]) => c === 'chat:result').map(([, p]) => p) as {
+      turnCostUsd?: number
+      durationMs?: number
+      models?: string[]
+    }[]
+    expect(metas[0]).toMatchObject({ durationMs: 1500, models: ['claude-x'], turnCostUsd: 0.02 })
+    expect(metas[1].turnCostUsd).toBeCloseTo(0.03)
     sesion.stop()
   })
 

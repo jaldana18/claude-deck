@@ -25,6 +25,7 @@ import type {
   GlobalSettings,
   ProjectPrefs,
   RemoteSettings,
+  RewindResult,
   Snippet,
   TabMode,
   TabProfile,
@@ -54,6 +55,7 @@ import {
 } from './mcpBoard'
 import { ChatSessionManager } from './chatSession'
 import { loadChatHistory } from './transcript'
+import { listProjectFiles } from './projectFiles'
 import { Updater, type UpdateInfo } from './updater'
 import { StatusWatcher } from './status'
 import {
@@ -782,6 +784,20 @@ manejar('chat:snapshot', (tabId: string) => chatSessions.snapshotFor(tabId))
 manejar('chat:snapshotAll', () => chatSessions.snapshotAll())
 ipcMain.handle('chat:setLlmParams', (_e, a: { tabId: string; params: LlmParams }) =>
   chatSessions.setLlmParams(a.tabId, a.params)
+)
+// Solo local a propósito: reescribe archivos del proyecto, no va en remote/api.ts
+ipcMain.handle(
+  'chat:rewindFiles',
+  (_e, a: { tabId: string; userMessageId: string; dryRun: boolean }): Promise<RewindResult> => {
+    if (!a.dryRun && !ownership.puedeActuar(a.tabId, CLIENTE_LOCAL)) {
+      return Promise.resolve({ canRewind: false, error: 'Otro dispositivo tiene el mando de este chat' })
+    }
+    return chatSessions.rewindFiles(a.tabId, a.userMessageId, a.dryRun)
+  }
+)
+
+ipcMain.handle('project:listFiles', (_e, a: { cwd: string; query: string }) =>
+  listProjectFiles(a.cwd, a.query)
 )
 
 // ---------- tienda (MCPs, agentes, skills, plugins) ----------

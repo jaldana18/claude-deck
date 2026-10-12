@@ -1,0 +1,168 @@
+/* Componentes ricos del chat (prefijo .cr-). Solo tokens del kit: claro y oscuro. */
+
+/* ---- contenedor de tools ---- */
+.cr-tools{display:flex;flex-direction:column;gap:4px;margin-top:8px;min-width:0}
+
+/* ---- tarjeta (Edit/Write/Bash/genérica) ---- */
+.cr-card{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:var(--r-card);min-width:0;overflow:hidden}
+.cr-card.is-error{border-color:color-mix(in srgb,var(--danger) 45%,transparent)}
+.cr-head{display:flex;align-items:center;gap:7px;padding:5px 9px;min-width:0;cursor:pointer;user-select:none;font-size:12px;color:var(--fg)}
+.cr-head:hover{background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cr-head:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 50%,transparent);outline-offset:-2px}
+.cr-chev{flex:none;color:var(--fg-3);transition:transform .12s}
+.cr-chev.open{transform:rotate(90deg)}
+.cr-ico{flex:none;color:var(--fg-2)}
+.cr-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cr-spacer{flex:1}
+.cr-path{border:none;background:none;padding:0;font:500 12px var(--font-mono);color:var(--fg);cursor:pointer;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;flex:0 1 auto}
+.cr-path:hover{color:var(--accent);text-decoration:underline}
+.cr-trunc{flex:none;font:600 10px var(--font-mono);color:var(--warn)}
+
+/* chip +N −M */
+.cr-stat{flex:none;font:600 10.5px var(--font-mono);white-space:nowrap}
+.cr-add{color:var(--ok)}
+.cr-del{color:var(--danger);font:600 10.5px var(--font-mono)}
+
+/* estado */
+.cr-status{flex:none;display:inline-flex;align-items:center;gap:4px;font:500 10.5px var(--font-ui);white-space:nowrap}
+.cr-status--run{color:var(--busy)}
+.cr-status--ok{color:var(--ok)}
+.cr-status--err{color:var(--danger)}
+.cr-status .cd-dot,.cr-group .cd-dot,.cr-live .cd-dot,.cr-thinking .cd-dot{width:7px;height:7px}
+
+.cr-body{padding:6px 9px 9px;border-top:1px solid var(--border-soft);display:flex;flex-direction:column;gap:6px;min-width:0}
+.cr-note{font-size:11px;color:var(--fg-3);font-style:italic}
+.cr-desc{padding:0 9px 5px 28px;font-size:11.5px;color:var(--fg-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* diff: reutiliza .perm-diff/.diff-line globales y añade contexto */
+.cr-diff{margin:0;max-height:340px}
+.diff-line.ctx{opacity:.62}
+.cr-skip{justify-content:center;opacity:.45;user-select:none}
+
+/* bash */
+.cr-cmd{flex:1;min-width:0;font:500 12px var(--font-mono);color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cr-tail{margin:0;padding:4px 10px 7px 28px;font:400 11px/1.5 var(--font-mono);color:var(--fg-3);
+  white-space:pre-wrap;word-break:break-word;max-height:9.5em;overflow:hidden}
+.cr-out{margin:0;font:400 11.5px/1.5 var(--font-mono);color:var(--fg-2);background:var(--bg-panel);border:1px solid var(--border-soft);
+  border-radius:6px;padding:7px 10px;white-space:pre-wrap;word-break:break-word;max-height:360px;overflow:auto}
+.cr-out--err{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 35%,transparent)}
+.cr-code{margin:0;font-size:11.5px;max-height:220px;overflow:auto}
+
+/* ---- línea discreta de lectura ---- */
+.cr-line{display:flex;align-items:center;gap:6px;min-width:0;padding:1px 2px 1px 4px;font-size:11.5px;color:var(--fg-2);line-height:20px}
+.cr-line.is-error .cr-verb{color:var(--danger)}
+.cr-ldot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--fg-3);opacity:.6}
+.cr-ldot--run{background:var(--busy);opacity:1;animation:cd-pulse 1.4s infinite}
+.cr-ldot--ok{background:var(--ok);opacity:.7}
+.cr-ldot--err{background:var(--danger);opacity:1}
+.cr-verb{flex:none;white-space:nowrap}
+.cr-target{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font:400 11px var(--font-mono);color:var(--fg);background:color-mix(in srgb,var(--fg) 5%,transparent);
+  border:none;border-radius:4px;padding:0 5px;line-height:18px;text-align:left}
+.cr-target--link{cursor:pointer}
+.cr-target--link:hover{color:var(--accent);text-decoration:underline}
+.cr-extra{flex:none;font:400 10.5px var(--font-mono);color:var(--fg-3)}
+
+/* ---- grupo «Exploró…» ---- */
+.cr-group{min-width:0}
+.cr-group>.cr-head{padding:2px 4px;font-size:11.5px;color:var(--fg-2);border-radius:6px}
+.cr-group-body{margin:1px 0 2px 10px;padding-left:8px;border-left:1px solid var(--border)}
+.cr-agent{min-width:0}
+
+/* ---- resumen de turno ---- */
+.cr-summary{margin-top:8px;min-width:0}
+.cr-summary-bar{display:inline-flex;align-items:center;gap:0;max-width:100%;padding:3px 10px;border-radius:var(--r-pill);
+  border:1px solid var(--border-soft);background:var(--bg-card);color:var(--fg-2);font:500 11px var(--font-ui);cursor:pointer;
+  overflow:hidden;white-space:nowrap}
+.cr-summary-bar:disabled{cursor:default}
+.cr-summary-bar:not(:disabled):hover{border-color:var(--border-strong);color:var(--fg)}
+.cr-summary-bar .cr-chev{margin-right:5px}
+.cr-summary-part{display:inline-flex;align-items:center;gap:4px}
+.cr-sep{color:var(--fg-3);margin:0 6px}
+.cr-tests{display:inline-flex;align-items:center;gap:3px}
+.cr-tests--ok{color:var(--ok)}
+.cr-tests--err{color:var(--danger)}
+.cr-summary-list{display:flex;flex-direction:column;gap:1px;margin:5px 0 0 10px;padding-left:8px;border-left:1px solid var(--border)}
+.cr-summary-file{display:flex;align-items:center;gap:7px;min-width:0;border:none;background:none;padding:2px 4px;border-radius:5px;
+  color:var(--fg-2);cursor:pointer;text-align:left;font-size:11.5px}
+.cr-summary-file:hover{background:color-mix(in srgb,var(--fg) 5%,transparent);color:var(--fg)}
+.cr-summary-path{flex:1;min-width:0;font:400 11.5px var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---- separador de turno ---- */
+.cr-turnsep{display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--fg-3);font:400 10.5px var(--font-ui)}
+.cr-turnsep::before,.cr-turnsep::after{content:"";flex:1;border-top:1px solid var(--border-soft)}
+.cr-turnsep-text{flex:none;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* ---- aviso de la app ---- */
+.cr-notice{display:flex;align-items:center;gap:10px;margin:10px 0;font:500 11px var(--font-ui);color:var(--fg-2)}
+.cr-notice-line{flex:1;min-width:16px;border-top:1px dashed var(--border)}
+.cr-notice-body{display:inline-flex;align-items:flex-start;gap:6px;max-width:80%;padding:3px 10px;border-radius:var(--r-pill);
+  background:var(--bg-panel);border:1px solid var(--border-soft);line-height:1.45}
+.cr-notice-icon{flex:none;display:inline-flex;margin-top:1px}
+.cr-notice-text{min-width:0;word-break:break-word}
+.cr-notice--warn .cr-notice-body{background:var(--warn-bg);border-color:var(--warn-border);color:#8a6d3b}
+.cr-notice--error .cr-notice-body{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent);
+  background:color-mix(in srgb,var(--danger) 7%,var(--bg-card))}
+[data-theme='dark'] .cr-notice--warn .cr-notice-body{color:#d9b36a}
+.cr-notice--info .cr-notice-icon{color:var(--busy)}
+
+/* ---- razonamiento ---- */
+.cr-thinking{margin:2px 0 6px;min-width:0}
+.cr-thinking-head{display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:2px 4px;border-radius:6px;
+  color:var(--fg-3);font:500 11.5px var(--font-ui);cursor:pointer}
+.cr-thinking-head:hover{color:var(--fg-2);background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.cr-thinking-body{margin:3px 0 4px 10px;padding:2px 0 2px 10px;border-left:2px solid var(--border);color:var(--fg-2);font-style:italic;font-size:12.5px}
+.cr-thinking-body .md{color:inherit}
+.cr-thinking-body .md>:first-child{margin-top:0}
+.cr-thinking-body .md>:last-child{margin-bottom:0}
+
+/* ---- estado en vivo ---- */
+.cr-live{display:flex;align-items:center;gap:6px;min-width:0;margin:6px 0 2px;padding:2px 4px;font:400 11.5px var(--font-ui);color:var(--fg-2)}
+.cr-live-label{flex:none;white-space:nowrap}
+.cr-live-code{min-width:0;flex:0 1 auto;font:400 11px var(--font-mono);color:var(--fg);background:color-mix(in srgb,var(--fg) 5%,transparent);
+  border-radius:4px;padding:0 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cr-live-ellipsis{flex:none;margin-left:-4px}
+.cr-live-more{flex:none;color:var(--fg-3);font-size:10.5px}
+.cr-live-time{flex:none;color:var(--fg-3);font:400 10.5px var(--font-mono);font-variant-numeric:tabular-nums}
+
+@media (prefers-reduced-motion:reduce){
+  .cr-chev{transition:none}
+  .cr-ldot--run{animation:none}
+}
+
+/* Tarjeta de subagente dentro de ToolActivity (la pinta ChatView vía renderAgent) */
+.tooluse.agent .tooluse-agent-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.tooluse.agent .tooluse-agent-head .subagent-link {
+  margin-left: auto;
+}
+
+/* El SDK emite un mensaje por bloque (razonamiento, cada tool, el texto final):
+   los pasos seguidos del asistente se leen como una sola respuesta, con un
+   solo ✳ y la hora solo al pasar el ratón. */
+.bubble.assistant + .bubble.assistant {
+  margin-top: -6px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.bubble.assistant + .bubble.assistant::before {
+  content: none;
+}
+.bubble.assistant + .bubble.assistant > .bubble-time {
+  position: absolute;
+  right: 0;
+  top: 0;
+  margin: 0;
+  opacity: 0;
+}
+.bubble.assistant + .bubble.assistant:hover > .bubble-time {
+  opacity: 0.7;
+}

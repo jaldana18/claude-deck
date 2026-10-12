@@ -21,6 +21,7 @@ import type {
   PermissionModeId,
   PermissionRequestEvent,
   QuestionRequestEvent,
+  RewindResult,
   SessionSnapshot,
   SlashCommandInfo,
   TabState,
@@ -153,6 +154,8 @@ export class ChatSession {
   private ctxWindow = DEFAULT_CONTEXT_WINDOW
   private outTokens = 0
   private costUsd = 0
+  /** total_cost_usd del result anterior de esta query; null = base desconocida */
+  private costBase: number | null = 0
   private numTurns = 0
   private sessionModel: string | undefined
 
@@ -174,6 +177,7 @@ export class ChatSession {
       this.numTurns = lh.numTurns
       this.sessionModel = lh.model
     }
+    if (tab.claudeSessionId) this.costBase = lh ? lh.costUsd : null
   }
 
   private send(channel: string, payload: unknown): void {
@@ -265,14 +269,22 @@ export class ChatSession {
       // la sesión degradada para siempre.
       ...(this.tab.fallbackModel ? { fallbackModel: this.tab.fallbackModel } : {}),
       ...(lp.effort ? { effort: lp.effort } : {}),
+      // display 'summarized': sin él los modelos recientes devuelven los bloques
+      // thinking vacíos. Sin config de thinking va como flag suelto para no
+      // cambiar el presupuesto por defecto del CLI.
       ...(lp.thinkingBudget !== undefined
         ? {
             thinking:
               lp.thinkingBudget === 0
                 ? { type: 'disabled' as const }
-                : { type: 'enabled' as const, budgetTokens: lp.thinkingBudget }
+                : {
+                    type: 'enabled' as const,
+                    budgetTokens: lp.thinkingBudget,
+                    display: 'summarized' as const
+                  }
           }
-        : {}),
+        : { extraArgs: { 'thinking-display': 'summarized' } }),
+      enableFileCheckpointing: true,
       ...(lp.maxTurns ? { maxTurns: lp.maxTurns } : {}),
       ...(lp.maxBudgetUsd ? { maxBudgetUsd: lp.maxBudgetUsd } : {}),
       ...(lp.systemPromptAppend
@@ -442,9 +454,18 @@ export class ChatSession {
             this.flushDelta()
             this.send('chat:message', { tabId: this.tab.id, message: chat, replacesStreaming: true })
           }
-          this.streamingId = null
-          this.deltaBuf = ''
-          this.streamingText = ''
+          // El CLI emite un assistant por bloque: el de thinking llega antes que
+          // el texto del MISMO mensaje de la API y cortar aquí perdería sus deltas.
+          const bloques = (msg.message as { content?: unknown }).content
+          const soloThinking =
+            Array.isArray(bloques) &&
+            bloques.length > 0 &&
+            bloques.every((b) => b?.type === 'thinking' || b?.type === 'redacted_thinking')
+          if (!soloThinking) {
+            this.streamingId = null
+            this.deltaBuf = ''
+            this.streamingText = ''
+          }
         } else if (msg.type === 'user') {
           // tool_results del turno (el SDK re-emite el user message sintético)
           const content = (msg.message as { content?: unknown }).content
@@ -521,6 +542,18 @@ export class ChatSession {
           void this.loadModels()
         } else if (msg.type === 'result') {
           this.updateSession(msg.session_id)
+          // total_cost_usd es el acumulado de la query (y un resume arranca del
+          // total guardado): el coste del turno es la diferencia. Un total menor
+          // indica /clear; un 0 es un result de error con valores a cero.
+          const total = 'total_cost_usd' in msg ? msg.total_cost_usd : 0
+          let turnCostUsd: number | undefined
+          if (total === 0) {
+            turnCostUsd = 0
+          } else {
+            if (this.costBase !== null) turnCostUsd = total >= this.costBase ? total - this.costBase : total
+            this.costBase = total
+          }
+          const modelUsage = (msg as { modelUsage?: Record<string, unknown> }).modelUsage
           const meta: ChatResultMeta = {
             tabId: this.tab.id,
             sessionId: msg.session_id,
@@ -529,7 +562,12 @@ export class ChatSession {
             outputTokens: 'usage' in msg ? (msg.usage?.output_tokens ?? 0) : 0,
             numTurns: msg.num_turns,
             isError: msg.is_error,
-            errorText: msg.subtype !== 'success' ? msg.subtype : undefined
+            errorText: msg.subtype !== 'success' ? msg.subtype : undefined,
+            ...(typeof msg.duration_ms === 'number' ? { durationMs: msg.duration_ms } : {}),
+            ...(modelUsage && Object.keys(modelUsage).length > 0
+              ? { models: Object.keys(modelUsage) }
+              : {}),
+            ...(turnCostUsd !== undefined ? { turnCostUsd } : {})
           }
           this.turnoEnCurso = false
           this.send('chat:result', meta)
@@ -752,17 +790,21 @@ export class ChatSession {
             }))
           ]
         : text
+    // El uuid propio es el que el CLI guarda en el transcript: sirve de ancla
+    // para rewindFiles y hace coincidir el eco con el historial releído.
+    const uuid = randomUUID()
     this.queue.push({
       type: 'user',
       message: { role: 'user', content },
-      parent_tool_use_id: null
+      parent_tool_use_id: null,
+      uuid
     })
     this.waiters.splice(0).forEach((w) => w())
     this.turnoEnCurso = true
     // /clear no es un mensaje: es el borrón, y la vista ya lo refleja vaciándose
     if (origen === 'usuario' && text.trim() !== '/clear') {
       const eco: ChatMessage = {
-        id: `usuario-${randomUUID()}`,
+        id: uuid,
         role: 'user',
         text,
         toolUses: [],
@@ -774,6 +816,23 @@ export class ChatSession {
       this.send('chat:message', { tabId: this.tab.id, message: eco, replacesStreaming: false, echo: true })
     }
     this.status('working')
+  }
+
+  /** `userMessageId` es el uuid del mensaje del usuario (eco o transcript). */
+  async rewindFiles(userMessageId: string, dryRun: boolean): Promise<RewindResult> {
+    if (!this.q) return { canRewind: false, error: 'La sesión de chat no está activa' }
+    try {
+      const r = await this.q.rewindFiles(userMessageId, { dryRun })
+      return {
+        canRewind: r.canRewind,
+        ...(r.error ? { error: r.error } : {}),
+        ...(r.filesChanged ? { filesChanged: r.filesChanged } : {}),
+        ...(r.insertions !== undefined ? { insertions: r.insertions } : {}),
+        ...(r.deletions !== undefined ? { deletions: r.deletions } : {})
+      }
+    } catch (err) {
+      return { canRewind: false, error: String(err instanceof Error ? err.message : err).slice(0, 600) }
+    }
   }
 
   resetAutoCompacts(): void {
@@ -1023,6 +1082,12 @@ export class ChatSessionManager {
     await this.sessions.get(tabId)?.interrupt()
   }
 
+  async rewindFiles(tabId: string, userMessageId: string, dryRun: boolean): Promise<RewindResult> {
+    const session = this.sessions.get(tabId)
+    if (!session) return { canRewind: false, error: 'La pestaña no tiene una sesión de chat activa' }
+    return session.rewindFiles(userMessageId, dryRun)
+  }
+
   async setPermissionMode(tabId: string, mode: PermissionModeId): Promise<void> {
     const session = this.sessions.get(tabId)
     if (!session) return
@@ -1110,24 +1175,32 @@ export function toChatMessage(
   const content = (message as { content?: unknown }).content
   if (!Array.isArray(content)) return null
   let text = ''
+  let thinking = ''
   const toolUses: ChatMessage['toolUses'] = []
   for (const block of content) {
     if (block?.type === 'text' && typeof block.text === 'string') {
       text += (text ? '\n' : '') + block.text
+    } else if (block?.type === 'thinking' && typeof block.thinking === 'string' && block.thinking) {
+      thinking += (thinking ? '\n\n' : '') + block.thinking
     } else if (block?.type === 'tool_use') {
+      const inputObj = trimStrings(block.input, 8000)
       toolUses.push({
         id: String(block.id ?? randomUUID()),
         name: String(block.name ?? 'tool'),
-        input: safeJson(block.input, 1200)
+        input: safeJson(block.input, 1200),
+        ...(inputObj && typeof inputObj === 'object' && !Array.isArray(inputObj)
+          ? { inputObj: inputObj as Record<string, unknown> }
+          : {})
       })
     }
   }
-  if (!text && toolUses.length === 0) return null
+  if (!text && !thinking && toolUses.length === 0) return null
   return {
     id: uuid,
     role: 'assistant',
     text,
     toolUses,
+    ...(thinking ? { thinking } : {}),
     timestamp: timestamp ?? new Date().toISOString()
   }
 }

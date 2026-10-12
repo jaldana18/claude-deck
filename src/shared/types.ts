@@ -470,6 +470,8 @@ export interface ChatToolUse {
   name: string
   /** Input del tool resumido como JSON legible */
   input: string
+  /** Input estructurado del tool (strings largos recortados) para render rico */
+  inputObj?: Record<string, unknown>
   /** Resultado (texto) si ya llegó */
   result?: string
   isError?: boolean
@@ -480,6 +482,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   text: string
   toolUses: ChatToolUse[]
+  /** Razonamiento del asistente (bloques thinking concatenados) */
+  thinking?: string
   /** data URLs de imágenes adjuntas (para pintarlas en la burbuja) */
   images?: string[]
   /** true mientras el mensaje se está streameando */
@@ -549,6 +553,20 @@ export interface ChatResultMeta {
   numTurns: number
   isError: boolean
   errorText?: string
+  durationMs?: number
+  /** Modelos que intervinieron en el turno (claves de modelUsage) */
+  models?: string[]
+  /** Coste de este turno; `costUsd` es el acumulado de la sesión */
+  turnCostUsd?: number
+}
+
+/** Resultado de rebobinar los archivos a un mensaje del usuario */
+export interface RewindResult {
+  canRewind: boolean
+  error?: string
+  filesChanged?: string[]
+  insertions?: number
+  deletions?: number
 }
 
 export interface PermissionRequestEvent {

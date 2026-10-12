@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AskQuestion,
   ChatAttachment,
@@ -15,13 +15,6 @@ import type {
   WidgetState
 } from '../../../shared/types'
 import { subscribeChat } from '../chatBus'
-import {
-  MODEL_ALIASES,
-  MODEL_CATALOG,
-  MODEL_FAMILY_LABEL,
-  labelFor,
-  type ModelFamily
-} from '../../../shared/models'
 import { WidgetDock } from './WidgetDock'
 import { isImagePath, relativeToCwd } from '../../../shared/paths'
 import { appendDelta, type StreamChunk } from '../../../shared/streamBuffer'
@@ -38,8 +31,10 @@ import {
 import { Markdown, MarkdownCwd } from './Markdown'
 import { PermissionDetail } from './PermissionDetail'
 import {
+  IconBot,
   IconCommand,
   IconEye,
+  IconList,
   IconPaperclip,
   IconSend,
   IconStop,
@@ -47,19 +42,30 @@ import {
   IconTune,
   IconX
 } from './Icons'
+import { MessageActions, type BubbleActions } from './chatview/MessageActions'
+import { RewindDialog } from './chatview/RewindDialog'
+import { RetryMenu } from './chatview/RetryMenu'
+import { PromptIndex, type PromptEntry } from './chatview/PromptIndex'
+import { ModeChip, ModelChip } from './chatview/ComposerChips'
+import { isNoticeId } from './chatview/deckExtra'
+import { extractMentions, mentionAt, removeMention, useFileMentions } from './chatview/mentions'
+import {
+  ToolActivity,
+  TurnSummary,
+  TurnSeparator,
+  SystemNotice,
+  ThinkingBlock,
+  LiveStatus,
+  computeTurnChanges,
+  parseSystemNotice,
+  type RichToolUse
+} from './chat'
 
 interface Props {
   tab: TabState
   visible: boolean
   widgets: WidgetState[]
   onWidgetsChange: (widgets: WidgetState[]) => void
-}
-
-const MODE_LABEL: Record<PermissionModeId, string> = {
-  default: '🔒 Preguntar',
-  acceptEdits: '✏️ Auto-editar',
-  bypassPermissions: '⚡ Auto total',
-  plan: '📋 Plan'
 }
 
 interface Attachment extends ChatAttachment {
@@ -476,6 +482,8 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 /** Mensajes renderizados inicialmente; los anteriores se cargan bajo demanda */
 const WINDOW_STEP = 60
+/** Distancia al fondo (px) a partir de la cual se ofrece «Ir al final» */
+const FAR_FROM_BOTTOM = 600
 
 /**
  * Divide el texto en streaming en párrafos ESTABLES (completos, se parsean a
@@ -533,8 +541,36 @@ const MessageBubble = memo(function MessageBubble(p: {
   agentTimes: Record<string, string>
   onOpenSubagent: (id: string) => void
   onOpenImage: (src: string) => void
+  onOpenPath: (path: string) => void
+  cwd: string
+  actions: BubbleActions
 }): React.JSX.Element {
   const m = p.message
+  const { subagentCounts, agentTimes, onOpenSubagent } = p
+  const renderAgent = useCallback(
+    (tu: RichToolUse) => (
+      <div className={`tooluse agent ${tu.isError ? 'error' : ''}`}>
+        <div className="tooluse-agent-head">
+          <IconBot size={13} /> {describeAgentToolUse(tu)}
+          {tu.result === undefined && !agentTimes[tu.id] ? ' · ejecutando…' : tu.isError ? ' · error' : ''}
+          {agentTimes[tu.id] && (
+            <span className="agent-duration" title="Tiempo total de ejecución del agente">
+              ⏱ {agentTimes[tu.id]}
+            </span>
+          )}
+          <button className="subagent-link" onClick={() => onOpenSubagent(tu.id)}>
+            <IconEye size={12} /> ver subagente
+            {subagentCounts[tu.id] ? ` (${subagentCounts[tu.id]})` : ''}
+          </button>
+        </div>
+      </div>
+    ),
+    [subagentCounts, agentTimes, onOpenSubagent]
+  )
+  // Los avisos de la app (auto-compact, continuación) llegan como mensajes de
+  // usuario; se pintan como línea propia para no confundirlos con lo que escribiste.
+  const notice = m.role === 'user' ? parseSystemNotice(m.text) : null
+  if (notice) return <SystemNotice text={notice.text} tone={notice.tone} />
   // La etiqueta se calcula en el render de la burbuja, que está memoizada: no
   // se recalcula mientras el mensaje no cambie. El día se resuelve contra la
   // hora actual, así que un mensaje de hoy pasa a mostrar «24 ago, …» cuando
@@ -543,6 +579,7 @@ const MessageBubble = memo(function MessageBubble(p: {
   const hora = formatMessageTime(m.timestamp)
   return (
     <div className={`bubble ${m.role}`} data-mid={m.id}>
+      <MessageActions message={m} actions={p.actions} />
       {hora && (
         <time className="bubble-time" dateTime={m.timestamp} title={formatFullTime(m.timestamp)}>
           {hora}
@@ -555,52 +592,28 @@ const MessageBubble = memo(function MessageBubble(p: {
           ))}
         </div>
       )}
+      {m.role === 'assistant' && m.thinking && <ThinkingBlock text={m.thinking} />}
       {m.role === 'user' ? (
         m.text ? <pre className="user-text">{m.text}</pre> : null
       ) : (
-        <Markdown text={m.text} />
+        m.text && <Markdown text={m.text} />
       )}
-      {m.toolUses
-        .filter((tu) => tu.name !== 'TodoWrite')
-        .map((tu) => {
-          const isAgent =
-            tu.name === 'Agent' || tu.name === 'Task' || Boolean(p.subagentCounts[tu.id])
-          return (
-            <details key={tu.id} className={`tooluse ${tu.isError ? 'error' : ''} ${isAgent ? 'agent' : ''}`}>
-              <summary>
-                {isAgent ? '🤖' : '🔧'} {tu.name}
-                {tu.result === undefined ? ' · ejecutando…' : tu.isError ? ' · ⚠️ error' : ' · ✓'}
-                {isAgent && p.agentTimes[tu.id] && (
-                  <span className="agent-duration" title="Tiempo total de ejecución del agente">
-                    ⏱ {p.agentTimes[tu.id]}
-                  </span>
-                )}
-                {isAgent && (
-                  <button
-                    className="subagent-link"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      p.onOpenSubagent(tu.id)
-                    }}
-                  >
-                    <IconEye size={12} /> ver subagente
-                    {p.subagentCounts[tu.id] ? ` (${p.subagentCounts[tu.id]})` : ''}
-                  </button>
-                )}
-              </summary>
-              <pre>{tu.input}</pre>
-              {tu.result !== undefined && <pre className="tool-result">{tu.result}</pre>}
-            </details>
-          )
-        })}
+      {m.toolUses.length > 0 && (
+        <ToolActivity
+          toolUses={m.toolUses}
+          cwd={p.cwd}
+          onOpenPath={p.onOpenPath}
+          renderAgent={renderAgent}
+        />
+      )}
     </div>
   )
 },
 // Solo re-renderizar si cambió SU mensaje, el conteo de SUS subagentes o la
 // duración de SUS agentes — lo de otras burbujas no la toca.
 (prev, next) => {
-  if (prev.message !== next.message) return false
+  if (prev.message !== next.message || prev.actions !== next.actions) return false
+  if (prev.cwd !== next.cwd || prev.onOpenPath !== next.onOpenPath) return false
   for (const tu of next.message.toolUses) {
     if (prev.subagentCounts[tu.id] !== next.subagentCounts[tu.id]) return false
     if (prev.agentTimes[tu.id] !== next.agentTimes[tu.id]) return false
@@ -608,61 +621,30 @@ const MessageBubble = memo(function MessageBubble(p: {
   return true
 })
 
-/** Respaldo si el SDK aún no reporta los modelos (los alias siempre funcionan) */
-const FALLBACK_MODELS: ModelOption[] = MODEL_ALIASES.filter(
-  (a) => a.value !== 'default'
-).map((a) => ({ value: a.value, displayName: a.label }))
-
-/** Valor centinela del desplegable para escribir un id a mano */
-const OTRO = '__otro__'
-
-const FAMILIAS: ModelFamily[] = ['fable', 'opus', 'sonnet', 'haiku']
-
-/**
- * Opciones del desplegable de modelo.
- *
- * El SDK solo reporta alias, que apuntan a lo que Anthropic considere vigente:
- * cómodo, pero impide fijar una versión. Aquí van los alias arriba —mostrando a
- * qué resuelven hoy— y debajo las versiones concretas, agrupadas por familia.
- */
-function OpcionesModelo(p: { models: ModelOption[] }): React.JSX.Element {
-  const alias = p.models.length > 0 ? p.models : FALLBACK_MODELS
-  return (
-    <>
-      <optgroup label="Alias · siguen al modelo vigente">
-        {alias.map((m) => (
-          <option key={m.value} value={m.value}>
-            {m.displayName}
-            {m.resolvedModel ? ` → ${labelFor(m.resolvedModel)}` : ''}
-          </option>
-        ))}
-      </optgroup>
-      {FAMILIAS.map((f) => {
-        const items = MODEL_CATALOG.filter((c) => c.family === f)
-        if (items.length === 0) return null
-        return (
-          <optgroup key={f} label={`${MODEL_FAMILY_LABEL[f]} · versión fija`}>
-            {items.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label} · {c.context >= 1_000_000 ? '1M' : '200K'}
-                {c.deprecated ? ' · se retira' : ''}
-              </option>
-            ))}
-          </optgroup>
-        )
-      })}
-    </>
-  )
-}
-
-/** ¿El id está en alguna de las listas, o el usuario lo escribió a mano? */
-function esConocido(model: string, models: ModelOption[]): boolean {
-  if (!model) return true
-  const alias = models.length > 0 ? models : FALLBACK_MODELS
-  return (
-    alias.some((m) => m.value === model) || MODEL_CATALOG.some((c) => c.id === model)
-  )
-}
+const TurnEnd = memo(function TurnEnd(p: {
+  turn: ChatMessage[]
+  meta?: { durationMs?: number; costUsd?: number; models?: string[] }
+  cwd: string
+  onOpenPath: (path: string) => void
+}): React.JSX.Element | null {
+  const { changes, tests } = useMemo(() => computeTurnChanges(p.turn), [p.turn])
+  const meta = p.meta ?? {}
+  if (changes.length > 0 || tests) {
+    return (
+      <TurnSummary
+        changes={changes}
+        tests={tests}
+        durationMs={meta.durationMs}
+        costUsd={meta.costUsd}
+        models={meta.models}
+        cwd={p.cwd}
+        onOpenPath={p.onOpenPath}
+      />
+    )
+  }
+  if (meta.durationMs === undefined && meta.costUsd === undefined) return null
+  return <TurnSeparator durationMs={meta.durationMs} costUsd={meta.costUsd} models={meta.models} />
+})
 
 /**
  * Respaldo si el SDK aún no reporta los comandos de la sesión (la lista real
@@ -742,6 +724,9 @@ export function ChatView(p: Props): React.JSX.Element {
   const [todos, setTodos] = useState<TodoItem[]>([])
   /** instante en que empezó la compactación (null = no hay ninguna en curso) */
   const [compacting, setCompacting] = useState<number | null>(null)
+  const [turnMeta, setTurnMeta] = useState<
+    Record<string, { durationMs?: number; costUsd?: number; models?: string[] }>
+  >({})
   const [subagents, setSubagents] = useState<Record<string, ChatMessage[]>>({})
   /** id de agente → instante en que llegó su aviso de finalización (ms) */
   const [doneAgents, setDoneAgents] = useState<Record<string, number>>({})
@@ -753,8 +738,18 @@ export function ChatView(p: Props): React.JSX.Element {
   const [models, setModels] = useState<ModelOption[]>([])
   const [modelSel, setModelSel] = useState(p.tab.model ?? '')
   const [fallbackSel, setFallbackSel] = useState(p.tab.fallbackModel ?? '')
-  /** id que se está escribiendo a mano; null = el desplegable normal */
-  const [idManual, setIdManual] = useState<string | null>(null)
+  /** menú «Reintentar con…» abierto sobre una respuesta */
+  const [retryMenu, setRetryMenu] = useState<{ messageId: string; anchor: DOMRect } | null>(null)
+  const [rewindTarget, setRewindTarget] = useState<{ id: string; preview: string } | null>(null)
+  /** aviso breve que no es un error (p. ej. «se reenvía solo el texto») */
+  const [toast, setToast] = useState('')
+  const [indexOpen, setIndexOpen] = useState(false)
+  const [activePrompt, setActivePrompt] = useState<string | null>(null)
+  /** mención `@archivo` en curso en el composer */
+  const [mention, setMention] = useState<{ start: number; query: string } | null>(null)
+  const [mentionSel, setMentionSel] = useState(0)
+  /** posición del «@» cuyo menú se cerró con Esc (un «@» nuevo lo reabre) */
+  const [mentionDismissed, setMentionDismissed] = useState<number | null>(null)
 
   // El modelo puede cambiar por otra vía (resurrección de la pestaña, otro
   // panel): sin resincronizar, el desplegable enseñaría el anterior.
@@ -796,6 +791,30 @@ export function ChatView(p: Props): React.JSX.Element {
   const stickToBottom = useRef(true)
   /** última rueda hacia arriba: suspende el re-enganche por cercanía */
   const lastWheelUp = useRef(0)
+  /**
+   * Espejo en estado de `stickToBottom` solo para pintar la píldora de «nuevos
+   * mensajes». El ref sigue siendo la fuente de verdad del autoscroll; esto se
+   * actualiza únicamente cuando el valor cambia, no en cada evento de scroll.
+   */
+  const [unpinned, setUnpinned] = useState(false)
+  const unpinnedRef = useRef(false)
+  /** último mensaje que había al desanclar: lo posterior cuenta como nuevo */
+  const unreadFrom = useRef<string | null>(null)
+  const [farFromBottom, setFarFromBottom] = useState(false)
+  const farRef = useRef(false)
+  const messagesRef = useRef<ChatMessage[]>([])
+  messagesRef.current = messages
+  /** Único punto que ancla/desancla el autoscroll (ref + espejo para la píldora) */
+  const pin = useCallback((v: boolean) => {
+    stickToBottom.current = v
+    if (unpinnedRef.current === !v) return
+    unpinnedRef.current = !v
+    if (!v) {
+      const ms = messagesRef.current
+      unreadFrom.current = ms[ms.length - 1]?.id ?? null
+    }
+    setUnpinned(!v)
+  }, [])
   const tabId = p.tab.id
 
   /**
@@ -896,6 +915,19 @@ export function ChatView(p: Props): React.JSX.Element {
         setStreamText(null)
         setCost(meta.costUsd)
         if (meta.isError && meta.errorText) setError(meta.errorText)
+        // Duración, coste y modelos solo existen en vivo (el transcript no los
+        // guarda): se cuelgan del prompt que abrió el turno.
+        const ms = messagesRef.current
+        for (let i = ms.length - 1; i >= 0; i--) {
+          if (ms[i].role === 'user' && !parseSystemNotice(ms[i].text)) {
+            const promptId = ms[i].id
+            setTurnMeta((t) => ({
+              ...t,
+              [promptId]: { durationMs: meta.durationMs, costUsd: meta.turnCostUsd, models: meta.models }
+            }))
+            break
+          }
+        }
       }),
       error: (({ tabId: id, message }) => {
         if (id !== tabId) return
@@ -1005,6 +1037,7 @@ export function ChatView(p: Props): React.JSX.Element {
         setCost(0)
         setError('')
         setTodos([])
+        setTurnMeta({})
         setSubagents({})
         setDoneAgents({})
         setAgentActivity({})
@@ -1124,20 +1157,18 @@ export function ChatView(p: Props): React.JSX.Element {
     [messages, searchQuery]
   )
 
-  const jumpToMatch = useCallback(
-    (idx: number) => {
-      if (searchMatches.length === 0) return
-      const wrapped = ((idx % searchMatches.length) + searchMatches.length) % searchMatches.length
-      setSearchIdx(wrapped)
-      const targetMsg = searchMatches[wrapped]
-      // si el mensaje quedó fuera de la ventana renderizada, ampliarla primero
-      const msgIdx = messages.findIndex((m) => m.id === targetMsg.id)
-      const needed = messages.length - msgIdx
-      if (needed > windowSize) setWindowSize(needed + 10)
+  /** Salto con destello a un mensaje; amplía la ventana renderizada si hace falta */
+  const jumpToMessage = useCallback(
+    (id: string) => {
+      const ms = messagesRef.current
+      const msgIdx = ms.findIndex((m) => m.id === id)
+      if (msgIdx < 0) return
+      const needed = ms.length - msgIdx
+      setWindowSize((w) => (needed > w ? needed + 10 : w))
       setTimeout(() => {
-        const target = listRef.current?.querySelector(`[data-mid="${targetMsg.id}"]`)
+        const target = listRef.current?.querySelector(`[data-mid="${CSS.escape(id)}"]`)
         if (target) {
-          stickToBottom.current = false
+          pin(false)
           target.scrollIntoView({ block: 'center', behavior: 'smooth' })
           target.classList.remove('search-flash')
           void (target as HTMLElement).offsetWidth // reinicia la animación
@@ -1145,8 +1176,17 @@ export function ChatView(p: Props): React.JSX.Element {
         }
       }, 50)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [searchMatches, messages]
+    [pin]
+  )
+
+  const jumpToMatch = useCallback(
+    (idx: number) => {
+      if (searchMatches.length === 0) return
+      const wrapped = ((idx % searchMatches.length) + searchMatches.length) % searchMatches.length
+      setSearchIdx(wrapped)
+      jumpToMessage(searchMatches[wrapped].id)
+    },
+    [searchMatches, jumpToMessage]
   )
 
   // ---------- imágenes ----------
@@ -1245,7 +1285,7 @@ export function ChatView(p: Props): React.JSX.Element {
       // envío no llega a hacerse tampoco queda una burbuja fantasma.
       setError('')
       setBusy(true)
-      stickToBottom.current = true
+      pin(true)
       window.deck.chatSend(
         tabId,
         text,
@@ -1254,7 +1294,7 @@ export function ChatView(p: Props): React.JSX.Element {
           : undefined
       )
     },
-    [tabId]
+    [tabId, pin]
   )
 
   // Contador para el id: dos Enter en el mismo milisegundo darían la misma
@@ -1383,6 +1423,133 @@ export function ChatView(p: Props): React.JSX.Element {
     setModeState(mode)
   }
 
+  // ---------- modelo ----------
+
+  const tabRef = useRef(p.tab)
+  tabRef.current = p.tab
+  const busyRef = useRef(false)
+  busyRef.current = busy
+
+  const applyModel = useCallback(
+    (model: string): Promise<void> => {
+      setModelSel(model)
+      tabRef.current.model = model || undefined
+      return window.deck.chatSetModel(tabId, model || undefined)
+    },
+    [tabId]
+  )
+  const applyFallback = (model: string): void => {
+    setFallbackSel(model)
+    p.tab.fallbackModel = model || undefined
+    void window.deck.chatSetFallbackModel(tabId, model || undefined)
+  }
+  // recarga perezosa: si el SDK aún no reportó los modelos, reintentar
+  const reloadModels = (): void => {
+    if (models.length === 0) {
+      void window.deck.chatModels(tabId).then((m) => m.length && setModels(m))
+    }
+  }
+
+  // ---------- acciones por mensaje ----------
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(''), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  const bubbleActions = useMemo<BubbleActions>(
+    () => ({
+      retry: (messageId, anchor) => setRetryMenu({ messageId, anchor }),
+      edit: (messageId) => {
+        const m = messagesRef.current.find((x) => x.id === messageId)
+        if (!m) return
+        setInput(m.text)
+        if (m.images?.length) setToast('Las imágenes del mensaje original no se cargan: adjúntalas de nuevo si hacen falta.')
+        requestAnimationFrame(() => {
+          const el = inputRef.current
+          if (!el) return
+          el.focus()
+          el.setSelectionRange(el.value.length, el.value.length)
+        })
+      },
+      rewind: (messageId) => {
+        if (ajenoRef.current) {
+          setToast('El control lo tiene otro dispositivo.')
+          return
+        }
+        const m = messagesRef.current.find((x) => x.id === messageId)
+        const first = (m?.text ?? '').split('\n').find((l) => l.trim()) ?? ''
+        setRewindTarget({ id: messageId, preview: first.slice(0, 160) || '(mensaje sin texto)' })
+      }
+    }),
+    []
+  )
+
+  /** Reenvía el prompt que originó una respuesta, tras cambiar el modelo */
+  const retryWith = useCallback(
+    (assistantId: string, model: string): void => {
+      setRetryMenu(null)
+      if (ajenoRef.current) return
+      const ms = messagesRef.current
+      const i = ms.findIndex((m) => m.id === assistantId)
+      let prompt: ChatMessage | undefined
+      for (let j = i - 1; j >= 0; j--) {
+        const m = ms[j]
+        if (m.role === 'user' && !isNoticeId(m.id) && (m.text.trim() || m.images?.length)) {
+          prompt = m
+          break
+        }
+      }
+      if (!prompt || !prompt.text.trim()) {
+        setToast('No hay un prompt de texto antes de esta respuesta para reenviar.')
+        return
+      }
+      const text = prompt.text
+      if (prompt.images?.length) {
+        setToast('Se reenvía solo el texto: las imágenes del prompt original no se adjuntan de nuevo.')
+      }
+      // El envío espera al cambio de modelo: si saliera antes, el turno
+      // podría arrancar todavía con el modelo anterior.
+      applyModel(model)
+        .then(() => {
+          if (busyRef.current) {
+            if (!queueMessage(text, [])) setError(`La cola está llena (${MAX_QUEUE}).`)
+          } else sendText(text)
+        })
+        .catch((e: unknown) => setError(`No se pudo cambiar el modelo: ${String(e)}`))
+    },
+    [applyModel, queueMessage, sendText]
+  )
+
+  // ---------- índice de prompts ----------
+
+  const prompts = useMemo<PromptEntry[]>(
+    () =>
+      messages
+        .filter((m) => m.role === 'user' && !isNoticeId(m.id) && (m.text.trim() || m.images?.length))
+        .map((m) => ({
+          id: m.id,
+          text: (m.text.split('\n').find((l) => l.trim()) ?? '').trim().slice(0, 90) || '🖼 imagen',
+          time: formatMessageTime(m.timestamp)
+        })),
+    [messages]
+  )
+  const closeIndex = useCallback(() => setIndexOpen(false), [])
+
+  // ---------- píldora de mensajes nuevos ----------
+
+  const newCount = useMemo(() => {
+    if (!unpinned) return 0
+    const from = unreadFrom.current
+    if (!from) return messages.length
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].id === from) return messages.length - 1 - i
+    }
+    // el ancla salió por el tope de memoria: todo lo que hay en pantalla es nuevo
+    return messages.length
+  }, [messages, unpinned])
+
   // ---------- autocompletado de slash commands ----------
 
   const slashQuery = input.startsWith('/') && !input.includes(' ') && !input.includes('\n')
@@ -1412,6 +1579,43 @@ export function ChatView(p: Props): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slashQuery !== null, tabId])
 
+  // ---------- menciones @archivo ----------
+
+  const syncMention = (el: HTMLTextAreaElement): void => {
+    const next = el.selectionStart === el.selectionEnd ? mentionAt(el.value, el.selectionStart) : null
+    setMention((prev) =>
+      prev?.start === next?.start && prev?.query === next?.query ? prev : next
+    )
+  }
+  const mentionActive = mention !== null && mention.start !== mentionDismissed && !slashOpen
+  const mentionResults = useFileMentions(p.tab.cwd, mentionActive ? mention.query : null)
+  const mentionOpen = mentionActive && mentionResults.length > 0
+  useEffect(() => setMentionSel(0), [mention?.query])
+  useEffect(() => {
+    if (!mention) setMentionDismissed(null)
+  }, [mention])
+
+  const applyMention = (path: string): void => {
+    if (!mention) return
+    const end = mention.start + 1 + mention.query.length
+    const after = input.slice(end)
+    const ins = `@${path}${after.startsWith(' ') ? '' : ' '}`
+    const caret = mention.start + ins.length + (after.startsWith(' ') ? 1 : 0)
+    setInput(input.slice(0, mention.start) + ins + after)
+    setMention(null)
+    requestAnimationFrame(() => {
+      const el = inputRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(caret, caret)
+    })
+  }
+
+  /** @menciones ya escritas (sin contar la que se está tecleando) */
+  const mentionChips = useMemo(() => extractMentions(input), [input]).filter(
+    (m) => !(mention && m === mention.query)
+  )
+
   const applySlash = (cmd: SlashCommandInfo): void => {
     const name = cmd.name.startsWith('/') ? cmd.name : `/${cmd.name}`
     setInput(`${name} `)
@@ -1420,6 +1624,29 @@ export function ChatView(p: Props): React.JSX.Element {
   }
 
   const onInputKeyDown = (e: React.KeyboardEvent): void => {
+    if (mentionOpen && mention) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setMentionSel((i) => Math.min(i + 1, mentionResults.length - 1))
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMentionSel((i) => Math.max(i - 1, 0))
+        return
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault()
+        applyMention(mentionResults[Math.min(mentionSel, mentionResults.length - 1)])
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        setMentionDismissed(mention.start)
+        return
+      }
+    }
     if (slashOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -1530,6 +1757,30 @@ export function ChatView(p: Props): React.JSX.Element {
 
   const openSubagent = useCallback((id: string) => setSubagentView(id), [])
   const openImage = useCallback((src: string) => setImageView(src), [])
+  const cwd = p.tab.cwd
+  const openPath = useCallback((target: string) => void window.deck.openTarget(target, cwd), [cwd])
+
+  // Fin de cada turno cerrado (el último mensaje antes del siguiente prompt real,
+  // o el último de todos si Claude ya no trabaja) → resumen de lo que cambió.
+  const turnEnds = useMemo(() => {
+    const ends = new Map<string, { promptId: string; turn: ChatMessage[] }>()
+    let promptId: string | null = null
+    let turn: ChatMessage[] = []
+    const close = (): void => {
+      if (promptId && turn.length) ends.set(turn[turn.length - 1].id, { promptId, turn })
+    }
+    for (const m of messages) {
+      if (m.role === 'user' && !parseSystemNotice(m.text)) {
+        close()
+        promptId = m.id
+        turn = []
+      } else if (m.role === 'assistant') {
+        turn.push(m)
+      }
+    }
+    if (!busy) close()
+    return ends
+  }, [messages, busy])
   // En el widget solo viven los agentes EN EJECUCIÓN; los terminados salen
   // (su chat sigue accesible desde la tarjeta del mensaje).
   const activeAgents = useMemo(() => agentRuns.filter((a) => a.running), [agentRuns])
@@ -1547,6 +1798,31 @@ export function ChatView(p: Props): React.JSX.Element {
     prevRunning.current = runningAgents
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runningAgents])
+
+  // Prompt visible en la lista, para marcarlo en el índice. Solo con el
+  // índice abierto: sin él, nadie mira el resultado.
+  useEffect(() => {
+    const root = listRef.current
+    if (!indexOpen || !p.visible || !root) return
+    const els = [...root.querySelectorAll<HTMLElement>('.bubble.user[data-mid]')].filter(
+      (el) => !isNoticeId(el.dataset.mid ?? '')
+    )
+    const seen = new Set<string>()
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).dataset.mid ?? ''
+          if (e.isIntersecting) seen.add(id)
+          else seen.delete(id)
+        }
+        const first = els.find((el) => seen.has(el.dataset.mid ?? ''))
+        if (first) setActivePrompt(first.dataset.mid ?? null)
+      },
+      { root }
+    )
+    for (const el of els) obs.observe(el)
+    return () => obs.disconnect()
+  }, [indexOpen, p.visible, visibleMessages])
 
   const [paramsOpen, setParamsOpen] = useState(false)
 
@@ -1570,98 +1846,9 @@ export function ChatView(p: Props): React.JSX.Element {
       }}
     >
       <div className="chat-header">
-        <div className="mode-seg" title="Modo de permisos de esta pestaña">
-          {(Object.keys(MODE_LABEL) as PermissionModeId[]).map((m) => (
-            <button
-              key={m}
-              className={modeState === m ? 'active' : ''}
-              onClick={() => setMode(m)}
-            >
-              {MODE_LABEL[m].replace(/^\S+\s/, '')}
-            </button>
-          ))}
-        </div>
-        <select
-          className="mode-select"
-          value={modelSel}
-          onFocus={() => {
-            // recarga perezosa: si el SDK aún no reportó los modelos, reintentar
-            if (models.length === 0) {
-              void window.deck.chatModels(tabId).then((m) => m.length && setModels(m))
-            }
-          }}
-          onChange={(e) => {
-            const model = e.target.value
-            if (model === OTRO) {
-              setIdManual(modelSel)
-              return
-            }
-            setIdManual(null)
-            setModelSel(model)
-            p.tab.model = model || undefined
-            void window.deck.chatSetModel(tabId, model || undefined)
-          }}
-          title="Modelo de esta sesión (cambia en vivo)"
-        >
-          <option value="">Modelo: auto{autoModel ? ` (${autoModel})` : ''}</option>
-          <OpcionesModelo models={models} />
-          {/* un id escrito a mano no está en ninguna lista: sin esto, el
-              desplegable no podría mostrar lo que está realmente activo */}
-          {!esConocido(modelSel, models) && (
-            <optgroup label="Escrito a mano">
-              <option value={modelSel}>{modelSel}</option>
-            </optgroup>
-          )}
-          <option value={OTRO}>Otro id…</option>
-        </select>
-        {idManual !== null && (
-          <input
-            className="mode-input"
-            autoFocus
-            defaultValue={idManual}
-            placeholder="claude-opus-4-6"
-            title="Id exacto del modelo; viaja tal cual al CLI"
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') setIdManual(null)
-              if (e.key !== 'Enter') return
-              const v = (e.target as HTMLInputElement).value.trim()
-              setIdManual(null)
-              setModelSel(v)
-              p.tab.model = v || undefined
-              void window.deck.chatSetModel(tabId, v || undefined)
-            }}
-            onBlur={() => setIdManual(null)}
-          />
-        )}
-        <select
-          className="mode-select"
-          value={fallbackSel}
-          onChange={(e) => {
-            const model = e.target.value
-            setFallbackSel(model)
-            p.tab.fallbackModel = model || undefined
-            void window.deck.chatSetFallbackModel(tabId, model || undefined)
-          }}
-          title="Modelo de respaldo: entra si el principal está sobrecargado. El principal se reintenta en cada turno, así que una caída pasajera no degrada la sesión. Cambiarlo reinicia la sesión conservando la conversación."
-        >
-          <option value="">Sin respaldo</option>
-          <OpcionesModelo models={models} />
-        </select>
-        <span className="params-anchor">
-          <button
-            className={`iconbtn ${p.tab.llmParams && Object.keys(p.tab.llmParams).length > 0 ? 'primary' : ''}`}
-            onClick={() => setParamsOpen((o) => !o)}
-            title="Parámetros del LLM: esfuerzo, thinking, límites, system prompt, carpetas"
-          >
-            <IconTune size={13} />
-          </button>
-          {paramsOpen && (
-            <>
-              {/* clic fuera = cerrar */}
-              <div className="menu-backdrop" onMouseDown={() => setParamsOpen(false)} />
-              <LlmParamsPopover tab={p.tab} onClose={() => setParamsOpen(false)} />
-            </>
-          )}
+        <span className={`cd-dot ${busy ? 'cd-dot--busy' : 'cd-dot--idle'}`} />
+        <span className="chat-title" title={p.tab.cwd}>
+          {p.tab.title}
         </span>
         <span
           className={`chip ${p.tab.useGlobalConfig === false ? '' : 'project'}`}
@@ -1694,6 +1881,29 @@ export function ChatView(p: Props): React.JSX.Element {
           </button>
         )}
         <span style={{ flex: 1 }} />
+        <button
+          className={`iconbtn ${indexOpen ? 'open' : ''}`}
+          onClick={() => setIndexOpen((o) => !o)}
+          title="Índice de tus prompts en esta conversación"
+        >
+          <IconList size={13} />
+        </button>
+        <span className="params-anchor">
+          <button
+            className={`iconbtn ${p.tab.llmParams && Object.keys(p.tab.llmParams).length > 0 ? 'primary' : ''}`}
+            onClick={() => setParamsOpen((o) => !o)}
+            title="Parámetros del LLM: esfuerzo, thinking, límites, system prompt, carpetas"
+          >
+            <IconTune size={13} />
+          </button>
+          {paramsOpen && (
+            <>
+              {/* clic fuera = cerrar */}
+              <div className="menu-backdrop" onMouseDown={() => setParamsOpen(false)} />
+              <LlmParamsPopover tab={p.tab} onClose={() => setParamsOpen(false)} />
+            </>
+          )}
+        </span>
         {busy && (
           <button className="stopbtn iconlabel" onClick={interrupt} title="Detener (Ctrl+C / Esc)">
             <IconStop size={12} /> Detener
@@ -1753,6 +1963,8 @@ export function ChatView(p: Props): React.JSX.Element {
         {/* columna central: lista + adjuntos + composer — así los docks
             laterales ocupan el alto completo hasta el borde del terminal */}
         <div className="chat-center">
+        <div className="chat-body-row">
+        <div className="chat-list-wrap">
         <div
           className="chat-list"
           ref={listRef}
@@ -1763,23 +1975,24 @@ export function ChatView(p: Props): React.JSX.Element {
           onWheel={(e) => {
             const el = listRef.current
             if (e.deltaY < 0) {
-              stickToBottom.current = false
+              pin(false)
               lastWheelUp.current = Date.now()
             } else if (e.deltaY > 0 && el) {
               // rueda hacia abajo llegando al fondo = re-anclar explícito
               if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
-                stickToBottom.current = true
+                pin(true)
               }
             }
           }}
           onScroll={() => {
             const el = listRef.current
-            if (
-              el &&
-              el.scrollHeight - el.scrollTop - el.clientHeight < 60 &&
-              Date.now() - lastWheelUp.current > 400
-            ) {
-              stickToBottom.current = true
+            if (!el) return
+            const dist = el.scrollHeight - el.scrollTop - el.clientHeight
+            if (dist < 60 && Date.now() - lastWheelUp.current > 400) pin(true)
+            const far = dist > FAR_FROM_BOTTOM
+            if (far !== farRef.current) {
+              farRef.current = far
+              setFarFromBottom(far)
             }
           }}
         >
@@ -1802,17 +2015,34 @@ export function ChatView(p: Props): React.JSX.Element {
               ↑ Cargar mensajes anteriores ({hiddenCount})
             </button>
           )}
-          {visibleMessages.map((m) => (
-            <MessageBubble
-              key={m.id}
-              message={m}
-              subagentCounts={subagentCounts}
-              agentTimes={agentTimes}
-              onOpenSubagent={openSubagent}
-              onOpenImage={openImage}
-            />
-          ))}
+          {visibleMessages.map((m) => {
+            const end = turnEnds.get(m.id)
+            return (
+              <Fragment key={m.id}>
+                <MessageBubble
+                  message={m}
+                  subagentCounts={subagentCounts}
+                  agentTimes={agentTimes}
+                  onOpenSubagent={openSubagent}
+                  onOpenImage={openImage}
+                  onOpenPath={openPath}
+                  cwd={cwd}
+                  actions={bubbleActions}
+                />
+                {end && <TurnEnd turn={end.turn} meta={turnMeta[end.promptId]} cwd={cwd} onOpenPath={openPath} />}
+              </Fragment>
+            )
+          })}
           {streamText && <StreamingBubble text={streamText.text} />}
+          {busy && (
+            <LiveStatus
+              busy={busy}
+              messages={messages}
+              streamingText={streamText?.text}
+              compacting={compacting !== null}
+              cwd={cwd}
+            />
+          )}
           {permissions.map((req) => (
             <div key={req.requestId} className="permission-card">
               <div className="perm-title">🔐 {req.title ?? `Claude quiere usar ${req.toolName}`}</div>
@@ -1855,8 +2085,40 @@ export function ChatView(p: Props): React.JSX.Element {
           {error && <div className="validation err">{error}</div>}
           </div>
         </div>
+        {unpinned && (newCount > 0 || streamText !== null || farFromBottom) && (
+          <button
+            className="new-msgs-pill"
+            onClick={() => {
+              pin(true)
+              scrollToBottom()
+            }}
+            title="Bajar al final y seguir la conversación"
+          >
+            ↓{' '}
+            {newCount > 0
+              ? `${newCount} mensaje${newCount === 1 ? '' : 's'} nuevo${newCount === 1 ? '' : 's'}`
+              : streamText !== null
+                ? 'Respuesta en curso'
+                : 'Ir al final'}
+          </button>
+        )}
+        {toast && (
+          <div className="chat-toast" role="status">
+            {toast}
+          </div>
+        )}
+        </div>
+        {indexOpen && (
+          <PromptIndex
+            prompts={prompts}
+            activeId={activePrompt}
+            onJump={jumpToMessage}
+            onClose={closeIndex}
+          />
+        )}
+        </div>
 
-      {attachments.length > 0 && (
+      {(attachments.length > 0 || mentionChips.length > 0) && (
         <div className="attach-row">
           {attachments.map((a, i) => (
             <div key={i} className="attach-thumb">
@@ -1869,13 +2131,44 @@ export function ChatView(p: Props): React.JSX.Element {
               </button>
             </div>
           ))}
-          <span className="hint">
-            {attachments.length}/{MAX_IMAGES} imágenes
-          </span>
+          {attachments.length > 0 && (
+            <span className="hint">
+              {attachments.length}/{MAX_IMAGES} imágenes
+            </span>
+          )}
+          {mentionChips.map((m) => (
+            <span key={m} className="mention-chip" title={`Claude podrá leer ${m}`}>
+              @{m}
+              <button
+                onClick={() => setInput((v) => removeMention(v, m))}
+                title="Quitar la mención del mensaje"
+                aria-label={`Quitar @${m}`}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
         </div>
       )}
 
       <div className="chat-input">
+        {mentionOpen && (
+          <div className="slash-menu" role="listbox" aria-label="Archivos del proyecto">
+            {mentionResults.map((f, i) => (
+              <div
+                key={f}
+                role="option"
+                aria-selected={i === mentionSel}
+                className={`slash-item ${i === mentionSel ? 'sel' : ''}`}
+                onMouseEnter={() => setMentionSel(i)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyMention(f)}
+              >
+                <b>@{f}</b>
+              </div>
+            ))}
+          </div>
+        )}
         {slashOpen && (
           <div className="slash-menu">
             {slashMatches.map((c, i) => (
@@ -1960,17 +2253,30 @@ export function ChatView(p: Props): React.JSX.Element {
             ref={inputRef}
             disabled={ajeno}
             value={input}
-            placeholder="Escribe un mensaje… «/» comandos · Enter envía · Shift+Enter salto"
+            placeholder="Escribe un mensaje… «/» comandos · «@» archivos · Enter envía · Shift+Enter salto"
             rows={1}
             onChange={(e) => {
               setInput(e.target.value)
               setSlashSel(0)
               if (!e.target.value.startsWith('/')) setSlashDismissed(false)
+              syncMention(e.target)
             }}
+            onSelect={(e) => syncMention(e.currentTarget)}
             onKeyDown={onInputKeyDown}
             onPaste={onPaste}
           />
           <div className="composer-actions">
+            <ModeChip mode={modeState} onChange={setMode} />
+            <ModelChip
+              model={modelSel}
+              autoModel={autoModel}
+              fallback={fallbackSel}
+              models={models}
+              onOpen={reloadModels}
+              onChange={(m) => void applyModel(m)}
+              onFallbackChange={applyFallback}
+            />
+            <span style={{ flex: 1 }} />
             <button
               className="iconbtn"
               onClick={() => fileRef.current?.click()}
@@ -1992,7 +2298,6 @@ export function ChatView(p: Props): React.JSX.Element {
             >
               ⤢
             </button>
-            <span style={{ flex: 1 }} />
             {busy && (
               <button className="stopbtn iconlabel" onClick={interrupt} title="Detener (Ctrl+C / Esc)">
                 <IconStop size={13} /> Detener
@@ -2029,6 +2334,26 @@ export function ChatView(p: Props): React.JSX.Element {
           onChange={p.onWidgetsChange}
         />
       </div>
+
+      {retryMenu && (
+        <RetryMenu
+          anchor={retryMenu.anchor}
+          models={models}
+          current={modelSel}
+          autoModel={autoModel}
+          onPick={(model) => retryWith(retryMenu.messageId, model)}
+          onClose={() => setRetryMenu(null)}
+        />
+      )}
+
+      {rewindTarget && (
+        <RewindDialog
+          tabId={tabId}
+          messageId={rewindTarget.id}
+          preview={rewindTarget.preview}
+          onClose={() => setRewindTarget(null)}
+        />
+      )}
 
       {imageView && (
         <div className="overlay" onMouseDown={() => setImageView(null)}>

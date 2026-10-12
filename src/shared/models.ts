@@ -60,6 +60,7 @@ export const MODEL_CATALOG: CatalogModel[] = [
   { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6', family: 'sonnet', context: M },
   { id: 'claude-sonnet-4-5', label: 'Sonnet 4.5', family: 'sonnet', context: K200 },
 
+  { id: 'claude-haiku-5-5', label: 'Haiku 5.5', family: 'haiku', context: M },
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5', family: 'haiku', context: K200 }
 ]
 
