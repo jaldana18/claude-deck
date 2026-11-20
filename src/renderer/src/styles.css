@@ -3882,6 +3882,21 @@ kbd {
 .queue-strip.paused {
   border-color: var(--warn, #d29922);
 }
+/* .chat-input es una fila flex (composer + botones): la tira de cola y la barra
+   de control tienen que ocupar su propia línea encima, no robarle ancho. */
+.chat-input {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.chat-input > .queue-strip,
+.chat-input > .owner-bar {
+  flex: 0 0 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.chat-input > .composer {
+  min-width: 0;
+}
 .queue-strip-head {
   display: flex;
   align-items: center;

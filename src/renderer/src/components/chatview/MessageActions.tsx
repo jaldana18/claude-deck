@@ -12,6 +12,8 @@ export interface BubbleActions {
   retry: (messageId: string, anchor: DOMRect) => void
   edit: (messageId: string) => void
   rewind: (messageId: string) => void
+  /** Ajuste global: mostrar el botón «Reintentar con…» (por defecto: sí) */
+  showRetry: boolean
 }
 
 /** Barra de acciones que aparece al pasar el ratón por la burbuja */
@@ -40,7 +42,7 @@ export function MessageActions(p: { message: ChatMessage; actions: BubbleActions
           {copied && <span>Copiado</span>}
         </button>
       )}
-      {m.role === 'assistant' && (
+      {m.role === 'assistant' && p.actions.showRetry && (
         <button
           className="msg-act"
           onClick={(e) => p.actions.retry(m.id, e.currentTarget.getBoundingClientRect())}

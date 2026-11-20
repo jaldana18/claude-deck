@@ -253,6 +253,8 @@ export interface GlobalSettings {
    *  observación, hacen falta para darlo por degradado. Uno solo puede ser
    *  mala suerte; el valor por defecto es 3. */
   statusFaultThreshold?: number
+  /** Botón «Reintentar con…» al pasar el ratón por una respuesta (por defecto: sí) */
+  showRetryAction?: boolean
 }
 
 /** Resultado genérico de las acciones de la tienda */

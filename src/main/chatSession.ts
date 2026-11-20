@@ -28,6 +28,7 @@ import type {
   TodoItem
 } from '../shared/types'
 import { TaskMirror } from '../shared/tasks'
+import { recortarParaVista } from '../shared/recorte'
 import {
   DEFAULT_CONTEXT_WINDOW,
   MAX_AUTO_COMPACTS,
@@ -119,6 +120,12 @@ export class ChatSession {
   private streamingText = ''
   /** Turno en vuelo: desde que se encola texto del usuario hasta el result */
   private turnoEnCurso = false
+  /**
+   * Mensajes enviados (usuario o automatismos del Deck) cuyo result aún no
+   * llegó. Un result sin pedido pendiente es un turno que el CLI abrió solo al
+   * terminar una tarea en segundo plano: no merece aviso de «terminó».
+   */
+  private turnosPedidos = 0
   private deltaTimer: NodeJS.Timeout | null = null
   /** buffer de mensajes de subagentes: se agrupan cada ~150ms */
   private subagentBuf = new Map<string, ChatMessage[]>()
@@ -362,6 +369,11 @@ export class ChatSession {
 
     this.q = this.queryFn({ prompt: this.input(), options })
     void this.run()
+    // En streaming input el `init` no llega hasta el primer turno, pero el
+    // handshake inicial ya trae modelos y comandos: sin esto, el selector de
+    // modelos sale vacío hasta que el usuario envía algo.
+    void this.loadCommands()
+    void this.loadModels()
   }
 
   private async run(): Promise<void> {
@@ -570,6 +582,8 @@ export class ChatSession {
             ...(turnCostUsd !== undefined ? { turnCostUsd } : {})
           }
           this.turnoEnCurso = false
+          const pedido = this.turnosPedidos > 0
+          if (pedido) this.turnosPedidos--
           this.send('chat:result', meta)
           // Un turno cerrado en error de modelo/API confirma el fallo; uno que
           // termina bien limpia los fallos previos de ese modelo, para que un
@@ -669,7 +683,8 @@ export class ChatSession {
               )
             }, 800)
           }
-          this.status('done', 'Claude terminó')
+          if (pedido) this.status('done', 'Claude terminó')
+          else this.status('idle')
         }
       }
     } catch (err) {
@@ -801,12 +816,13 @@ export class ChatSession {
     })
     this.waiters.splice(0).forEach((w) => w())
     this.turnoEnCurso = true
+    this.turnosPedidos++
     // /clear no es un mensaje: es el borrón, y la vista ya lo refleja vaciándose
     if (origen === 'usuario' && text.trim() !== '/clear') {
       const eco: ChatMessage = {
         id: uuid,
         role: 'user',
-        text,
+        text: recortarParaVista(text),
         toolUses: [],
         timestamp: new Date().toISOString(),
         ...(attachments?.length

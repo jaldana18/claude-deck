@@ -1,9 +1,10 @@
-import { createContext, memo, useContext } from 'react'
+import { Children, createContext, isValidElement, memo, useContext, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 // subset «common» (~40 lenguajes): ahorra ~1 MB frente al paquete completo
 import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/github-dark.css'
+import { CopyButton } from './chat/CopyButton'
 
 /** cwd de la pestaña activa: resuelve rutas relativas que devuelve el LLM */
 export const MarkdownCwd = createContext('')
@@ -36,38 +37,31 @@ export const Markdown = memo(function Markdown({ text }: { text: string }): Reac
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          code(props) {
-            const { className, children } = props
-            const lang = /language-(\w+)/.exec(className ?? '')?.[1]
-            const raw = String(children ?? '').replace(/\n$/, '')
-            const isBlock = raw.includes('\n') || Boolean(lang)
-            if (!isBlock) {
-              if (looksLikePath(raw)) {
-                return (
-                  <code
-                    className="inline-code path-link"
-                    title="Abrir (VS Code / app del sistema / navegador)"
-                    onClick={() => openTarget(raw, cwd)}
-                  >
-                    {raw}
-                  </code>
-                )
-              }
-              return <code className="inline-code">{raw}</code>
+          // Los bloques cercados llegan como <pre><code>: se pintan desde aquí para
+          // que un comando de una línea sin lenguaje también sea bloque copiable.
+          pre({ children }) {
+            const child = Children.toArray(children)[0]
+            if (!isValidElement<{ className?: string; children?: ReactNode }>(child)) {
+              return <pre className="code-block">{children}</pre>
             }
-            let html: string
-            try {
-              html = lang && hljs.getLanguage(lang)
-                ? hljs.highlight(raw, { language: lang }).value
-                : hljs.highlightAuto(raw).value
-            } catch {
-              html = escapeHtml(raw)
+            const lang = /language-(\w+)/.exec(child.props.className ?? '')?.[1]
+            const raw = String(child.props.children ?? '').replace(/\n$/, '')
+            return <CodeBlock raw={raw} lang={lang} />
+          },
+          code({ children }) {
+            const raw = String(children ?? '')
+            if (looksLikePath(raw)) {
+              return (
+                <code
+                  className="inline-code path-link"
+                  title="Abrir (VS Code / app del sistema / navegador)"
+                  onClick={() => openTarget(raw, cwd)}
+                >
+                  {raw}
+                </code>
+              )
             }
-            return (
-              <pre className="code-block">
-                <code dangerouslySetInnerHTML={{ __html: html }} />
-              </pre>
-            )
+            return <code className="inline-code">{raw}</code>
           },
           a({ href, children }) {
             return (
@@ -89,6 +83,30 @@ export const Markdown = memo(function Markdown({ text }: { text: string }): Reac
     </div>
   )
 })
+
+function CodeBlock({ raw, lang }: { raw: string; lang?: string }): React.JSX.Element {
+  let html: string
+  try {
+    html = lang && hljs.getLanguage(lang)
+      ? hljs.highlight(raw, { language: lang }).value
+      : raw.includes('\n')
+        ? hljs.highlightAuto(raw).value
+        : escapeHtml(raw)
+  } catch {
+    html = escapeHtml(raw)
+  }
+  return (
+    <div className="code-wrap">
+      <div className="code-head">
+        <span className="code-lang">{lang ?? ''}</span>
+        <CopyButton text={raw} title="Copiar el código" />
+      </div>
+      <pre className="code-block">
+        <code dangerouslySetInnerHTML={{ __html: html }} />
+      </pre>
+    </div>
+  )
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

@@ -3,6 +3,7 @@ import './chat-rich.css'
 export { ToolActivity } from './ToolActivity'
 export { TurnSummary, TurnSeparator } from './TurnSummary'
 export { SystemNotice, ThinkingBlock, LiveStatus } from './Notices'
+export { CopyButton } from './CopyButton'
 export {
   diffStats,
   isReadOnlyTool,
