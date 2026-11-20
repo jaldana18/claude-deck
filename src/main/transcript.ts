@@ -1,6 +1,7 @@
 import { getSessionMessages } from '@anthropic-ai/claude-agent-sdk'
 import type { ChatMessage } from '../shared/types'
 import { toChatMessage } from './chatSession'
+import { recortarParaVista } from '../shared/recorte'
 
 /**
  * Historial de una sesión para repintar el chat al reabrir la pestaña.
@@ -116,8 +117,8 @@ function cleanUserText(raw: string): string {
   if (SYSTEM_PREFIXES.some((p) => text.startsWith(p))) return ''
   // Notificaciones internas incrustadas tras texto real: recortarlas
   const notifIdx = text.indexOf('<task-notification>')
-  if (notifIdx > 0) return text.slice(0, notifIdx).trim()
-  return text
+  if (notifIdx > 0) return recortarParaVista(text.slice(0, notifIdx).trim())
+  return recortarParaVista(text)
 }
 
 function extractText(content: unknown): string {

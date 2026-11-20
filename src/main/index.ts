@@ -81,7 +81,11 @@ const store = new Store()
 const bus = new Bus(getWindow)
 const ptys = new PtyManager(bus)
 const tracker = new SessionTracker(store, bus)
-const hookServer = new HookServer(tracker, bus)
+const hookServer = new HookServer(
+  tracker,
+  bus,
+  (tabId) => store.tabs.find((t) => t.id === tabId)?.mode === 'chat'
+)
 const statusWatcher = new StatusWatcher(bus, store)
 const chatSessions = new ChatSessionManager(store, bus, statusWatcher)
 const updater = new Updater(bus, store)

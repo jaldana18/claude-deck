@@ -16,7 +16,9 @@ export class HookServer {
 
   constructor(
     private tracker: SessionTracker,
-    private bus: Emitter
+    private bus: Emitter,
+    /** Las pestañas chat ya reportan su estado por el SDK: el hook duplicaría cada aviso. */
+    private esPestanaChat: (tabId: string) => boolean = () => false
   ) {}
 
   start(): void {
@@ -56,8 +58,12 @@ export class HookServer {
     const event: string = payload.hook_event_name ?? ''
     if (!sessionId || !event) return
 
+    // Antes de reclamar: si la sesión es de una pestaña chat, un terminal del
+    // mismo proyecto aún sin sesión se quedaría con su id.
+    const conocida = this.tracker.tabForSession(sessionId)
+    if (conocida && this.esPestanaChat(conocida)) return
     const tabId = this.tracker.claimFromHook(sessionId, cwd)
-    if (!tabId) return
+    if (!tabId || this.esPestanaChat(tabId)) return
 
     let status: TabStatus | null = null
     let detail: string | undefined
@@ -78,13 +84,14 @@ export class HookServer {
 /**
  * Comando (PowerShell) que los hooks instalados ejecutan: reenvía el JSON que
  * Claude Code entrega por stdin al servidor local. Nunca falla (try/catch +
- * exit 0) para no molestar cuando claude-deck está cerrado.
+ * exit 0) para no molestar cuando claude-deck está cerrado. Sin variables de
+ * PowerShell: Claude Code puede lanzar el hook desde bash, que las expande vacías.
  */
 export function deckHookCommand(): string {
   const ps =
-    `try{$b=[Console]::In.ReadToEnd();` +
+    `try{[Console]::InputEncoding=[Text.Encoding]::UTF8;` +
     `Invoke-RestMethod -Uri 'http://127.0.0.1:${DECK_PORT}/event' -Method Post ` +
-    `-ContentType 'application/json' -Body $b -TimeoutSec 3|Out-Null}catch{};exit 0`
+    `-ContentType 'application/json; charset=utf-8' -Body ([Console]::In.ReadToEnd()) -TimeoutSec 3|Out-Null}catch{};exit 0`
   return `powershell -NoProfile -ExecutionPolicy Bypass -Command "${ps}" #${DECK_HOOK_MARKER}`
 }
 

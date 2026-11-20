@@ -30,6 +30,7 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
   const [closeToTray, setCloseToTray] = useState(false)
   const [statusAlerts, setStatusAlerts] = useState(true)
   const [umbral, setUmbral] = useState(3)
+  const [showRetryAction, setShowRetryAction] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const [saved, setSaved] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -40,6 +41,7 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
       setCloseToTray(s.closeToTray === true)
       setStatusAlerts(s.statusAlerts !== false)
       setUmbral(s.statusFaultThreshold ?? 3)
+      setShowRetryAction(s.showRetryAction !== false)
       setLoaded(true)
     })
   }, [])
@@ -54,7 +56,8 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
       autoCompactTokens: tokens,
       closeToTray,
       statusAlerts,
-      statusFaultThreshold: umbral
+      statusFaultThreshold: umbral,
+      showRetryAction
     })
     setSaved(true)
     setTimeout(close, 500)
@@ -168,6 +171,27 @@ export function SettingsModal(p: { onClose: () => void }): React.JSX.Element {
               </p>
             </>
           )}
+
+          <hr className="cd-sep" />
+
+          <label className="cd-label">Acciones al pasar el ratón por una respuesta</label>
+          <div className="cd-switchrow">
+            <label className="switch" title="Mostrar el botón «Reintentar con…» sobre las respuestas">
+              <input
+                type="checkbox"
+                checked={showRetryAction}
+                onChange={(e) => setShowRetryAction(e.target.checked)}
+              />
+              <span className="slider" />
+            </label>
+            <span className="cd-switchrow__text">
+              {showRetryAction ? 'Mostrar «Reintentar con…»' : 'Ocultar «Reintentar con…»'}
+            </span>
+          </div>
+          <p className="cd-help">
+            Reenvía el último prompt cambiando de modelo. Si no lo usas, lo puedes quitar de la
+            barra de acciones; copiar, editar y rebobinar siguen apareciendo igual.
+          </p>
 
           <hr className="cd-sep" />
 

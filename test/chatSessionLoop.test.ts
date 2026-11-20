@@ -329,4 +329,21 @@ describe('bucle del SDK', () => {
     expect(salud.numTurns).toBe(1)
     sesion.stop()
   })
+
+  it('solo avisa «terminó» en los turnos que alguien pidió', async () => {
+    const { sesion, sdk, eventos } = montar()
+    const estados = (): unknown[] =>
+      eventos.filter(([c]) => c === 'tab:status').map(([, p]) => (p as { status: string }).status)
+
+    // turno que el CLI abre solo al terminar una tarea en segundo plano
+    sdk.emitir(resultado())
+    await ceder()
+    expect(estados()).toEqual(['idle'])
+
+    sesion.sendUserText('hola', undefined, 'usuario')
+    sdk.emitir(resultado())
+    await ceder()
+    expect(estados()).toEqual(['idle', 'working', 'done'])
+    sesion.stop()
+  })
 })

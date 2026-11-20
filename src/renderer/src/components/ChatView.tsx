@@ -56,6 +56,7 @@ import {
   SystemNotice,
   ThinkingBlock,
   LiveStatus,
+  CopyButton,
   computeTurnChanges,
   parseSystemNotice,
   type RichToolUse
@@ -629,21 +630,38 @@ const TurnEnd = memo(function TurnEnd(p: {
 }): React.JSX.Element | null {
   const { changes, tests } = useMemo(() => computeTurnChanges(p.turn), [p.turn])
   const meta = p.meta ?? {}
+  const text = useMemo(
+    () => p.turn.map((m) => m.text.trim()).filter(Boolean).join('\n\n'),
+    [p.turn]
+  )
+  const copy = text ? (
+    <div className="turn-copy">
+      <CopyButton text={text} label="Copiar respuesta" title="Copiar todo el texto de la respuesta" />
+    </div>
+  ) : null
   if (changes.length > 0 || tests) {
     return (
-      <TurnSummary
-        changes={changes}
-        tests={tests}
-        durationMs={meta.durationMs}
-        costUsd={meta.costUsd}
-        models={meta.models}
-        cwd={p.cwd}
-        onOpenPath={p.onOpenPath}
-      />
+      <>
+        {copy}
+        <TurnSummary
+          changes={changes}
+          tests={tests}
+          durationMs={meta.durationMs}
+          costUsd={meta.costUsd}
+          models={meta.models}
+          cwd={p.cwd}
+          onOpenPath={p.onOpenPath}
+        />
+      </>
     )
   }
-  if (meta.durationMs === undefined && meta.costUsd === undefined) return null
-  return <TurnSeparator durationMs={meta.durationMs} costUsd={meta.costUsd} models={meta.models} />
+  if (meta.durationMs === undefined && meta.costUsd === undefined) return copy
+  return (
+    <>
+      {copy}
+      <TurnSeparator durationMs={meta.durationMs} costUsd={meta.costUsd} models={meta.models} />
+    </>
+  )
 })
 
 /**
@@ -741,6 +759,8 @@ export function ChatView(p: Props): React.JSX.Element {
   /** menú «Reintentar con…» abierto sobre una respuesta */
   const [retryMenu, setRetryMenu] = useState<{ messageId: string; anchor: DOMRect } | null>(null)
   const [rewindTarget, setRewindTarget] = useState<{ id: string; preview: string } | null>(null)
+  /** ajuste global, se relee al abrir la pestaña (no hay push en vivo si cambia desde Ajustes) */
+  const [showRetryAction, setShowRetryAction] = useState(true)
   /** aviso breve que no es un error (p. ej. «se reenvía solo el texto») */
   const [toast, setToast] = useState('')
   const [indexOpen, setIndexOpen] = useState(false)
@@ -757,6 +777,9 @@ export function ChatView(p: Props): React.JSX.Element {
     setModelSel(p.tab.model ?? '')
     setFallbackSel(p.tab.fallbackModel ?? '')
   }, [p.tab.model, p.tab.fallbackModel])
+  useEffect(() => {
+    void window.deck.getGlobalSettings().then((s) => setShowRetryAction(s.showRetryAction !== false))
+  }, [])
   const [autoModel, setAutoModel] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -1481,9 +1504,10 @@ export function ChatView(p: Props): React.JSX.Element {
         const m = messagesRef.current.find((x) => x.id === messageId)
         const first = (m?.text ?? '').split('\n').find((l) => l.trim()) ?? ''
         setRewindTarget({ id: messageId, preview: first.slice(0, 160) || '(mensaje sin texto)' })
-      }
+      },
+      showRetry: showRetryAction
     }),
-    []
+    [showRetryAction]
   )
 
   /** Reenvía el prompt que originó una respuesta, tras cambiar el modelo */
